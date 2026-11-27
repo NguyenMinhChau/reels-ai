@@ -863,7 +863,15 @@
         const bdName = currentScene.motionCue?.backdrop;
         const useLightBar =
             isPhotoVisual ||
-            (isMotionStyle && (bdName === 'night-calm' || bdName === 'bedroom-night' || bdName === 'server-tech' || bdName === 'blueprint-dark' || bdName === 'work-late'));
+            (isMotionStyle &&
+                (bdName === 'night-calm' ||
+                    bdName === 'bedroom-night' ||
+                    bdName === 'server-tech' ||
+                    bdName === 'blueprint-dark' ||
+                    bdName === 'work-late' ||
+                    bdName === 'bank-vault' ||
+                    bdName === 'street-rain' ||
+                    bdName === 'warning-stage'));
         const isCleanSubtitle = isMotionStyle || isSvgVisual;
         for (let i = 0; i < count; i++) {
             const bx = 24 + i * (barWidth + barGap);

@@ -785,7 +785,7 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
         const cleanBeats = (beatTexts || []).map((b) => String(b || '').trim()).filter(Boolean);
         if (cleanBeats.length === 0) return null;
 
-        const cacheKey = `storyboard-v6:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
+        const cacheKey = `storyboard-v7:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
         if (caches.prompts.has(cacheKey)) {
             return caches.prompts.get(cacheKey);
         }
@@ -795,7 +795,7 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
             : ['wide-team', 'desk-closeup', 'hand-pov', 'laptop-popup', 'character-action', 'character-left', 'split-compare', 'multi-trio', 'thought-bubble', 'document-card', 'action-flow', 'center-hero', 'ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
         const backdropList = Array.isArray(backdrops) && backdrops.length > 0
             ? backdrops
-            : ['studio-focus', 'office-shelf', 'office-desk', 'work-late', 'gym-fresh', 'bedroom-night', 'kitchen-cozy', 'cafe-chill', 'server-tech', 'cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint', 'grid-light', 'blueprint-dark'];
+            : ['studio-focus', 'office-shelf', 'office-desk', 'work-late', 'gym-fresh', 'bank-vault', 'home-living', 'street-rain', 'warning-stage', 'bedroom-night', 'kitchen-cozy', 'cafe-chill', 'server-tech', 'cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint', 'grid-light', 'blueprint-dark'];
         const propList = Array.isArray(props) && props.length > 0
             ? props
             : ['ergo_chair', 'spine_back', 'empty_wallet', 'stretching_pose', 'price_tag', 'shopping_bag', 'house', 'envelope', 'jar', 'phone', 'lightbulb', 'clock', 'water_glass', 'plug_socket', 'laptop', 'card_doc', 'chart_bars', 'cash_stack'];
@@ -825,9 +825,15 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
 - Ưu tiên các bố cục UI sạch tối giản [ui-window, ui-checklist, ui-flow, ui-grid-hero] và xen kẽ 1-2 cảnh action-flow hoặc split-compare. KHÔNG lặp cùng layout 2 cảnh liền nhau.
 - backdrop: Chọn từ [grid-light, blueprint-dark, studio-focus, mint-fresh].
 - screenType & visualSubject: Mô tả chính xác vật thể/biểu đồ trung tâm cần minh họa cho từng câu.`
-                    : `PHONG CÁCH HOẠT HÌNH 2D KỂ CHUYỆN GÓC MÁY ĐIỆN ẢNH:
-- ĐA DẠNG BỐI CẢNH & GÓC MÁY: Dùng luân phiên các góc máy [wide-team, desk-closeup, hand-pov, laptop-popup, character-action, character-left, split-compare, thought-bubble, center-hero] kết hợp với đúng nền không gian [studio-focus, office-desk, work-late, gym-fresh, office-shelf, mint-fresh, cafe-chill, bedroom-night, city-skyline, alert-tint]. KHÔNG dùng 1 nền mãi cho cả video, cũng KHÔNG nhảy sang phòng ngủ trừ khi lời nói thực sự nói về đi ngủ/giường ngủ!
-- ĐÚNG HÀNH ĐỘNG & ĐẠO CỤ THẬT: Nếu nhắc ngồi gù lưng/đau lưng chọn hunched-pain / back-ache + spine_back; nếu nhắc đứng lên giãn cơ/đi lại chọn stretching + stretching_pose + gym-fresh; nếu nhắc ví xẹp/mất tiền chọn empty-wallet + empty_wallet; nếu nhắc ghế ergonomic chọn ergo_chair.`;
+                    : `PHONG CÁCH HOẠT HÌNH 2D KỂ CHUYỆN THEO ĐÚNG CHỦ ĐỀ (KHÔNG LẶP 1 MẪU):
+- PHÂN BIỆT RÕ TỪNG THẾ GIỚI CHỦ ĐỀ:
+  + Chủ đề Nấu ăn / Gia đình / Mẹo vặt nhà cửa: dùng [kitchen-cozy, home-living, cream-room] & góc máy [character-action, character-left, split-compare, multi-trio, center-hero] (TUYỆT ĐỐI KHÔNG dùng office-shelf, wide-team hay desk-closeup!).
+  + Chủ đề Tài chính / Tiết kiệm / Thu chi: dùng [bank-vault, mint-fresh, sunset-warm] & [character-action, split-compare, action-flow, center-hero, character-left].
+  + Chủ đề Cảnh báo / Lừa đảo / An toàn: dùng [warning-stage, alert-tint, work-late] & [hand-pov, split-compare, character-action, center-hero].
+  + Chủ đề Nhạc / Mood / Mini Vlog / Du lịch / Quê hương: dùng [cafe-chill, hills-nature, street-rain, city-skyline, night-calm].
+  + Chủ đề Sức khỏe / Giãn cơ / Nhắc nhở: dùng [gym-fresh, mint-fresh, home-living, bedroom-night (chỉ khi nói về giấc ngủ)].
+  + Chỉ chủ đề Công sở / IT / MKT / Sale mới dùng [office-shelf, office-desk, wide-team, desk-closeup, laptop-popup, server-tech].
+- Đổi góc máy (layout) và bối cảnh (backdrop) linh hoạt giữa các cảnh trong cùng chủ đề để không bị lặp lại.`;
 
                 const prompt = `Bạn là Đạo diễn Hoạt Hình 2D chuyên dựng phim ngắn hành động khớp chặt từng câu chữ lời thoại (KHÔNG ghi chữ lên hình).
 Tiêu đề tổng thể: "${title}"

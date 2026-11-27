@@ -21,6 +21,10 @@
         'office-desk': { top: '#f0f6ff', bot: '#dceafe', floor: '#c7d2fe', line: '#6366f1', accent: '#2563eb', wallTrim: '#c7d9fc', dark: false },
         'work-late': { top: '#111827', bot: '#1e293b', floor: '#0f172a', line: '#334155', accent: '#f59e0b', wallTrim: '#1e293b', dark: true },
         'gym-fresh': { top: '#ecfeff', bot: '#cffafe', floor: '#99f6e4', line: '#0d9488', accent: '#059669', wallTrim: '#a5f3fc', dark: false },
+        'bank-vault': { top: '#064e3b', bot: '#047857', floor: '#065f46', line: '#34d399', accent: '#fbbf24', wallTrim: '#059669', dark: true },
+        'home-living': { top: '#fff7ed', bot: '#fde6c8', floor: '#d6a97a', line: '#9a6b3f', accent: '#ea580c', wallTrim: '#fbd5aa', dark: false },
+        'street-rain': { top: '#0f172a', bot: '#1e293b', floor: '#1e293b', line: '#38bdf8', accent: '#60a5fa', wallTrim: '#334155', dark: true },
+        'warning-stage': { top: '#2b0910', bot: '#4c0519', floor: '#3b0714', line: '#fb7185', accent: '#f43f5e', wallTrim: '#6b0f26', dark: true },
         'cream-room': { top: '#fef8e8', bot: '#f2e2be', floor: '#d6c194', line: '#9c8b68', accent: '#10b981', wallTrim: '#e8d4a8', dark: false },
         'grid-light': { top: '#f6f9ff', bot: '#e5efff', floor: '#dbeafe', line: '#93c5fd', accent: '#2563eb', wallTrim: '#dbeafe', dark: false },
         'blueprint-dark': { top: '#091224', bot: '#122443', floor: '#0d172a', line: '#1e3a5f', accent: '#38bdf8', wallTrim: '#172e4f', dark: true },
@@ -58,6 +62,16 @@
     ];
 
     const UI_LAYOUTS = ['ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
+    const STORY_LAYOUTS_GENERAL = [
+        'character-action',
+        'character-left',
+        'split-compare',
+        'action-flow',
+        'thought-bubble',
+        'hand-pov',
+        'multi-trio',
+        'center-hero'
+    ];
     const STORY_LAYOUTS = [
         'wide-team',
         'desk-closeup',
@@ -376,19 +390,103 @@
 
     function inferDomainContext(fullText) {
         const lower = String(fullText || '').toLowerCase();
-        if (/it|dev|code|bug|server|phần mềm|hệ thống|erp|ai|công nghệ|máy tính|dữ liệu/.test(lower)) {
-            return { backdrop: 'office-desk', props: ['laptop', 'chart_bars'], action: 'typing', screenType: 'code_bug', cast: 'boy-spiky' };
+        if (/lừa đảo|scam|otp|link lạ|giả mạo|cảnh báo|cháy|nổ|ổ điện|rủi ro|nguy hiểm|an toàn|bẫy/.test(lower)) {
+            return {
+                domainKey: 'warning',
+                backdrops: ['warning-stage', 'alert-tint', 'work-late'],
+                layouts: STORY_LAYOUTS_GENERAL,
+                props: ['warning_triangle', 'scam_link'],
+                action: 'shocked-phone',
+                screenType: 'code_bug',
+                cast: 'girl-bun'
+            };
         }
-        if (/tiền|lương|tài chính|tiết kiệm|đầu tư|ngân sách|nợ|chi tiêu|bán hàng|sale|doanh thu|khách/.test(lower)) {
-            return { backdrop: 'mint-fresh', props: ['chart_bars', 'cash_stack'], action: 'counting-money', screenType: 'wallet_cash', cast: 'narrator' };
+        if (/it|dev|code|bug|server|phần mềm|hệ thống|erp|ai|công nghệ|máy tính|dữ liệu|lập trình/.test(lower)) {
+            return {
+                domainKey: 'tech',
+                backdrops: ['server-tech', 'office-desk', 'work-late'],
+                layouts: STORY_LAYOUTS,
+                props: ['laptop', 'chart_bars'],
+                action: 'typing',
+                screenType: 'code_bug',
+                cast: 'boy-spiky'
+            };
         }
-        if (/công sở|văn phòng|sếp|nhân viên|đồng nghiệp|marketing|hr|phỏng vấn|kpi|deadline|họp/.test(lower)) {
-            return { backdrop: 'office-shelf', props: ['laptop', 'card_doc'], action: 'pointing', screenType: 'checklist_done', cast: 'narrator' };
+        if (/tiền|lương|tài chính|tiết kiệm|đầu tư|ngân sách|nợ|chi tiêu|trả góp|hũ|ví|lãi|giá/.test(lower)) {
+            return {
+                domainKey: 'finance',
+                backdrops: ['bank-vault', 'mint-fresh', 'sunset-warm'],
+                layouts: STORY_LAYOUTS_GENERAL,
+                props: ['cash_stack', 'jar'],
+                action: 'counting-money',
+                screenType: 'wallet_cash',
+                cast: 'narrator'
+            };
         }
-        if (/nấu|bếp|ăn|sức khỏe|uống nước|ngủ|mẹo/.test(lower)) {
-            return { backdrop: 'cream-room', props: ['lightbulb', 'water_glass'], action: 'pointing', screenType: 'checklist_done', cast: 'girl-bun' };
+        if (/công sở|văn phòng|sếp|nhân viên|đồng nghiệp|marketing|sale|chốt đơn|hr|phỏng vấn|kpi|deadline|họp|ghế ergonomic/.test(lower)) {
+            return {
+                domainKey: 'office',
+                backdrops: ['office-shelf', 'office-desk', 'work-late', 'studio-focus'],
+                layouts: STORY_LAYOUTS,
+                props: ['laptop', 'card_doc'],
+                action: 'pointing',
+                screenType: 'checklist_done',
+                cast: 'narrator'
+            };
         }
-        return { backdrop: 'cream-room', props: ['lightbulb', 'speech_drama'], action: 'pointing', screenType: 'chat_msg', cast: 'narrator' };
+        if (/nấu|bếp|cơm|món|tủ lạnh|chảo|ăn|rau|thịt|mẹo bếp|dọn nhà|giặt/.test(lower)) {
+            return {
+                domainKey: 'kitchen',
+                backdrops: ['kitchen-cozy', 'home-living', 'cream-room'],
+                layouts: STORY_LAYOUTS_GENERAL,
+                props: ['rice_bowl', 'coffee_cup'],
+                action: 'cooking',
+                screenType: 'tea_break',
+                cast: 'girl-bun'
+            };
+        }
+        if (/nhạc|lofi|lo-fi|giai điệu|âm thanh|piano|chill|tâm trạng|cô đơn|mưa/.test(lower)) {
+            return {
+                domainKey: 'music',
+                backdrops: ['cafe-chill', 'night-calm', 'street-rain'],
+                layouts: STORY_LAYOUTS_GENERAL,
+                props: ['music_bars', 'coffee_cup'],
+                action: 'drinking',
+                screenType: 'tea_break',
+                cast: 'girl-purple'
+            };
+        }
+        if (/sức khỏe|cột sống|lưng|giãn cơ|vươn vai|tập thể dục|uống nước|ngủ|mắt|nhắc nhở/.test(lower)) {
+            return {
+                domainKey: 'health',
+                backdrops: ['gym-fresh', 'mint-fresh', 'bedroom-night'],
+                layouts: STORY_LAYOUTS_GENERAL,
+                props: ['stretching_pose', 'water_glass'],
+                action: 'stretching',
+                screenType: 'checklist_done',
+                cast: 'girl-purple'
+            };
+        }
+        if (/du lịch|quê|gia đình|bố mẹ|vlog|cà phê|đi chơi|cuối tuần|xe|đường phố/.test(lower)) {
+            return {
+                domainKey: 'vlog',
+                backdrops: ['hills-nature', 'cafe-chill', 'city-skyline', 'street-rain'],
+                layouts: STORY_LAYOUTS_GENERAL,
+                props: ['house', 'coffee_cup'],
+                action: 'celebrating',
+                screenType: 'tea_break',
+                cast: 'girl-purple'
+            };
+        }
+        return {
+            domainKey: 'home',
+            backdrops: ['home-living', 'studio-focus', 'cream-room', 'sunset-warm'],
+            layouts: STORY_LAYOUTS_GENERAL,
+            props: ['lightbulb', 'speech_drama'],
+            action: 'pointing',
+            screenType: 'chat_msg',
+            cast: 'narrator'
+        };
     }
 
     function analyzeSceneVisualCue(sceneText, beatIdx, videoTitle = '', state = {}, visualStyle = 'motion') {
@@ -399,7 +497,6 @@
         const prevBackdrop = state.prevBackdrop || '';
         const prevProp = state.prevProp || '';
 
-        // Score rules: hits inside current sentence count 3x, title context counts 1x
         let bestRule = null;
         let bestScore = 0;
         for (const r of SEMANTIC_RULES) {
@@ -414,26 +511,27 @@
         }
 
         const domain = inferDomainContext(combinedLower);
-        const poolLayouts = isUiMode ? UI_LAYOUTS : STORY_LAYOUTS;
+        const poolLayouts = isUiMode ? UI_LAYOUTS : (domain.layouts || STORY_LAYOUTS_GENERAL);
 
         let layout = isUiMode
             ? UI_LAYOUTS[beatIdx % UI_LAYOUTS.length]
-            : (bestRule ? bestRule.layout : STORY_LAYOUTS[(beatIdx * 2) % STORY_LAYOUTS.length]);
+            : (bestRule && poolLayouts.includes(bestRule.layout)
+                ? bestRule.layout
+                : poolLayouts[(beatIdx * 2) % poolLayouts.length]);
 
         if (layout === prevLayout && poolLayouts.length > 1) {
             const alt = poolLayouts.filter((l) => l !== prevLayout);
             layout = alt[(beatIdx * 3) % alt.length];
         }
 
-        // Preserve logical space continuity when consecutive beats happen in office/domain!
+        const domainBackdrops = domain.backdrops || ['home-living', 'studio-focus', 'cream-room'];
         let backdrop = isUiMode
             ? (beatIdx % 3 === 1 ? 'blueprint-dark' : 'grid-light')
-            : (bestRule ? bestRule.backdrop : domain.backdrop);
+            : (bestRule ? bestRule.backdrop : domainBackdrops[beatIdx % domainBackdrops.length]);
 
-        if (!isUiMode && backdrop === prevBackdrop && (layout === 'wide-team' || layout === 'desk-closeup')) {
-            // Same room, different camera angle looks intentional and cinematic!
-        } else if (!isUiMode && backdrop === prevBackdrop && !bestRule) {
-            backdrop = prevBackdrop === 'office-shelf' ? 'office-desk' : domain.backdrop;
+        if (!isUiMode && backdrop === prevBackdrop && domainBackdrops.length > 1) {
+            const altBgs = domainBackdrops.filter((b) => b !== prevBackdrop);
+            backdrop = altBgs[beatIdx % altBgs.length];
         }
 
         const candidateProps = bestRule ? [...bestRule.props] : [...domain.props];
@@ -450,6 +548,7 @@
         const phase2Effect = bestRule?.phase2Effect || 'none';
 
         return {
+            domainKey: domain.domainKey || 'home',
             layout,
             backdrop,
             cast,
@@ -824,6 +923,62 @@
             spot.addColorStop(0, 'rgba(255, 255, 255, 0.92)');
             spot.addColorStop(1, 'rgba(219, 234, 254, 0)');
             ctx.fillStyle = spot;
+            ctx.fillRect(0, 0, W, H);
+        } else if (backdropId === 'bank-vault') {
+            // Emerald Finance Vault Dial & subtle golden rays
+            ctx.save();
+            ctx.strokeStyle = 'rgba(52, 211, 153, 0.24)';
+            ctx.lineWidth = 4;
+            [115, 165, 215].forEach((r) => {
+                ctx.beginPath();
+                ctx.arc(270, 395, r, 0, Math.PI * 2);
+                ctx.stroke();
+            });
+            ctx.restore();
+        } else if (backdropId === 'home-living') {
+            // Cozy Pastel Living Room: wall picture frames + warm floor lamp
+            drawOutlinedRect(ctx, 56, 155, 110, 86, 10, '#ffffff', '#b45309', 2.4, true);
+            drawOutlinedRect(ctx, 184, 175, 88, 66, 10, '#fef3c7', '#b45309', 2.2, true);
+            // Warm floor lamp right
+            ctx.strokeStyle = '#78350f';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(458, FLOOR_Y);
+            ctx.lineTo(458, 280);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(254, 240, 138, 0.32)';
+            ctx.beginPath();
+            ctx.moveTo(426, 285);
+            ctx.lineTo(490, 285);
+            ctx.lineTo(525, FLOOR_Y);
+            ctx.lineTo(395, FLOOR_Y);
+            ctx.closePath();
+            ctx.fill();
+            drawOutlinedRect(ctx, 424, 224, 68, 60, 12, '#fef08a', '#92400e', 2.6, true);
+        } else if (backdropId === 'street-rain') {
+            // Urban street lights bokeh + soft diagonal rain streaks
+            [[95, 210], [270, 180], [440, 230]].forEach(([bx, by], i) => {
+                ctx.fillStyle = i === 1 ? 'rgba(250, 204, 21, 0.16)' : 'rgba(56, 189, 248, 0.18)';
+                ctx.beginPath();
+                ctx.arc(bx, by, 44, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.strokeStyle = 'rgba(147, 197, 253, 0.25)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 14; i++) {
+                const rx = (i * 42 + Math.floor(t * 90)) % W;
+                const ry = 120 + ((i * 87 + Math.floor(t * 280)) % 560);
+                ctx.beginPath();
+                ctx.moveTo(rx, ry);
+                ctx.lineTo(rx - 10, ry + 28);
+                ctx.stroke();
+            }
+        } else if (backdropId === 'warning-stage') {
+            // High-contrast dark alert radial spotlight
+            const warnGlow = ctx.createRadialGradient(270, 395, 30, 270, 395, 310);
+            warnGlow.addColorStop(0, `rgba(244, 63, 94, ${0.28 + Math.abs(Math.sin(t * 5)) * 0.12})`);
+            warnGlow.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = warnGlow;
             ctx.fillRect(0, 0, W, H);
         } else if (backdropId === 'bedroom-night' || backdropId === 'night-calm') {
             drawOutlinedRect(ctx, 318, 118, 174, 210, 12, '#020617', '#4f46e5', 3.5, true);
