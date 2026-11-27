@@ -178,6 +178,51 @@
         return [cleanHook, mid1, mid2, mid3, cleanCta];
     }
 
+    function splitTextIntoVisualBeats(text, maxBeats = 3) {
+        const cleaned = cleanNarrationText(text);
+        if (!cleaned) return ['Khoảnh khắc đời sống hằng ngày.'];
+
+        // Split on natural Vietnamese pauses first
+        let parts = cleaned
+            .split(/(?<=[,.;:!?—–])\s+|(?:\s+[—–-]\s+)/)
+            .map((p) => p.trim())
+            .filter(Boolean);
+
+        // Merge tiny fragments (< 4 words) so cuts don't flash for < 1s
+        const merged = [];
+        for (const part of parts) {
+            const wc = part.split(/\s+/).filter(Boolean).length;
+            if (merged.length > 0 && wc < 4) {
+                merged[merged.length - 1] = `${merged[merged.length - 1]} ${part}`.trim();
+            } else {
+                merged.push(part);
+            }
+        }
+        parts = merged.length > 0 ? merged : [cleaned];
+
+        // Subdivide long clauses (> 11 words) cleanly into ~6-8 word beats
+        const expanded = [];
+        for (const part of parts) {
+            const words = part.split(/\s+/).filter(Boolean);
+            if (words.length <= 11) {
+                expanded.push(part);
+            } else {
+                const subCount = Math.min(maxBeats, Math.ceil(words.length / 7));
+                const chunkLen = Math.ceil(words.length / subCount);
+                for (let s = 0; s < words.length; s += chunkLen) {
+                    const slice = words.slice(s, s + chunkLen).join(' ');
+                    if (slice) expanded.push(slice);
+                }
+            }
+        }
+
+        // Clamp total beats to maxBeats by balancing tail fragments
+        if (expanded.length <= maxBeats) return expanded;
+        const result = expanded.slice(0, maxBeats - 1);
+        result.push(expanded.slice(maxBeats - 1).join(' '));
+        return result;
+    }
+
     function base64ToArrayBuffer(base64) {
         const binaryString = atob(base64);
         const len = binaryString.length;
@@ -218,6 +263,7 @@
         copyToClipboard,
         cleanNarrationText,
         splitScriptIntoFiveScenes,
+        splitTextIntoVisualBeats,
         base64ToArrayBuffer,
         sleep
     };

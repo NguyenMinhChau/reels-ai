@@ -14,9 +14,9 @@
             title: 'Mẹo giữ hành lá tươi cả tháng không úng',
             duration: '25s',
             viralScore: '98%',
-            hook: 'Đừng vứt hành lá thẳng vào tủ lạnh nữa nếu không muốn ngày nào cũng phải đi chợ!',
-            body: '• Bỏ hành vào ngăn mát thông thường chỉ sau 3 ngày là vàng úa, chảy nước.\n• Bí quyết cực dễ: Rửa sạch hành lá rồi dùng khăn giấy thấm thật khô nước.\n• Cắt nhỏ vừa ăn, cho toàn bộ vào một chiếc chai nhựa sạch và khô ráo.\n• Đậy kín nắp và để thẳng vào ngăn đá tủ lạnh, mỗi lần nấu chỉ cần lắc nhẹ là hành tơi rời từng miếng.',
-            cta: 'Lưu ngay video này lại để dùng dần và Follow mình để biết thêm mẹo bếp hay nhé!',
+            hook: 'Mua bó hành 5 nghìn mà để tủ lạnh 3 ngày đã úng nát? Thử ngay mẹo giữ tươi cả tháng này!',
+            body: '• Vứt thẳng hành vào ngăn mát chỉ đúng 3 ngày là vàng lá, chảy nước nhớt.\n• Làm cực nhàn: Rửa sạch hành rồi lấy khăn giấy thấm khô ráo hoàn toàn.\n• Cắt nhỏ sẵn vừa ăn, trút hết vào một cái chai nhựa khô sạch.\n• Vặn nắp quăng thẳng lên ngăn đá — lúc nấu chỉ cần lắc nhẹ là hành tơi rời từng miếng.',
+            cta: 'Đỡ tốn công đi chợ mỗi ngày hẳn luôn! Nhà bạn hay bảo quản hành kiểu nào, chỉ mình với?',
             hashtags: '#meovatnhabep #meohay #cuocsonghangngay #reelsvn #naunuong'
         },
         {
@@ -25,9 +25,9 @@
             title: 'Quy trình đi ngủ của hội cú đêm',
             duration: '22s',
             viralScore: '99%',
-            hook: 'Tôi lúc 10 giờ tối: Hôm nay nhất định phải ngủ sớm để giữ gìn nhan sắc!',
-            body: '• 22:15 tắt đèn, đắp chăn ngay ngắn, nhắm mắt quyết tâm đi vào giấc ngủ.\n• 22:30 chợt nhớ ra chưa check tin nhắn, mở điện thoại tự nhủ lướt đúng 5 phút thôi.\n• 01:45 sáng mắt vẫn mở to, xem từ video nấu ăn đêm đến drama showbiz không sót tập nào.\n• 06:30 sáng báo thức reo vang, ngồi thẫn thờ trên giường tự hứa tối nay sẽ ngủ sớm.',
-            cta: 'Có ai tối qua cũng vừa trải qua kịch bản y hệt thế này không? Điểm danh dưới bình luận đi!',
+            hook: '10 giờ tối thề non hẹn biển đi ngủ sớm, mà sao 2 giờ sáng vẫn lướt Reels chưa ngừng?!',
+            body: '• 22:15 tắt đèn đắp chăn ngay ngắn, nhắm mắt quyết tâm sống lành mạnh.\n• 22:30 chợt nhớ quên check tin nhắn, tự nhủ mở điện thoại lướt đúng 5 phút thôi.\n• 01:45 mắt vẫn sáng rực, coi từ nấu ăn khuya tới drama thiên hạ không sót tập nào.\n• 06:30 chuông báo thức reo muốn xỉu, ngồi thẫn thờ thề tối nay nhất định ngủ sớm tiếp.',
+            cta: 'Ai tối qua vừa lặp lại đúng vòng lặp này thì tự giác điểm danh bên dưới đi!',
             hashtags: '#cudam #haihuoc #doithuong #reelsvietnam #xuhuong'
         },
         {
@@ -337,6 +337,171 @@
             body: '• Ủ hai túi trà đen với nước sôi khoảng 5 phút rồi để nguội tự nhiên giữ hương thơm.\n• Cắt vài lát cam tươi, đập dập một nhánh sả cho vào bình lắc cùng đá viên và chút mật ong.\n• Rót phần trà ra ly cao, xếp thêm vài miếng đào ngâm giòn sần sật lên trên.\n• Chỉ 5 phút pha chế đã có ngay ly trà mát lạnh thơm lừng ngồi chill đọc sách cả buổi chiều.',
             cta: 'Cuối tuần bạn thích ở nhà tự pha đồ uống hay ra quán cà phê hơn? Comment bên dưới nhé!',
             hashtags: '#phache #tradaocamsa #cuoituan #chill #minivlog'
+        },
+        {
+            id: 'tpl-31',
+            category: 'warning',
+            title: 'Cảnh báo 3 tin nhắn giả mạo giao hàng & ngân hàng',
+            duration: '26s',
+            viralScore: '99%',
+            hook: 'Khoan đã! Thấy tin nhắn báo "đơn hàng lỗi, bấm link nhận hoàn tiền" là lừa đảo 100% đó!',
+            body: '• Kịch bản quen thuộc: giả danh shipper hoặc ngân hàng báo tài khoản sắp bị khóa.\n• Kẻ gian cố tình hối bạn bấm vào link lạ ngay trong 5 phút kẻo mất quyền lợi.\n• Chỉ cần bạn nhập mật khẩu hoặc đọc mã OTP là toàn bộ tiền trong thẻ bay sạch.\n• Nhớ kỹ: tắt tin nhắn đi, tự mở app ngân hàng hoặc sàn mua sắm kiểm tra cho chắc ăn.',
+            cta: 'Gửi ngay clip này vào nhóm gia đình kẻo bố mẹ bấm nhầm link lạ mất tiền oan nha!',
+            hashtags: '#canhbao #antoanmang #baomat #cuocsonghangngay #reelsvn'
+        },
+        {
+            id: 'tpl-32',
+            category: 'warning',
+            title: 'Tuyệt đối đừng cắm chung 3 thiết bị này vào 1 ổ điện',
+            duration: '25s',
+            viralScore: '98%',
+            hook: 'Rất nhiều vụ cháy nổ trong nhà bắt nguồn từ thói quen cắm chung quá nhiều đồ vào một ổ nối dài!',
+            body: '• Ấm siêu tốc, bếp từ, lò vi sóng và máy sấy tóc đều có công suất tiêu thụ điện cực kỳ cao.\n• Cắm chung chúng vào một ổ điện dây nhỏ dễ gây quá tải, nóng chảy lớp vỏ nhựa âm thầm bên trong.\n• Nếu thấy phích cắm nóng bất thường hoặc có mùi khét nhẹ, hãy rút ngay nguồn điện để kiểm tra.\n• Hãy dành riêng ổ cắm tường chịu tải tốt cho các thiết bị tỏa nhiệt để bảo vệ an toàn cả gia đình.',
+            cta: 'Lưu ngay cảnh báo an toàn điện này và kiểm tra lại góc bếp nhà bạn tối nay nhé!',
+            hashtags: '#antoandien #canhbao #giadinh #meonhacua #reelsvietnam'
+        },
+        {
+            id: 'tpl-33',
+            category: 'warning',
+            title: 'Cảnh báo thói quen sạc điện thoại qua đêm dưới gối ngủ',
+            duration: '23s',
+            viralScore: '97%',
+            hook: 'Bỏ ngay thói quen vừa sạc điện thoại vừa đặt dưới gối hoặc sát đầu giường khi đi ngủ!',
+            body: '• Trong lúc sạc, pin điện thoại tỏa nhiệt liên tục nhưng lớp vải gối dày lại giữ kín toàn bộ hơi nóng.\n• Nhiệt độ tăng cao kéo dài không chỉ làm chai phồng pin nhanh chóng mà còn tiềm ẩn nguy cơ chập cháy.\n• Dùng dây sạc trôi nổi không rõ nguồn gốc càng khiến dòng điện thiếu ổn định lúc bạn ngủ say.\n• Cách an toàn nhất là đặt máy trên mặt bàn thoáng mát cách giường một cánh tay khi sạc.',
+            cta: 'Tag ngay đứa bạn hay ôm điện thoại sạc qua đêm vào đọc cảnh báo này nhé!',
+            hashtags: '#sacdienthoai #canhbao #antoan #suckhoe #reelsvn'
+        },
+        {
+            id: 'tpl-34',
+            category: 'warning',
+            title: 'Đừng uống chai nước nhựa để lâu trong cốp xe trời nắng',
+            duration: '24s',
+            viralScore: '96%',
+            hook: 'Nhiều người vẫn vô tư lấy chai nước suối để quên trong cốp xe ngoài nắng ra uống tiếp!',
+            body: '• Nhiệt độ bên trong cốp xe máy hoặc xe hơi đỗ ngoài nắng có thể tăng lên tới hơn 60 độ C.\n• Nhựa dùng một lần khi gặp nhiệt cao lâu ngày dễ thôi nhiễm vi nhựa và chất hóa học vào nước.\n• Nước mở nắp dở để qua nhiều ngày nóng còn tạo điều kiện cho vi khuẩn sinh sôi cực nhanh.\n• Hãy mang theo bình inox hoặc thủy tinh sạch và thay nước mới mỗi ngày để bảo vệ sức khỏe.',
+            cta: 'Thói quen nhỏ nhưng ảnh hưởng lâu dài, nhớ nhắc người nhà bỏ ngay nhé!',
+            hashtags: '#suckhoe #canhbao #nuocuong #cuocsonghangngay #reels'
+        },
+        {
+            id: 'tpl-35',
+            category: 'warning',
+            title: 'Cảnh báo 3 dấu hiệu thực phẩm trong tủ lạnh đã hỏng ngầm',
+            duration: '25s',
+            viralScore: '97%',
+            hook: 'Đồ ăn bỏ tủ lạnh chưa thấy mốc không có nghĩa là vẫn ăn được đâu nhé!',
+            body: '• Thịt cá đông lạnh bị đóng lớp tuyết dày và đổi màu xám đục thường đã bị rã đông rồi cấp đông lại.\n• Hộp sữa hoặc nước ép mở nắp quá 3 ngày dù chưa có mùi chua vẫn có thể đã nhiễm khuẩn.\n• Rau củ chảy nước nhớt ở đáy túi chính là ổ vi khuẩn dễ lây chéo sang các món ăn chín bên cạnh.\n• Hãy dán ngày mở hộp lên nắp và dọn tủ lạnh mỗi tuần một lần để cả nhà ăn uống an toàn.',
+            cta: 'Lưu ngay để tối nay mở tủ lạnh kiểm tra lại một lượt nhé!',
+            hashtags: '#antoanthucpham #tulanh #canhbao #noitro #reelsvn'
+        },
+        {
+            id: 'tpl-36',
+            category: 'reminder',
+            title: 'Nhắc nhở nhẹ 3 giờ chiều: Uống nước & giãn cơ 1 phút',
+            duration: '22s',
+            viralScore: '97%',
+            hook: 'Ê bạn gì ơi, ngẩng đầu lên vươn vai với uống ngụm nước liền đi, ngồi lì nãy giờ rồi đó!',
+            body: '• Cắm mặt vào màn hình 3 tiếng liền làm cổ vai gáy cứng đơ lúc nào không hay.\n• Mắt thì khô rát, đầu bắt đầu ong ong mà vẫn ráng gõ nốt cho xong việc.\n• Thôi dừng đúng 30 giây thôi: xoay nhẹ vai, nhìn ra xa và hít một hơi thật sâu.\n• Rót ngay một cốc nước mát uống cái ực cho tỉnh táo lại liền nha.',
+            cta: 'Lướt trúng video này coi như vũ trụ nhắc bạn nghỉ tay 1 phút đó — uống nước xong comment "Xong" nhé!',
+            hashtags: '#nhacnho #uongnuoc #chamsocbanthan #vanphong #reelsvn'
+        },
+        {
+            id: 'tpl-37',
+            category: 'reminder',
+            title: 'Quy tắc 5 giây kiểm tra trước khi bước ra khỏi nhà',
+            duration: '23s',
+            viralScore: '96%',
+            hook: 'Hay đi làm giữa đường mới giật mình tự hỏi "Không biết mình đã khóa cửa hay tắt bếp chưa?"',
+            body: '• Nỗi ám ảnh quên tắt bếp gas, quạt điện hay quên khóa cửa khiến cả ngày làm việc cứ thấp thỏm.\n• Tập thói quen dừng đúng 5 giây trước cửa và đọc nhẩm to: "Bếp tắt, điện rút, chìa khóa trên tay".\n• Việc nói thành tiếng giúp não bộ ghi nhớ hành động rõ ràng hơn hẳn so với làm theo phản xạ.\n• Hoặc chụp nhanh một tấm ảnh ổ khóa trước khi đi để lúc nào nghi ngờ chỉ cần mở máy xem lại.',
+            cta: 'Nhắc nhẹ ai hay não cá vàng nhớ áp dụng mẹo 5 giây này từ sáng mai nhé!',
+            hashtags: '#nhacnho #meohay #hayquen #cuocsonghangngay #reelsvietnam'
+        },
+        {
+            id: 'tpl-38',
+            category: 'reminder',
+            title: 'Nhắc nhở cuối tuần: Gọi điện về cho bố mẹ 5 phút nhé',
+            duration: '25s',
+            viralScore: '99%',
+            hook: 'Một tuần trôi qua vội vã với đủ thứ deadline, bạn đã gọi về hỏi thăm bố mẹ chưa?',
+            body: '• Đôi khi chúng ta dành hàng giờ lướt mạng nhưng lại ngại bấm gọi một cuộc điện thoại về nhà.\n• Bố mẹ không cần quà cáp đắt tiền, chỉ cần nghe giọng con cái khỏe mạnh là đã vui cả tuần.\n• Không cần phải có chuyện gì to tát mới gọi, chỉ đơn giản hỏi hôm nay ở nhà ăn cơm với món gì.\n• Tối nay trước khi đi ngủ, hãy dành đúng 5 phút bấm số gọi về nhà một chút nhé.',
+            cta: 'Xem xong video này đừng chần chừ nữa, gọi về cho gia đình ngay tối nay nha!',
+            hashtags: '#giadinh #nhacnho #chualanh #tamsu #reelsvn'
+        },
+        {
+            id: 'tpl-39',
+            category: 'reminder',
+            title: '21 giờ tối rồi: Nhắc bạn tắt thông báo công việc & nghỉ ngơi',
+            duration: '24s',
+            viralScore: '96%',
+            hook: 'Mấy giờ rồi còn lướt Reels? Tắt thông báo việc đi rồi nghỉ ngơi cho đầu óc thở xíu nào!',
+            body: '• Cứ check nhóm chat công việc tới nửa đêm thì nằm xuống cũng không ngủ nổi đâu.\n• Bật ngay chế độ Không làm phiền từ 9 rưỡi tối cho tới sáng hôm sau đi.\n• Việc gì chưa cháy nhà thì cứ để sáng mai đầu óc tỉnh táo giải quyết nhanh gấp đôi.\n• Đặt điện thoại sang một bên, uống ngụm nước ấm và ngủ một giấc thật sâu nhé.',
+            cta: 'Đừng thức khuya nữa nhé! Tối nay mấy giờ bạn dự định đi ngủ, nói thật xem nào?',
+            hashtags: '#nhacnho #ngungon #canbangcuocsong #chualanh #reels'
+        },
+        {
+            id: 'tpl-40',
+            category: 'reminder',
+            title: 'Nhắc nhẹ 3 món đồ cá nhân cần thay định kỳ kẻo hại sức khỏe',
+            duration: '25s',
+            viralScore: '97%',
+            hook: 'Có những món đồ dùng hằng ngày nhìn vẫn còn mới nhưng thực chất đã quá hạn sử dụng từ lâu!',
+            body: '• Bàn chải đánh răng nên thay mới sau mỗi 3 tháng vì lông bàn chải cũ tích tụ rất nhiều vi khuẩn.\n• Miếng bọt biển rửa chén dùng quá 3 tuần còn bẩn hơn cả mặt bàn bếp nếu không vệ sinh kỹ.\n• Khăn mặt ẩm trong nhà tắm cũng nên giặt nước nóng mỗi tuần và thay định kỳ 3 tháng một lần.\n• Đừng tiết kiệm quá mức với những món đồ tiếp xúc trực tiếp lên cơ thể mỗi ngày nhé.',
+            cta: 'Kiểm tra lại xem trong 3 món này nhà bạn có món nào quá hạn chưa nhé!',
+            hashtags: '#nhacnho #suckhoe #vesinhnhacua #doithuong #reelsvn'
+        },
+        {
+            id: 'tpl-41',
+            category: 'music',
+            title: 'Nhạc nền Lo-Fi nhẹ nhàng giúp tập trung làm việc gấp đôi',
+            duration: '25s',
+            viralScore: '97%',
+            hook: 'Đầu óc phân tâm làm việc mãi không xong? Hãy thử bật nền nhạc Lo-Fi nhịp chậm đều này!',
+            body: '• Âm thanh không lời với hợp âm ấm áp giúp che bớt tiếng ồn xao nhãng xung quanh bạn.\n• Nhịp điệu đều đặn giữ cho não bộ vào trạng thái tập trung sâu mà không bị mệt mỏi.\n• Kết hợp cùng phương pháp làm việc 25 phút nghỉ 5 phút sẽ thấy hiệu suất tăng rõ rệt.\n• Bạn có thể lưu video này lại hoặc chọn chế độ nhạc Lo-Fi ngay trong studio để tạo clip thư giãn.',
+            cta: 'Nghe thử vài giây xem có thấy nhẹ đầu hơn không nhé! Comment thể loại nhạc bạn thích nhất.',
+            hashtags: '#nhacchill #lofi #taptrung #lamviec #reelsvn'
+        },
+        {
+            id: 'tpl-42',
+            category: 'music',
+            title: 'Âm thanh chữa lành ban đêm giúp dễ đi vào giấc ngủ',
+            duration: '26s',
+            viralScore: '98%',
+            hook: 'Nếu tối nay đầu óc vẫn còn ngổn ngang suy nghĩ, hãy nhắm mắt lại và nghe giai điệu êm dịu này!',
+            body: '• Những nốt đàn chậm rãi kết hợp ánh sáng dịu nhẹ giúp nhịp tim và hơi thở chậm lại tự nhiên.\n• Thả lỏng toàn bộ cơ mặt, hạ thấp hai vai và hít thở sâu trong vòng 4 giây rồi thở ra nhẹ nhàng.\n• Mọi chuyện chưa giải quyết xong hôm nay hãy tạm gác lại chờ sáng mai đón ánh nắng mới.\n• Giai điệu nhỏ này chỉ dài chưa tới 30 giây nhưng đủ để vỗ về tâm trạng sau một ngày dài.',
+            cta: 'Chúc bạn một đêm thật ngon giấc. Lưu lại âm thanh này để nghe mỗi khi khó ngủ nhé!',
+            hashtags: '#nhacchualanh #dengu #piano #relax #reelsvietnam'
+        },
+        {
+            id: 'tpl-43',
+            category: 'music',
+            title: 'Nhạc buổi sáng tươi vui đánh thức năng lượng tích cực',
+            duration: '23s',
+            viralScore: '96%',
+            hook: 'Đừng đặt chuông báo thức bằng tiếng còi chói tai nữa, hãy mở ngày mới bằng giai điệu vui tươi này!',
+            body: '• Âm thanh buổi sáng ảnh hưởng trực tiếp tới tâm trạng của bạn trong suốt cả ngày làm việc.\n• Một đoạn nhạc tiết tấu sáng sủa giúp cơ thể tỉnh táo nhẹ nhàng mà không bị giật mình căng thẳng.\n• Bật nhạc trong lúc pha cà phê, dọn giường hoặc chuẩn bị bữa sáng sẽ thấy mọi thứ trôi chảy hơn hẳn.\n• Hãy thử kết hợp cùng lời khẳng định tích cực đầu ngày để tiếp thêm động lực cho bản thân.',
+            cta: 'Sáng nay tâm trạng của bạn thế nào? Thả một emoji dưới bình luận nhé!',
+            hashtags: '#nhacbuoisang #nangluongtichcuc #chill #cuocsonghangngay #reels'
+        },
+        {
+            id: 'tpl-44',
+            category: 'music',
+            title: 'Mẹo chọn nhạc nền Reels giúp giữ chân người xem tới giây cuối',
+            duration: '25s',
+            viralScore: '98%',
+            hook: 'Cùng một kịch bản mà chọn sai nhạc nền là mất ngay phân nửa lượt xem, tin không?!',
+            body: '• Video mẹo vặt hay hài hước phải đi nhạc nhịp nhanh thì người ta mới cuốn theo.\n• Video tâm sự, nhắc nhở cuối ngày mà ghép nhạc xập xình là tụt cảm xúc liền.\n• Còn video cảnh báo phải dùng nhịp trầm dứt khoát để người xem tập trung vào chữ.\n• Nhớ vặn nhạc nền nhỏ hơn giọng nói khoảng 70 phần trăm để nghe rõ từng câu nha.',
+            cta: 'Bạn hay bị kẹt khâu chọn nhạc hay khâu viết Hook 3s đầu hơn? Comment mình gỡ cùng nhé!',
+            hashtags: '#nhacnen #lamreels #kinhnghiem #sangtaonoidung #reelsvn'
+        },
+        {
+            id: 'tpl-45',
+            category: 'music',
+            title: 'Giai điệu 25 giây giúp giải tỏa stress giữa giờ làm việc',
+            duration: '24s',
+            viralScore: '95%',
+            hook: 'Căng thẳng vì chạy deadline liên tục? Dành đúng 25 giây hít thở cùng đoạn nhạc thư giãn này!',
+            body: '• Tạm rời mắt khỏi bảng tính và những tin nhắn giục giã đang khiến bạn đau đầu.\n• Nhắm mắt lại 15 giây, lắng nghe từng hợp âm chuyển nhịp chậm rãi như một khoảng nghỉ ngắn.\n• Nghiên cứu cho thấy chỉ cần 1 phút nghe nhạc êm dịu cũng giúp giảm đáng kể áp lực tâm lý.\n• Nạp lại chút bình tĩnh rồi quay lại công việc với tinh thần sáng suốt và nhẹ nhàng hơn.',
+            cta: 'Gửi ngay video nhạc chill ngắn này cho đồng nghiệp đang chạy deadline cùng bạn nhé!',
+            hashtags: '#giambotcangthang #nhacthugian #chill #vanphong #reelsvietnam'
         }
     ];
 })(window);

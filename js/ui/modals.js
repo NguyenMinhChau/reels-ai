@@ -269,7 +269,7 @@
         document.getElementById('input-import-backup')?.addEventListener('change', handleImportBackup);
         document.getElementById('btn-reset-templates')?.addEventListener('click', () => {
             App.store.resetDefaultTemplates();
-            App.toast.show('Đã khôi phục và làm mới kho 30 kịch bản mẫu!', 'info');
+            App.toast.show('Đã khôi phục và làm mới kho 45 kịch bản mẫu!', 'info');
         });
 
         // Close buttons & backdrop click

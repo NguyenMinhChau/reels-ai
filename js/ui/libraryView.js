@@ -86,7 +86,7 @@
             const badge = CATEGORY_BADGES[item.category] || CATEGORY_BADGES.lifehack;
             const card = document.createElement('article');
             card.className =
-                'bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 sm:p-5 flex flex-col justify-between card-hover shadow-sm';
+                'min-w-0 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 sm:p-5 flex flex-col justify-between card-hover shadow-sm';
             card.dataset.templateId = item.id;
 
             const newBadgeHtml = item.isNew
@@ -159,10 +159,12 @@
         dumpAbortController = new AbortController();
 
         try {
+            const tone = document.getElementById('library-tone')?.value || 'viral';
             const generatedList = await App.geminiApi.dumpFreshScripts({
                 existingTitles: state.templates.map((s) => s.title),
                 category: state.currentCategory,
                 categoryLabel: CATEGORY_BADGES[state.currentCategory]?.label,
+                tone,
                 signal: dumpAbortController.signal
             });
 

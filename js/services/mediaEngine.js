@@ -24,6 +24,8 @@
 
     // Audio & Playback State
     let studioScenes = [];
+    let currentVideoTitle = '';
+    let precomputedTitleLines = [];
     let totalDuration = 0;
     let isPlaying = false;
     let isRecording = false;
@@ -144,29 +146,52 @@
         return buffer;
     }
 
-    // Split a single combined TTS AudioBuffer cleanly into N scene chunks at silence valleys
-    function splitCombinedAudioBuffer(fullBuffer, texts, targetCtx) {
-        if (!fullBuffer || !Array.isArray(texts) || texts.length === 0) return [];
+    // Split an AudioBuffer cleanly into N beat chunks at lowest-energy breath/silence valleys
+    function splitAudioBufferIntoBeats(fullBuffer, texts, targetCtx) {
+        if (!fullBuffer || !Array.isArray(texts) || texts.length <= 1) {
+            return fullBuffer ? [fullBuffer] : [];
+        }
         const count = texts.length;
         const sr = fullBuffer.sampleRate;
         const data = fullBuffer.getChannelData(0);
         const totalSamples = data.length;
-        const totalDur = totalSamples / sr;
+        const minSegSamples = Math.floor(sr * 0.65);
+
+        // If audio is too short to slice safely into N beats, divide proportionally
+        if (totalSamples < minSegSamples * count) {
+            const wordCounts = texts.map((t) => Math.max(1, String(t || '').split(/\s+/).filter(Boolean).length));
+            const totalWords = wordCounts.reduce((a, b) => a + b, 0);
+            const cuts = [0];
+            let accW = 0;
+            for (let k = 0; k < count - 1; k++) {
+                accW += wordCounts[k];
+                cuts.push(Math.floor(totalSamples * (accW / totalWords)));
+            }
+            cuts.push(totalSamples);
+            return texts.map((_, idx) => {
+                const start = cuts[idx];
+                const len = Math.max(1, cuts[idx + 1] - start);
+                const chunkBuf = targetCtx.createBuffer(1, len, sr);
+                chunkBuf.getChannelData(0).set(data.subarray(start, start + len));
+                return chunkBuf;
+            });
+        }
 
         const wordCounts = texts.map((t) => Math.max(1, String(t || '').split(/\s+/).filter(Boolean).length));
         const totalWords = wordCounts.reduce((a, b) => a + b, 0);
 
-        const winSamples = Math.max(1, Math.floor(sr * 0.04)); // 40ms energy window
+        const winSamples = Math.max(1, Math.floor(sr * 0.035)); // 35ms energy window
+        const searchRadius = Math.floor(sr * 0.85);
         const cutSamples = [0];
         let cumWords = 0;
 
         for (let k = 0; k < count - 1; k++) {
             cumWords += wordCounts[k];
             const expectedSample = Math.floor(totalSamples * (cumWords / totalWords));
-            const minSample = Math.max(cutSamples[k] + Math.floor(sr * 1.2), expectedSample - Math.floor(sr * 2.2));
-            const maxSample = Math.min(totalSamples - Math.floor(sr * 1.2), expectedSample + Math.floor(sr * 2.2));
+            const minSample = Math.max(cutSamples[k] + minSegSamples, expectedSample - searchRadius);
+            const maxSample = Math.min(totalSamples - minSegSamples * (count - k - 1), expectedSample + searchRadius);
 
-            let bestSample = Math.min(Math.max(expectedSample, cutSamples[k] + Math.floor(sr * 0.8)), totalSamples - 1);
+            let bestSample = Math.min(Math.max(expectedSample, cutSamples[k] + minSegSamples), totalSamples - 1);
             let minEnergy = Infinity;
 
             if (maxSample > minSample + winSamples) {
@@ -186,14 +211,18 @@
         }
         cutSamples.push(totalSamples);
 
-        return texts.map((t, idx) => {
+        return texts.map((_, idx) => {
             const start = cutSamples[idx];
-            const end = Math.max(start + Math.floor(sr * 0.5), cutSamples[idx + 1]);
+            const end = Math.max(start + Math.floor(sr * 0.25), cutSamples[idx + 1]);
             const len = Math.min(totalSamples - start, end - start);
             const chunkBuf = targetCtx.createBuffer(1, Math.max(1, len), sr);
             chunkBuf.getChannelData(0).set(data.subarray(start, start + len));
             return chunkBuf;
         });
+    }
+
+    function splitCombinedAudioBuffer(fullBuffer, texts, targetCtx) {
+        return splitAudioBufferIntoBeats(fullBuffer, texts, targetCtx);
     }
 
     function createSilentBuffer(targetCtx, text) {
@@ -266,22 +295,49 @@
         return offCanvas;
     }
 
-    async function loadRealLifeStockPhoto(sceneIndex, videoTitle) {
-        const lower = (videoTitle || '').toLowerCase();
-        let photoIds = STOCK_PHOTOS.default;
-        if (lower.includes('ngủ') || lower.includes('đêm') || lower.includes('sáng')) {
-            photoIds = STOCK_PHOTOS.sleep;
-        } else if (lower.includes('áo') || lower.includes('giày') || lower.includes('dọn')) {
-            photoIds = STOCK_PHOTOS.tidy;
+    function pickStockBucketForText(text) {
+        const lower = (text || '').toLowerCase();
+        if (/cảnh báo|lừa đảo|cháy|nổ|ổ điện|hỏng|vi khuẩn|cốp xe|sạc|otp|link/.test(lower)) return 'warning';
+        if (/nhắc nhở|nhắc nhẹ|uống nước|giãn cơ|bố mẹ|khóa cửa|thay định kỳ|21 giờ/.test(lower)) return 'reminder';
+        if (/nhạc|lofi|lo-fi|giai điệu|âm thanh|stress|piano|playlist|nghe/.test(lower)) return 'music';
+        if (/ngủ|đêm|sáng|trà|cà phê|thức dậy/.test(lower)) return 'sleep';
+        if (/bếp|hành|tỏi|cơm|chảo|nấu|ăn|đồ ăn/.test(lower)) return 'kitchen';
+        if (/áo|giày|dọn|phòng|quần|giũ|mùa|gọn/.test(lower)) return 'tidy';
+        if (/bàn|laptop|làm việc|văn phòng|điện thoại|pin|deadline/.test(lower)) return 'work';
+        if (/lương|tiền|50k|100k|siêu thị|chợ|tiết kiệm|hũ/.test(lower)) return 'money';
+        if (/ảnh|quay|reels|sống ảo|sáng tạo|video|tiêu đề/.test(lower)) return 'creator';
+        return '';
+    }
+
+    async function loadRealLifeStockPhoto(sceneIndex, videoTitle, phraseText = '', usedPhotoIds = null) {
+        const bucketKey = pickStockBucketForText(phraseText) || pickStockBucketForText(videoTitle) || 'default';
+        const candidatePool = [
+            ...(STOCK_PHOTOS[bucketKey] || []),
+            ...(STOCK_PHOTOS.default || []),
+            ...Object.values(STOCK_PHOTOS).flat()
+        ];
+
+        let chosenId = null;
+        if (usedPhotoIds instanceof Set) {
+            for (const id of candidatePool) {
+                if (!usedPhotoIds.has(id)) {
+                    chosenId = id;
+                    usedPhotoIds.add(id);
+                    break;
+                }
+            }
+        }
+        if (!chosenId) {
+            const pool = STOCK_PHOTOS[bucketKey] || STOCK_PHOTOS.default;
+            chosenId = pool[sceneIndex % pool.length];
         }
 
-        const chosenId = photoIds[sceneIndex % photoIds.length];
         const url = `https://images.unsplash.com/photo-${chosenId}?auto=format&fit=crop&w=720&h=1280&q=85`;
 
         try {
             return await loadImageFromUrl(url, 'anonymous');
         } catch (_) {
-            return createIllustratedFallbackCard(sceneIndex, videoTitle);
+            return createIllustratedFallbackCard(sceneIndex, phraseText || videoTitle);
         }
     }
 
@@ -307,7 +363,7 @@
     function precomputeSceneSubtitles(text) {
         const fullSubText = cleanNarrationText(text);
         const allWords = fullSubText.split(/\s+/).filter(Boolean);
-        const chunkSize = 7;
+        const chunkSize = 5; // Snappy 5-word Reels captions for fast reading retention
         const rawChunks = [];
 
         for (let i = 0; i < allWords.length; i += chunkSize) {
@@ -318,12 +374,12 @@
         const measureCtx = ctx || document.createElement('canvas').getContext('2d');
 
         return rawChunks.map((chunkText) => {
-            const fontSize = chunkText.length > 36 ? 27 : 31;
+            const fontSize = chunkText.length > 26 ? 29 : 33;
             const lineHeight = fontSize + 12;
             measureCtx.font = `900 ${fontSize}px Inter, sans-serif`;
             const lines = measureWrappedLines(measureCtx, chunkText, 460);
             const totalHeight = lines.length * lineHeight;
-            const bottomMargin = 95;
+            const bottomMargin = 105;
             const startY = CANVAS_H - bottomMargin - totalHeight + fontSize;
             return {
                 fontSize,
@@ -334,7 +390,14 @@
         });
     }
 
-    function setScenes(scenes) {
+    function setScenes(scenes, videoTitle = '') {
+        currentVideoTitle = String(videoTitle || '').trim();
+        const measureCtx = ctx || document.createElement('canvas').getContext('2d');
+        measureCtx.font = '800 22px Inter, sans-serif';
+        precomputedTitleLines = currentVideoTitle
+            ? measureWrappedLines(measureCtx, currentVideoTitle.toUpperCase(), 420).slice(0, 2)
+            : [];
+
         studioScenes = (scenes || []).map((scene) => ({
             ...scene,
             precomputedChunks: precomputeSceneSubtitles(scene.text)
@@ -469,87 +532,151 @@
         }
 
         const currentScene = studioScenes[activeIdx];
+        const isMotionStyle = currentScene.visualStyle === 'motion' && Boolean(App.motionGraphics);
         ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-        // 1. Background image + smooth crossfade
-        if (currentScene.imageObj) {
-            drawImageWithMotion(currentScene.imageObj, sceneProgress, currentScene.motionType, 1);
-            if (sceneProgress < 0.12 && activeIdx > 0 && studioScenes[activeIdx - 1].imageObj) {
-                const fadeOutAlpha = 1 - sceneProgress / 0.12;
-                drawImageWithMotion(
-                    studioScenes[activeIdx - 1].imageObj,
-                    1,
-                    studioScenes[activeIdx - 1].motionType,
-                    fadeOutAlpha
-                );
-            }
+        if (isMotionStyle) {
+            // 1. Flat-Vector 2D Motion Infographic Scene (with whip-slide transition)
+            const prevScene = activeIdx > 0 ? studioScenes[activeIdx - 1] : null;
+            App.motionGraphics.drawMotionScene(ctx, currentScene, sceneProgress, activeIdx, elapsed, prevScene);
         } else {
-            if (!cachedFallbackGrad) {
-                cachedFallbackGrad = ctx.createLinearGradient(0, 0, CANVAS_W, CANVAS_H);
-                cachedFallbackGrad.addColorStop(0, '#1e1b4b');
-                cachedFallbackGrad.addColorStop(1, '#090d16');
+            // 1. Photo background + smooth crossfade
+            if (currentScene.imageObj) {
+                drawImageWithMotion(currentScene.imageObj, sceneProgress, currentScene.motionType, 1);
+                if (sceneProgress < 0.12 && activeIdx > 0 && studioScenes[activeIdx - 1].imageObj) {
+                    const fadeOutAlpha = 1 - sceneProgress / 0.12;
+                    drawImageWithMotion(
+                        studioScenes[activeIdx - 1].imageObj,
+                        1,
+                        studioScenes[activeIdx - 1].motionType,
+                        fadeOutAlpha
+                    );
+                }
+            } else {
+                if (!cachedFallbackGrad) {
+                    cachedFallbackGrad = ctx.createLinearGradient(0, 0, CANVAS_W, CANVAS_H);
+                    cachedFallbackGrad.addColorStop(0, '#1e1b4b');
+                    cachedFallbackGrad.addColorStop(1, '#090d16');
+                }
+                ctx.fillStyle = cachedFallbackGrad;
+                ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
             }
-            ctx.fillStyle = cachedFallbackGrad;
+
+            // 2. Cached top/bottom gradient overlay
+            if (!cachedOverlayGrad) {
+                cachedOverlayGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+                cachedOverlayGrad.addColorStop(0, 'rgba(0,0,0,0.45)');
+                cachedOverlayGrad.addColorStop(0.2, 'rgba(0,0,0,0.0)');
+                cachedOverlayGrad.addColorStop(0.62, 'rgba(0,0,0,0.05)');
+                cachedOverlayGrad.addColorStop(1, 'rgba(0,0,0,0.78)');
+            }
+            ctx.fillStyle = cachedOverlayGrad;
             ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
         }
 
-        // 2. Cached top/bottom gradient overlay
-        if (!cachedOverlayGrad) {
-            cachedOverlayGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
-            cachedOverlayGrad.addColorStop(0, 'rgba(0,0,0,0.45)');
-            cachedOverlayGrad.addColorStop(0.2, 'rgba(0,0,0,0.0)');
-            cachedOverlayGrad.addColorStop(0.62, 'rgba(0,0,0,0.05)');
-            cachedOverlayGrad.addColorStop(1, 'rgba(0,0,0,0.78)');
-        }
-        ctx.fillStyle = cachedOverlayGrad;
-        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-        // 3. Top 5-segment progress bars
+        // 3. Top Story Progress Bars (adapts cleanly for 5..15+ synced beats)
         const count = studioScenes.length;
-        const barWidth = (CANVAS_W - 48 - (count - 1) * 6) / count;
+        const barGap = count > 8 ? 4 : 6;
+        const barWidth = (CANVAS_W - 48 - (count - 1) * barGap) / count;
         for (let i = 0; i < count; i++) {
-            const bx = 24 + i * (barWidth + 6);
-            ctx.fillStyle = 'rgba(255,255,255,0.32)';
+            const bx = 24 + i * (barWidth + barGap);
+            ctx.fillStyle = isMotionStyle ? 'rgba(15,23,42,0.18)' : 'rgba(255,255,255,0.32)';
             ctx.beginPath();
             ctx.roundRect(bx, 18, barWidth, 5, 3);
             ctx.fill();
 
             if (i < activeIdx) {
-                ctx.fillStyle = '#ffffff';
+                ctx.fillStyle = isMotionStyle ? '#0f172a' : '#ffffff';
                 ctx.beginPath();
                 ctx.roundRect(bx, 18, barWidth, 5, 3);
                 ctx.fill();
             } else if (i === activeIdx) {
-                ctx.fillStyle = '#ffffff';
+                ctx.fillStyle = isMotionStyle ? '#0f172a' : '#ffffff';
                 ctx.beginPath();
                 ctx.roundRect(bx, 18, barWidth * Math.min(1, sceneProgress), 5, 3);
                 ctx.fill();
             }
         }
 
-        // 4. Precomputed CapCut-style dynamic subtitles
+        // 3b. Dynamic Beat Callout Pill in Photo mode (so every synced cut feels fresh)
+        if (!isMotionStyle && currentScene.motionCue && (activeIdx > 0 || precomputedTitleLines.length === 0)) {
+            const badgeText = currentScene.motionCue.highlightBadge || currentScene.motionCue.topBadge;
+            if (badgeText) {
+                const badgeAlpha = sceneProgress < 0.15 ? sceneProgress / 0.15 : 1;
+                ctx.save();
+                ctx.globalAlpha = badgeAlpha;
+                ctx.font = '800 17px Inter, sans-serif';
+                const tw = ctx.measureText(badgeText).width;
+                const pw = Math.min(360, Math.max(100, tw + 34));
+                ctx.fillStyle = 'rgba(250, 204, 21, 0.92)';
+                ctx.beginPath();
+                ctx.roundRect(270 - pw / 2, 42, pw, 34, 17);
+                ctx.fill();
+                ctx.fillStyle = '#0f172a';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(badgeText, 270, 60, pw - 16);
+                ctx.restore();
+            }
+        }
+
+        // 3c. Top Hook Title Banner during first beat in Photo mode
+        if (!isMotionStyle && activeIdx === 0 && precomputedTitleLines.length > 0) {
+            const boxH = precomputedTitleLines.length * 28 + 22;
+            const fadeOut = sceneProgress > 0.85 ? Math.max(0, 1 - (sceneProgress - 0.85) / 0.15) : 1;
+            ctx.save();
+            ctx.globalAlpha = fadeOut;
+            ctx.fillStyle = 'rgba(250, 204, 21, 0.95)';
+            ctx.beginPath();
+            ctx.roundRect(38, 46, CANVAS_W - 76, boxH, 16);
+            ctx.fill();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.font = '900 21px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            precomputedTitleLines.forEach((line, idx) => {
+                ctx.fillText(line, 270, 74 + idx * 28);
+            });
+            ctx.restore();
+        }
+
+        // 4. Precomputed dynamic subtitles (Crisp outline in Motion mode, Backdrop pill in Photo mode)
         const chunks = currentScene.precomputedChunks;
         if (chunks && chunks.length > 0) {
             const chunkIdx = Math.min(chunks.length - 1, Math.floor(sceneProgress * chunks.length));
             const chunkLocalProgress = sceneProgress * chunks.length - chunkIdx;
             const chunk = chunks[chunkIdx];
-            const popScale = chunkLocalProgress < 0.15 ? 0.92 + (chunkLocalProgress / 0.15) * 0.08 : 1.0;
+            const popScale = chunkLocalProgress < 0.16 ? 0.9 + (chunkLocalProgress / 0.16) * 0.1 : 1.0;
 
             ctx.font = `900 ${chunk.fontSize}px Inter, sans-serif`;
             ctx.save();
             ctx.translate(270, chunk.startY);
             ctx.scale(popScale, popScale);
             ctx.translate(-270, -chunk.startY);
+
+            if (!isMotionStyle) {
+                const boxTop = chunk.startY - chunk.fontSize - 4;
+                const boxHeight = chunk.lines.length * chunk.lineHeight + 12;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
+                ctx.beginPath();
+                ctx.roundRect(28, boxTop, CANVAS_W - 56, boxHeight, 16);
+                ctx.fill();
+            }
+
             ctx.textAlign = 'center';
             ctx.lineJoin = 'round';
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
-            ctx.lineWidth = 8;
+            ctx.strokeStyle = isMotionStyle ? '#0f172a' : 'rgba(0, 0, 0, 0.95)';
+            ctx.lineWidth = isMotionStyle ? 8 : 7;
 
             chunk.lines.forEach((line, i) => {
                 const ly = chunk.startY + i * chunk.lineHeight;
                 ctx.strokeText(line, 270, ly);
-                const isHighlight = (activeIdx === 0 && chunkIdx === 0) || (activeIdx === 4 && i === 0);
-                ctx.fillStyle = isHighlight ? '#fde047' : '#ffffff';
+                if (isMotionStyle) {
+                    ctx.fillStyle = '#ffffff';
+                } else {
+                    const isHighlight = activeIdx === 0 || (activeIdx === 4 && i === 0);
+                    ctx.fillStyle = isHighlight ? '#fde047' : '#ffffff';
+                }
                 ctx.fillText(line, 270, ly);
             });
             ctx.restore();
@@ -572,35 +699,85 @@
         const buffer = targetCtx.createBuffer(1, length, sampleRate);
         const data = buffer.getChannelData(0);
 
-        const chords =
-            style === 'upbeat'
-                ? [
-                      [261.63, 329.63, 392.0],
-                      [293.66, 369.99, 440.0],
-                      [329.63, 415.3, 493.88],
-                      [261.63, 329.63, 392.0]
-                  ]
-                : [
-                      [220.0, 261.63, 329.63],
-                      [174.61, 220.0, 261.63],
-                      [196.0, 246.94, 293.66],
-                      [164.81, 196.0, 246.94]
-                  ];
+        const presets = {
+            upbeat: {
+                chords: [
+                    [261.63, 329.63, 392.0, 523.25],
+                    [293.66, 369.99, 440.0, 587.33],
+                    [329.63, 415.3, 493.88, 659.25],
+                    [261.63, 329.63, 392.0, 523.25]
+                ],
+                beatDur: 1.4,
+                gain: 0.1,
+                arpHz: 4.0
+            },
+            lofi: {
+                chords: [
+                    [220.0, 261.63, 329.63, 392.0],
+                    [174.61, 220.0, 261.63, 329.63],
+                    [196.0, 246.94, 293.66, 349.23],
+                    [164.81, 196.0, 246.94, 293.66]
+                ],
+                beatDur: 2.4,
+                gain: 0.11,
+                arpHz: 1.5
+            },
+            morning: {
+                chords: [
+                    [261.63, 329.63, 392.0, 493.88],
+                    [349.23, 440.0, 523.25, 659.25],
+                    [392.0, 493.88, 587.33, 698.46],
+                    [261.63, 329.63, 392.0, 493.88]
+                ],
+                beatDur: 1.8,
+                gain: 0.1,
+                arpHz: 2.5
+            },
+            alert: {
+                chords: [
+                    [146.83, 220.0, 261.63, 349.23],
+                    [130.81, 196.0, 246.94, 329.63],
+                    [146.83, 220.0, 261.63, 349.23],
+                    [116.54, 174.61, 220.0, 293.66]
+                ],
+                beatDur: 1.0,
+                gain: 0.11,
+                arpHz: 3.0
+            },
+            healing: {
+                chords: [
+                    [196.0, 246.94, 293.66, 392.0],
+                    [220.0, 261.63, 329.63, 440.0],
+                    [174.61, 220.0, 261.63, 349.23],
+                    [196.0, 246.94, 293.66, 392.0]
+                ],
+                beatDur: 2.8,
+                gain: 0.11,
+                arpHz: 1.2
+            }
+        };
 
-        const beatDur = style === 'upbeat' ? 1.5 : 2.5;
+        const preset = presets[style] || presets.upbeat;
+        const { chords, beatDur, gain, arpHz } = preset;
+
         for (let i = 0; i < length; i++) {
             const t = i / sampleRate;
             const chordIdx = Math.floor(t / beatDur) % chords.length;
             const chord = chords[chordIdx];
-            const env = Math.sin((Math.PI * (t % beatDur)) / beatDur);
-            let sample = 0;
-            for (let c = 0; c < chord.length; c++) {
-                sample += Math.sin(2 * Math.PI * chord[c] * t);
+            const localT = t % beatDur;
+            const env = Math.sin((Math.PI * localT) / beatDur);
+            const arpIdx = Math.floor(t * arpHz) % chord.length;
+            const arpEnv = Math.exp(-((t * arpHz) % 1) * 3.2);
+
+            let pad = 0;
+            for (let c = 0; c < chord.length - 1; c++) {
+                pad += Math.sin(2 * Math.PI * chord[c] * t);
             }
-            data[i] = (sample / chord.length) * env * 0.11;
+            const melody = Math.sin(2 * Math.PI * chord[arpIdx] * t) * arpEnv * 0.55;
+            data[i] = ((pad / (chord.length - 1)) * 0.65 + melody) * env * gain;
         }
 
-        if (bgmBufferCache.size > 6) {
+        if (bgmBufferCache.size > 10) {
             const first = bgmBufferCache.keys().next().value;
             bgmBufferCache.delete(first);
         }
@@ -616,6 +793,13 @@
             } catch (_) {}
         });
         activeAudioSources = [];
+        if (previewBgmSource) {
+            try {
+                previewBgmSource.stop();
+                previewBgmSource.disconnect();
+            } catch (_) {}
+            previewBgmSource = null;
+        }
     }
 
     function stopTimers() {
@@ -678,7 +862,264 @@
 
     let currentBgmStyle = 'upbeat';
 
-    async function startPlayback({ startAt = null, bgmStyle = 'upbeat', recordMode = false, onRecordComplete = null } = {}) {
+    async function fastExportVideo({ bgmStyle = 'upbeat', onProgress = null, signal = null } = {}) {
+        if (
+            studioScenes.length === 0 ||
+            !canvasEl ||
+            typeof global.VideoEncoder === 'undefined' ||
+            typeof global.AudioEncoder === 'undefined' ||
+            typeof global.VideoFrame === 'undefined' ||
+            typeof global.AudioData === 'undefined' ||
+            typeof global.OfflineAudioContext === 'undefined'
+        ) {
+            return null;
+        }
+
+        const fps = 30;
+        const sampleRate = 48000;
+
+        // Probe best container & codecs:
+        // 1) MP4 (H.264 + AAC) — plays & saves natively on iPhone/iOS, Android, Facebook Reels
+        // 2) WebM (VP9/VP8 + Opus) — fallback for browsers without AAC/H264 WebCodecs
+        let chosenFormat = null;
+
+        if (typeof global.Mp4Muxer !== 'undefined') {
+            const h264Candidates = ['avc1.42001f', 'avc1.4d001f', 'avc1.42001e'];
+            for (const h264Codec of h264Candidates) {
+                const vCfg = {
+                    codec: h264Codec,
+                    width: CANVAS_W,
+                    height: CANVAS_H,
+                    bitrate: 2_500_000,
+                    framerate: fps,
+                    avc: { format: 'avc' }
+                };
+                const aCfg = {
+                    codec: 'mp4a.40.2',
+                    sampleRate,
+                    numberOfChannels: 1,
+                    bitrate: 128_000
+                };
+                const [vSup, aSup] = await Promise.all([
+                    VideoEncoder.isConfigSupported(vCfg).catch(() => ({ supported: false })),
+                    AudioEncoder.isConfigSupported(aCfg).catch(() => ({ supported: false }))
+                ]);
+                if (vSup.supported && aSup.supported) {
+                    chosenFormat = {
+                        container: 'mp4',
+                        mimeType: 'video/mp4',
+                        videoConfig: vCfg,
+                        audioConfig: aCfg
+                    };
+                    break;
+                }
+            }
+        }
+
+        if (!chosenFormat && typeof global.WebMMuxer !== 'undefined') {
+            const vpCandidates = [
+                { codec: 'vp09.00.10.08', muxerCodec: 'V_VP9' },
+                { codec: 'vp8', muxerCodec: 'V_VP8' }
+            ];
+            for (const vp of vpCandidates) {
+                const vCfg = {
+                    codec: vp.codec,
+                    width: CANVAS_W,
+                    height: CANVAS_H,
+                    bitrate: 2_200_000,
+                    framerate: fps
+                };
+                const aCfg = {
+                    codec: 'opus',
+                    sampleRate,
+                    numberOfChannels: 1,
+                    bitrate: 96_000
+                };
+                const [vSup, aSup] = await Promise.all([
+                    VideoEncoder.isConfigSupported(vCfg).catch(() => ({ supported: false })),
+                    AudioEncoder.isConfigSupported(aCfg).catch(() => ({ supported: false }))
+                ]);
+                if (vSup.supported && aSup.supported) {
+                    chosenFormat = {
+                        container: 'webm',
+                        mimeType: 'video/webm',
+                        muxerCodec: vp.muxerCodec,
+                        videoConfig: vCfg,
+                        audioConfig: aCfg
+                    };
+                    break;
+                }
+            }
+        }
+
+        if (!chosenFormat) {
+            return null;
+        }
+
+        stopPlayback({ resetToZero: false });
+        isRecording = true;
+        if (callbacks.onStateChange) callbacks.onStateChange(getPlaybackState());
+
+        let videoEncoder = null;
+        let audioEncoder = null;
+
+        try {
+            if (onProgress) onProgress(5, `Đang trộn âm thanh (${chosenFormat.container.toUpperCase()})...`);
+
+            // 1. Offline Audio Rendering (~0.1s for a 30s video)
+            const totalSamples = Math.max(1, Math.ceil(totalDuration * sampleRate));
+            const offlineCtx = new OfflineAudioContext(1, totalSamples, sampleRate);
+
+            let sceneStart = 0;
+            studioScenes.forEach((scene) => {
+                if (scene.audioBuffer) {
+                    const src = offlineCtx.createBufferSource();
+                    src.buffer = scene.audioBuffer;
+                    src.playbackRate.value = scene.playbackRate || 1.18;
+                    src.connect(offlineCtx.destination);
+                    src.start(sceneStart);
+                }
+                sceneStart += scene.duration;
+            });
+
+            const bgmBuffer = getCachedBgmBuffer(offlineCtx, bgmStyle, totalDuration);
+            if (bgmBuffer) {
+                const bgmNode = offlineCtx.createBufferSource();
+                bgmNode.buffer = bgmBuffer;
+                bgmNode.connect(offlineCtx.destination);
+                bgmNode.start(0);
+            }
+
+            const mixedAudio = await offlineCtx.startRendering();
+            if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+
+            // 2. Setup MP4 or WebM Muxer & Encoders
+            const muxer =
+                chosenFormat.container === 'mp4'
+                    ? new Mp4Muxer.Muxer({
+                          target: new Mp4Muxer.ArrayBufferTarget(),
+                          video: {
+                              codec: 'avc',
+                              width: CANVAS_W,
+                              height: CANVAS_H,
+                              frameRate: fps
+                          },
+                          audio: {
+                              codec: 'aac',
+                              numberOfChannels: 1,
+                              sampleRate
+                          },
+                          fastStart: 'in-memory',
+                          firstTimestampBehavior: 'offset'
+                      })
+                    : new WebMMuxer.Muxer({
+                          target: new WebMMuxer.ArrayBufferTarget(),
+                          video: {
+                              codec: chosenFormat.muxerCodec,
+                              width: CANVAS_W,
+                              height: CANVAS_H,
+                              frameRate: fps
+                          },
+                          audio: {
+                              codec: 'A_OPUS',
+                              sampleRate,
+                              numberOfChannels: 1
+                          },
+                          firstTimestampBehavior: 'offset'
+                      });
+
+            let encodeErr = null;
+            videoEncoder = new VideoEncoder({
+                output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+                error: (e) => {
+                    encodeErr = e;
+                }
+            });
+            videoEncoder.configure(chosenFormat.videoConfig);
+
+            audioEncoder = new AudioEncoder({
+                output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+                error: (e) => {
+                    encodeErr = e;
+                }
+            });
+            audioEncoder.configure(chosenFormat.audioConfig);
+
+            // 3. Encode Audio in 0.5s chunks
+            if (onProgress) onProgress(15, 'Đang nén luồng âm thanh...');
+            const channelData = mixedAudio.getChannelData(0);
+            const audioChunkFrames = sampleRate / 2;
+            for (let offset = 0; offset < channelData.length; offset += audioChunkFrames) {
+                if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+                if (encodeErr) throw encodeErr;
+                const slice = channelData.subarray(offset, Math.min(channelData.length, offset + audioChunkFrames));
+                const audioData = new AudioData({
+                    format: 'f32-planar',
+                    sampleRate,
+                    numberOfFrames: slice.length,
+                    numberOfChannels: 1,
+                    timestamp: Math.round((offset / sampleRate) * 1_000_000),
+                    data: slice
+                });
+                audioEncoder.encode(audioData);
+                audioData.close();
+            }
+
+            // 4. Render & Encode Video Frames (~8-10x faster than realtime)
+            const totalFrames = Math.max(1, Math.ceil(totalDuration * fps));
+            const frameDurationUs = Math.round(1_000_000 / fps);
+
+            for (let f = 0; f < totalFrames; f++) {
+                if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+                if (encodeErr) throw encodeErr;
+
+                const t = Math.min(Math.max(0, totalDuration - 0.001), f / fps);
+                renderFrameAtTime(t);
+
+                const videoFrame = new VideoFrame(canvasEl, {
+                    timestamp: Math.round((f / fps) * 1_000_000),
+                    duration: frameDurationUs
+                });
+                videoEncoder.encode(videoFrame, { keyFrame: f % (fps * 2) === 0 });
+                videoFrame.close();
+
+                if (videoEncoder.encodeQueueSize > 8 || f % 10 === 0) {
+                    const pct = 18 + Math.round(((f + 1) / totalFrames) * 77);
+                    if (onProgress) onProgress(pct, `Đang xuất ${chosenFormat.container.toUpperCase()} (${f + 1}/${totalFrames} khung hình)...`);
+                    while (videoEncoder.encodeQueueSize > 8) {
+                        await new Promise((r) => setTimeout(r, 8));
+                    }
+                    if (f % 10 === 0) {
+                        await new Promise((r) => setTimeout(r, 0));
+                    }
+                }
+            }
+
+            if (onProgress) onProgress(97, `Đang đóng gói file .${chosenFormat.container}...`);
+            await videoEncoder.flush();
+            await audioEncoder.flush();
+            if (encodeErr) throw encodeErr;
+
+            muxer.finalize();
+            renderFrameAtTime(0);
+
+            return {
+                blob: new Blob([muxer.target.buffer], { type: chosenFormat.mimeType }),
+                mimeType: chosenFormat.mimeType
+            };
+        } finally {
+            isRecording = false;
+            try {
+                if (videoEncoder && videoEncoder.state !== 'closed') videoEncoder.close();
+            } catch (_) {}
+            try {
+                if (audioEncoder && audioEncoder.state !== 'closed') audioEncoder.close();
+            } catch (_) {}
+            if (callbacks.onStateChange) callbacks.onStateChange(getPlaybackState());
+        }
+    }
+
+    async function startPlayback({ startAt = null, bgmStyle = 'upbeat', recordMode = false, onRecordComplete = null, onRecordProgress = null, onRecordError = null } = {}) {
         if (studioScenes.length === 0) return;
 
         stopPlayback({ resetToZero: false });
@@ -715,7 +1156,7 @@
                 src.buffer = scene.audioBuffer;
                 const rate = scene.playbackRate || 1.18;
                 src.playbackRate.value = rate;
-                src.connect(ctxAudio.destination);
+                if (!recordMode) src.connect(ctxAudio.destination);
                 if (destNode) src.connect(destNode);
 
                 if (playbackOffset <= sceneStart) {
@@ -737,7 +1178,7 @@
         if (bgmBuffer) {
             const bgmNode = ctxAudio.createBufferSource();
             bgmNode.buffer = bgmBuffer;
-            bgmNode.connect(ctxAudio.destination);
+            if (!recordMode) bgmNode.connect(ctxAudio.destination);
             if (destNode) bgmNode.connect(destNode);
             bgmNode.start(audioStartTime, playbackOffset % bgmBuffer.duration);
             activeAudioSources.push(bgmNode);
@@ -746,34 +1187,48 @@
         // Setup MediaRecorder if exporting
         const recordedChunks = [];
         if (recordMode && canvasEl) {
-            const canvasStream = canvasEl.captureStream(30);
-            const combinedStream = new MediaStream([
-                ...canvasStream.getVideoTracks(),
-                ...destNode.stream.getAudioTracks()
-            ]);
+            try {
+                const canvasStream = canvasEl.captureStream(30);
+                const combinedStream = new MediaStream([
+                    ...canvasStream.getVideoTracks(),
+                    ...destNode.stream.getAudioTracks()
+                ]);
 
-            const mimeTypes = [
-                'video/webm;codecs=vp9,opus',
-                'video/webm;codecs=vp8,opus',
-                'video/webm'
-            ];
-            const supportedMime = mimeTypes.find((m) => global.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+                const mimeTypes = [
+                    'video/mp4;codecs=avc1,mp4a.40.2',
+                    'video/mp4',
+                    'video/webm;codecs=vp9,opus',
+                    'video/webm;codecs=vp8,opus',
+                    'video/webm'
+                ];
+                const supportedMime = mimeTypes.find((m) => global.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
 
-            activeRecorder = new MediaRecorder(
-                combinedStream,
-                supportedMime ? { mimeType: supportedMime } : {}
-            );
-            activeRecorder.ondataavailable = (e) => {
-                if (e.data && e.data.size > 0) recordedChunks.push(e.data);
-            };
-            activeRecorder.onstop = () => {
-                const type = supportedMime || 'video/webm';
-                const blob = new Blob(recordedChunks, { type });
-                if (onRecordComplete && recordedChunks.length > 0) {
-                    onRecordComplete(blob, type);
-                }
-            };
-            activeRecorder.start(250);
+                activeRecorder = new MediaRecorder(
+                    combinedStream,
+                    supportedMime ? { mimeType: supportedMime } : {}
+                );
+                activeRecorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+                };
+                activeRecorder.onerror = (ev) => {
+                    stopPlayback({ resetToZero: true });
+                    if (onRecordError) onRecordError(ev?.error || new Error('Lỗi ghi video trên trình duyệt.'));
+                };
+                activeRecorder.onstop = () => {
+                    const type = supportedMime || 'video/webm';
+                    const blob = new Blob(recordedChunks, { type });
+                    if (onRecordComplete && recordedChunks.length > 0) {
+                        onRecordComplete(blob, type);
+                    } else if (onRecordError) {
+                        onRecordError(new Error('Không thu được dữ liệu video.'));
+                    }
+                };
+                activeRecorder.start(250);
+            } catch (recErr) {
+                stopPlayback({ resetToZero: true });
+                if (onRecordError) onRecordError(recErr);
+                return;
+            }
         }
 
         if (callbacks.onStateChange) callbacks.onStateChange(getPlaybackState());
@@ -798,6 +1253,9 @@
                 return;
             }
             renderFrameAtTime(current);
+            if (isRecording && onRecordProgress && totalDuration > 0) {
+                onRecordProgress(Math.min(99, Math.round((current / totalDuration) * 100)));
+            }
             rafId = requestAnimationFrame(tick);
         };
 
@@ -819,11 +1277,34 @@
         }
     }
 
+    let previewBgmSource = null;
+
+    function previewBgmSample(style = 'upbeat', durationSec = 3.5) {
+        if (previewBgmSource) {
+            try {
+                previewBgmSource.stop();
+                previewBgmSource.disconnect();
+            } catch (_) {}
+            previewBgmSource = null;
+        }
+        if (style === 'none') return;
+        const ctxAudio = ensureAudioContext();
+        const buf = getCachedBgmBuffer(ctxAudio, style, durationSec);
+        if (!buf) return;
+        const src = ctxAudio.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctxAudio.destination);
+        src.start(ctxAudio.currentTime);
+        previewBgmSource = src;
+    }
+
     App.mediaEngine = {
         bindCanvasElements,
         ensureAudioContext,
+        previewBgmSample,
         decodeTtsToAudioBuffer,
         pcm16ToAudioBuffer,
+        splitAudioBufferIntoBeats,
         splitCombinedAudioBuffer,
         createSilentBuffer,
         loadImageFromUrl,
@@ -835,6 +1316,7 @@
         getPlaybackState,
         drawPlaceholderCanvas,
         renderFrameAtTime,
+        fastExportVideo,
         startPlayback,
         pausePlayback,
         stopPlayback,

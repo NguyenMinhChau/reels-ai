@@ -23,12 +23,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="css/styles.css">
 
+    <!-- Fast MP4/WebM Muxers for WebCodecs non-realtime export (falls back cleanly to MediaRecorder if offline) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/mp4-muxer@5/build/mp4-muxer.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/webm-muxer@5/build/webm-muxer.js"></script>
+
     <!-- Modular Application Scripts (defer preserves execution order & works on file:// + http://) -->
     <script defer src="js/config.js"></script>
     <script defer src="js/utils.js"></script>
     <script defer src="js/data/defaultScripts.js"></script>
     <script defer src="js/store.js"></script>
     <script defer src="js/services/geminiApi.js"></script>
+    <script defer src="js/services/motionGraphics.js"></script>
     <script defer src="js/services/mediaEngine.js"></script>
     <script defer src="js/ui/toast.js"></script>
     <script defer src="js/ui/modals.js"></script>
@@ -143,33 +148,47 @@
         <!-- ==================== TAB 1: KHO KỊCH BẢN MẪU ==================== -->
         <section id="view-library" class="space-y-4">
             <div class="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div>
+                <!-- Row 1: Title & Primary AI Dump CTA -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="min-w-0">
                         <h2 class="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">Kho Kịch Bản Cuộc Sống Hằng Ngày</h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Tự động AI Dump 3 ý tưởng mới mỗi lần mở trang (khi có API Key) — không bao giờ trùng lặp</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Tự động AI Dump 3 ý tưởng mới mỗi lần mở trang — không bao giờ trùng lặp</p>
                         <p id="library-auto-dump-status" class="hidden text-xs font-bold text-amber-600 dark:text-amber-400 mt-1"></p>
                     </div>
-                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                        <div class="relative sm:w-52">
-                            <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs absolute left-3 top-1/2 -translate-y-1/2"></i>
-                            <input type="search" id="library-search" placeholder="Tìm tiêu đề, hashtag..." class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
-                        </div>
-                        <button type="button" id="btn-shuffle-topics" class="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer" title="Đảo chủ đề mới lên đầu">
-                            <i class="fa-solid fa-arrows-rotate text-indigo-500"></i> <span>Đổi chủ đề</span>
-                        </button>
-                        <button type="button" id="btn-dump-scripts" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
-                            <i class="fa-solid fa-sparkles"></i> <span>Dump Thêm 3 Ý Tưởng Mới</span>
+                    <button type="button" id="btn-dump-scripts" class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-sparkles"></i> <span>Dump Thêm 3 Ý Tưởng Mới</span>
+                    </button>
+                </div>
+
+                <!-- Row 2: Search, Tone & Shuffle Controls -->
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div class="relative sm:col-span-6 min-w-0">
+                        <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs absolute left-3 top-1/2 -translate-y-1/2"></i>
+                        <input type="search" id="library-search" placeholder="Tìm tiêu đề, hashtag..." class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="grid grid-cols-2 sm:col-span-6 gap-2 min-w-0">
+                        <select id="library-tone" class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-indigo-500 truncate" title="Phong cách AI viết kịch bản">
+                            <option value="viral" selected>🔥 Gu Triệu View</option>
+                            <option value="funny">😂 Hài Xéo Xắt</option>
+                            <option value="drama">⚠️ Kịch Tính / Sốc</option>
+                            <option value="healing">🌙 Tâm Sự / Chữa Lành</option>
+                        </select>
+                        <button type="button" id="btn-shuffle-topics" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer" title="Đảo chủ đề mới lên đầu">
+                            <i class="fa-solid fa-arrows-rotate text-indigo-500"></i> <span class="truncate">Đổi chủ đề</span>
                         </button>
                     </div>
                 </div>
 
                 <!-- Category Filter Pills -->
                 <div id="category-filter-bar" class="flex items-center gap-2 overflow-x-auto no-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <button type="button" class="cat-btn active shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white transition cursor-pointer" data-cat="all">Tất cả (12)</button>
-                    <button type="button" class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer" data-cat="humor">😂 Hài hước đời thường</button>
-                    <button type="button" class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer" data-cat="lifehack">💡 Mẹo vặt cuộc sống</button>
-                    <button type="button" class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer" data-cat="vlog">☕ Mini Vlog 1 ngày</button>
-                    <button type="button" class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer" data-cat="bts">🎬 Sự thật &amp; Hậu trường</button>
+                    <button type="button" class="cat-btn active shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white transition cursor-pointer" data-cat="all">Tất cả (45)</button>
+                    <button type="button" class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer" data-cat="warning">⚠️ Cảnh báo</button>
+                    <button type="button" class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer" data-cat="reminder">🔔 Nhắc nhở</button>
+                    <button type="button" class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer" data-cat="music">🎵 Nhạc &amp; Mood</button>
+                    <button type="button" class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer" data-cat="lifehack">💡 Mẹo vặt</button>
+                    <button type="button" class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer" data-cat="humor">😂 Hài hước</button>
+                    <button type="button" class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer" data-cat="vlog">☕ Mini Vlog</button>
+                    <button type="button" class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer" data-cat="bts">🎬 Sự thật</button>
                     <button type="button" id="btn-filter-new" class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200/70 transition cursor-pointer flex items-center gap-1">
                         <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i> <span>Chỉ xem AI mới</span>
                     </button>
@@ -426,7 +445,7 @@
                             <input type="file" id="input-import-backup" accept="application/json,.json" class="hidden">
                         </label>
                         <button type="button" id="btn-reset-templates" class="px-3.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-500/15 hover:bg-amber-100 text-amber-800 dark:text-amber-300 text-xs font-bold cursor-pointer flex items-center gap-1.5">
-                            <i class="fa-solid fa-rotate-left"></i> Khôi phục 30 mẫu gốc
+                            <i class="fa-solid fa-rotate-left"></i> Khôi phục 45 mẫu gốc
                         </button>
                     </div>
                 </div>
@@ -460,7 +479,7 @@
             <div class="p-4 sm:p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
                 <!-- Left: Script & Audio Config -->
-                <div class="lg:col-span-7 space-y-3.5">
+                <div class="lg:col-span-7 space-y-3.5 min-w-0">
                     <div class="flex items-center justify-between gap-2 flex-wrap">
                         <span id="vs-api-mode-note" class="text-[11px] font-semibold text-amber-700">Chế độ Offline</span>
                     </div>
@@ -472,45 +491,76 @@
 
                     <!-- 5 Scene Inputs -->
                     <div class="space-y-2.5 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/70">
-                        <div class="flex items-center justify-between flex-wrap gap-1.5">
-                            <span class="text-xs font-bold text-slate-700 dark:text-slate-200"><i class="fa-solid fa-microphone-lines text-indigo-600 dark:text-indigo-400 mr-1"></i> Lời thoại kể chuyện (5 cảnh • 20–35s)</span>
-                            <div class="flex items-center gap-2">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-xs font-bold text-slate-700 dark:text-slate-200"><i class="fa-solid fa-microphone-lines text-indigo-600 dark:text-indigo-400 mr-1"></i> Lời thoại 5 cảnh (20–35s)</span>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <select id="vs-tone" class="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-[11px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-indigo-500">
+                                    <option value="viral" selected>🔥 Gu Triệu View</option>
+                                    <option value="funny">😂 Hài Xéo Xắt</option>
+                                    <option value="drama">⚠️ Kịch Tính / Sốc</option>
+                                    <option value="healing">🌙 Tâm Sự / Chữa Lành</option>
+                                </select>
                                 <button id="btn-rewrite-story" type="button" class="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-500/20 hover:bg-amber-200 text-amber-900 dark:text-amber-300 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer disabled:opacity-60">
-                                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Viết lời thoại cuốn hơn</span>
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Viết lại cực cuốn</span>
                                 </button>
-                                <span id="vs-img-status" class="text-[11px] text-emerald-700 dark:text-emerald-300 font-bold hidden sm:inline">Chế độ ảnh thật tự nhiên</span>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 gap-2 max-h-[240px] overflow-y-auto pr-1">
-                            <div class="flex items-center gap-2">
+                        <div class="grid grid-cols-1 gap-2">
+                            <div class="flex items-center gap-2 min-w-0">
                                 <span class="w-16 shrink-0 text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/20 px-2 py-1 rounded-lg text-center">1. Hook</span>
-                                <input type="text" id="vs-scene-1" placeholder="Câu mở đầu 3 giây đầu gây tò mò..." class="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500">
+                                <input type="text" id="vs-scene-1" placeholder="Câu mở đầu 3 giây đầu gây tò mò..." class="w-full min-w-0 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500">
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 min-w-0">
                                 <span class="w-16 shrink-0 text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/20 px-2 py-1 rounded-lg text-center">2. Bối cảnh</span>
-                                <input type="text" id="vs-scene-2" placeholder="Thực trạng đời thường ai cũng gặp..." class="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500">
+                                <input type="text" id="vs-scene-2" placeholder="Thực trạng đời thường ai cũng gặp..." class="w-full min-w-0 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500">
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 min-w-0">
                                 <span class="w-16 shrink-0 text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/20 px-2 py-1 rounded-lg text-center">3. Bước 1</span>
-                                <input type="text" id="vs-scene-3" placeholder="Diễn biến / Cách làm chi tiết 1..." class="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500">
+                                <input type="text" id="vs-scene-3" placeholder="Diễn biến / Cách làm chi tiết 1..." class="w-full min-w-0 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500">
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 min-w-0">
                                 <span class="w-16 shrink-0 text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/20 px-2 py-1 rounded-lg text-center">4. Bước 2</span>
-                                <input type="text" id="vs-scene-4" placeholder="Bí quyết đắt giá / Diễn biến 2..." class="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500">
+                                <input type="text" id="vs-scene-4" placeholder="Bí quyết đắt giá / Diễn biến 2..." class="w-full min-w-0 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500">
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 min-w-0">
                                 <span class="w-16 shrink-0 text-[10px] font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-lg text-center">5. Kết/CTA</span>
-                                <input type="text" id="vs-scene-5" placeholder="Thành quả &amp; Kêu gọi Follow..." class="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500">
+                                <input type="text" id="vs-scene-5" placeholder="Thành quả &amp; Kêu gọi Follow..." class="w-full min-w-0 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500">
                             </div>
                         </div>
                     </div>
 
-                    <!-- Voice, Speed, BGM, Image Source & Upload -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
-                        <div>
-                            <label for="vs-voice" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Giọng đọc AI Việt</label>
-                            <select id="vs-voice" class="w-full px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold bg-white dark:bg-slate-800 focus:outline-none focus:border-indigo-500">
+                    <!-- Voice, Style, Scene Pacing, Speed & BGM (Balanced 3x2 / 2x3 Grid with min-w-0) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                        <div class="min-w-0">
+                            <label for="vs-visual-style" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 truncate">Phong cách Video</label>
+                            <select id="vs-visual-style" class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-amber-300 dark:border-amber-500/40 bg-amber-50/70 dark:bg-amber-500/10 text-amber-950 dark:text-amber-200 text-xs font-bold focus:outline-none focus:border-amber-500 truncate">
+                                <option value="motion" selected>🎬 Hoạt Hình 2D (Cuốn nhất)</option>
+                                <option value="photo">📷 Ảnh Thật / Ảnh AI</option>
+                            </select>
+                        </div>
+
+                        <div class="min-w-0">
+                            <label for="vs-scene-pacing" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 truncate">Nhịp chuyển cảnh</label>
+                            <select id="vs-scene-pacing" class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50/50 dark:bg-indigo-500/10 text-indigo-900 dark:text-indigo-200 text-xs font-bold focus:outline-none focus:border-indigo-500 truncate">
+                                <option value="dynamic" selected>⚡ Nhiều cảnh (10–15 nhịp khớp giọng)</option>
+                                <option value="standard">🎞️ 5 cảnh tiêu chuẩn</option>
+                            </select>
+                        </div>
+
+                        <div class="min-w-0">
+                            <label for="vs-tts-engine" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 truncate">Động cơ Giọng đọc</label>
+                            <select id="vs-tts-engine" class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50/60 dark:bg-emerald-500/10 text-emerald-900 dark:text-emerald-200 text-xs font-bold focus:outline-none focus:border-emerald-500 truncate">
+                                <option value="live-3.8" selected>🚀 Gemini 3.8 Live (Free)</option>
+                                <option value="live-3-flash">⚡ Gemini 3 Flash Live</option>
+                                <option value="tts-lite">🔊 Gemini 3.8 Lite TTS</option>
+                                <option value="tts-pro">🎙️ Gemini 3.8 TTS Pro</option>
+                            </select>
+                        </div>
+
+                        <div class="min-w-0">
+                            <label for="vs-voice" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 truncate">Giọng đọc AI Việt</label>
+                            <select id="vs-voice" class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold bg-white dark:bg-slate-800 focus:outline-none focus:border-indigo-500 truncate">
                                 <option value="Aoede">👩 Nữ Truyền Cảm</option>
                                 <option value="Fenrir">👨 Nam Năng Lượng</option>
                                 <option value="Puck">👨 Nam Vui Tươi</option>
@@ -518,41 +568,55 @@
                             </select>
                         </div>
 
-                        <div>
-                            <label for="vs-speed" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Nhịp độ đọc</label>
-                            <select id="vs-speed" class="w-full px-2.5 py-2 rounded-xl border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50/50 dark:bg-indigo-500/10 text-indigo-900 dark:text-indigo-200 text-xs font-bold focus:outline-none focus:border-indigo-500">
+                        <div class="min-w-0">
+                            <label for="vs-speed" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 truncate">Nhịp độ đọc</label>
+                            <select id="vs-speed" class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50/50 dark:bg-indigo-500/10 text-indigo-900 dark:text-indigo-200 text-xs font-bold focus:outline-none focus:border-indigo-500 truncate">
                                 <option value="1.18" selected>⚡ 1.18x Cuốn hút</option>
                                 <option value="1.28">🔥 1.28x Siêu tốc</option>
                                 <option value="1.05">🎙️ 1.05x Tự nhiên</option>
                             </select>
                         </div>
 
-                        <div>
-                            <label for="vs-bgm" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Nhạc nền Chill</label>
-                            <select id="vs-bgm" class="w-full px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold bg-white dark:bg-slate-800 focus:outline-none focus:border-indigo-500">
-                                <option value="upbeat" selected>🎶 Vui Tươi</option>
-                                <option value="lofi">🎵 Lo-Fi Chill</option>
-                                <option value="none">🔇 Chỉ Giọng Đọc</option>
-                            </select>
+                        <div class="min-w-0">
+                            <label for="vs-bgm" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 truncate">Nhạc nền &amp; Tạo Mood</label>
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <select id="vs-bgm" class="flex-1 min-w-0 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold bg-white dark:bg-slate-800 focus:outline-none focus:border-indigo-500 truncate">
+                                    <option value="upbeat" selected>🎶 Vui Tươi Bắt Trend</option>
+                                    <option value="lofi">🎵 Lo-Fi Chill Tập Trung</option>
+                                    <option value="morning">☀️ Buổi Sáng Tích Cực</option>
+                                    <option value="alert">⚠️ Nhịp Cảnh Báo</option>
+                                    <option value="healing">🌙 Chữa Lành / Dễ Ngủ</option>
+                                    <option value="none">🔇 Chỉ Giọng Đọc</option>
+                                </select>
+                                <button type="button" id="btn-preview-bgm" class="px-2.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-300 text-xs font-bold shrink-0 cursor-pointer flex items-center gap-1" title="Nghe thử nhạc nền">
+                                    <i class="fa-solid fa-music"></i> <span class="hidden sm:inline">Nghe</span>
+                                </button>
+                            </div>
                         </div>
+                    </div>
 
-                        <div>
-                            <label for="vs-image-source" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Nguồn ảnh nền</label>
-                            <select id="vs-image-source" class="w-full px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold focus:outline-none focus:border-indigo-500">
-                                <option value="ai" selected>✨ 5 Ảnh AI (Gemini)</option>
+                    <!-- Photo Options Row (shown only when Phong cách Video = Ảnh Thật / Ảnh AI) -->
+                    <div id="vs-photo-options-row" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/70">
+                        <div class="min-w-0">
+                            <label for="vs-image-source" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 truncate">Nguồn ảnh nền</label>
+                            <select id="vs-image-source" class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50/60 dark:bg-emerald-500/10 text-emerald-900 dark:text-emerald-200 text-xs font-bold focus:outline-none focus:border-emerald-500 truncate">
+                                <option value="stock" selected>📷 Ảnh thật HD (Free • 0 429)</option>
                                 <option value="hybrid">⚡ Tiết kiệm (2 AI + 3 thật)</option>
-                                <option value="stock">📷 Ảnh thật (0 tốn API ảnh)</option>
+                                <option value="ai">✨ 5 Ảnh AI (Gemini)</option>
                             </select>
                         </div>
 
-                        <div>
-                            <span class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Ảnh cá nhân</span>
-                            <div class="flex items-center gap-1">
-                                <label class="flex-1 px-2.5 py-2 rounded-xl border border-dashed border-indigo-400 bg-indigo-50/60 dark:bg-indigo-500/10 hover:bg-indigo-100/70 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition truncate">
-                                    <i class="fa-solid fa-image"></i> <span>Tải ảnh</span>
+                        <div class="min-w-0">
+                            <div class="flex items-center justify-between gap-1 mb-1">
+                                <span class="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">Ảnh cá nhân (tùy chọn)</span>
+                                <span id="vs-img-status" class="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold truncate">Ảnh tự động</span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <label class="flex-1 min-w-0 px-2.5 py-2 rounded-xl border border-dashed border-indigo-400 bg-indigo-50/60 dark:bg-indigo-500/10 hover:bg-indigo-100/70 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition truncate">
+                                    <i class="fa-solid fa-image"></i> <span class="truncate">Tải 1–5 ảnh</span>
                                     <input type="file" id="vs-upload-images" accept="image/*" multiple class="hidden">
                                 </label>
-                                <button type="button" id="btn-clear-custom-images" class="px-2 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 text-slate-500 text-xs cursor-pointer" title="Xóa ảnh đã chọn">
+                                <button type="button" id="btn-clear-custom-images" class="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 text-slate-500 text-xs shrink-0 cursor-pointer" title="Xóa ảnh đã chọn">
                                     <i class="fa-solid fa-rotate-left"></i>
                                 </button>
                             </div>
@@ -573,16 +637,32 @@
                     <!-- Action Buttons -->
                     <div class="flex flex-col sm:flex-row gap-2.5 pt-1">
                         <button type="button" id="btn-generate-ai-assets" class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-indigo-500/25 transition flex items-center justify-center gap-2 cursor-pointer">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i> <span>1. Tạo Video 5 Cảnh &amp; Giọng Đọc</span>
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> <span>1. Tạo Video Nhiều Cảnh &amp; Giọng Đọc</span>
                         </button>
                         <button type="button" id="btn-export-video" disabled class="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 cursor-pointer">
                             <i class="fa-solid fa-download"></i> <span>2. Xuất &amp; Tải Video Về Máy</span>
                         </button>
                     </div>
+
+                    <!-- Mobile & Desktop Ready Download / Share Bar -->
+                    <div id="vs-export-ready-box" class="hidden bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div class="text-xs text-emerald-900 dark:text-emerald-200 font-semibold flex items-center gap-2">
+                            <i class="fa-solid fa-file-video text-emerald-600 dark:text-emerald-400 text-base shrink-0"></i>
+                            <span id="vs-export-file-info">Video đã sẵn sàng tải về</span>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <a id="btn-manual-download" href="#" download="reels-video.mp4" class="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer">
+                                <i class="fa-solid fa-download"></i> <span>Tải Video</span>
+                            </a>
+                            <button type="button" id="btn-share-video" class="hidden flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer">
+                                <i class="fa-solid fa-share-nodes"></i> <span>Lưu vào Ảnh / Share</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Right: 9:16 Preview Phone Frame -->
-                <div class="lg:col-span-5 flex flex-col items-center">
+                <div class="lg:col-span-5 flex flex-col items-center lg:sticky lg:top-2 min-w-0">
                     <div class="relative w-full max-w-[270px] aspect-[9/16] bg-slate-950 rounded-[28px] p-2 shadow-2xl border-4 border-slate-800">
                         <canvas id="reels-canvas" width="540" height="960" class="w-full h-full rounded-[20px] bg-slate-900 object-cover block"></canvas>
 

@@ -9,7 +9,7 @@
     'use strict';
 
     const App = (global.ReelsStudio = global.ReelsStudio || {});
-    const { GEMINI_BASE_URL, MODELS, API_POLICY } = App.CONFIG;
+    const { GEMINI_BASE_URL, GEMINI_LIVE_WS_URL, MODELS, API_POLICY } = App.CONFIG;
     const { hashString, base64ToArrayBuffer, sleep } = App.utils;
 
     class ApiError extends Error {
@@ -206,6 +206,37 @@
         cooldowns.set(actionName, now + cooldownMs);
     }
 
+    async function fetchTextWithFallback(payload, { signal, apiKeyOverride } = {}) {
+        const candidates = [MODELS.TEXT, ...(MODELS.TEXT_FALLBACKS || [])].filter(Boolean);
+        let lastErr = null;
+
+        for (let i = 0; i < candidates.length; i++) {
+            const modelName = candidates[i];
+            try {
+                return await fetchGeminiWithRetry(modelName, payload, { signal, apiKeyOverride });
+            } catch (err) {
+                if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+                lastErr = err;
+                const shouldFallback =
+                    err.status === 429 ||
+                    err.status === 404 ||
+                    err.status === 500 ||
+                    err.status === 502 ||
+                    err.status === 503 ||
+                    err.status === 504 ||
+                    err.code === 'QUOTA_EXHAUSTED' ||
+                    err.code === 'RATE_LIMITED' ||
+                    err.code === 'SERVER_ERROR';
+
+                if (!shouldFallback || i === candidates.length - 1) {
+                    throw err;
+                }
+                console.warn(`Text model ${modelName} unavailable (${err.status || err.code}), switching to ${candidates[i + 1]}`);
+            }
+        }
+        throw lastErr || new ApiError('SERVER_ERROR', 'Không có model văn bản khả dụng.');
+    }
+
     async function testApiKey(candidateKey) {
         const clean = String(candidateKey || '').trim();
         if (!clean) throw new ApiError('MISSING_API_KEY', 'Vui lòng nhập API Key');
@@ -214,22 +245,29 @@
             contents: [{ parts: [{ text: 'Reply with OK' }] }],
             generationConfig: { maxOutputTokens: 8 }
         };
-        await fetchGeminiWithRetry(MODELS.TEXT, payload, { apiKeyOverride: clean });
+        await fetchTextWithFallback(payload, { apiKeyOverride: clean });
         return true;
     }
 
     const CREATIVE_ANGLES = [
+        'cảnh báo an toàn đời sống, lừa đảo online/tin nhắn giả mạo, an toàn điện nước hoặc thực phẩm',
+        'nhắc nhở nhẹ nhàng thói quen tốt hằng ngày: uống nước, giãn cơ, gọi về cho gia đình, nghỉ ngơi',
+        'chủ đề nhạc chill, tạo mood thư giãn làm việc, âm thanh chữa lành dễ ngủ và chọn nhạc nền Reels',
         'mẹo quản lý tài chính cá nhân, chi tiêu thông minh và tiết kiệm cuối tháng',
         'mẹo vặt nhà bếp, bảo quản thực phẩm và nấu ăn nhanh 15 phút',
-        'thói quen buổi sáng/tối giúp nâng cao sức khỏe và ngủ ngon hơn',
         'tình huống hài hước chốn công sở, sinh viên và gia đình Việt Nam',
         'công nghệ đời thường: mẹo điện thoại, bảo mật, tối ưu pin và làm việc từ xa',
-        'dọn dẹp nhà cửa tối giản, decor góc làm việc và chăm sóc đồ dùng',
-        'hậu trường sáng tạo nội dung, quay dựng bằng điện thoại và chụp ảnh đẹp',
-        'kỹ năng giao tiếp, xử lý tình huống khó đỡ ngoài xã hội một cách tinh tế'
+        'dọn dẹp nhà cửa tối giản, decor góc làm việc và hậu trường sáng tạo nội dung'
     ];
 
-    async function dumpFreshScripts({ existingTitles, category, categoryLabel, signal }) {
+    const TONE_GUIDES = {
+        viral: 'Phong cách TRIỆU VIEW BẮT TREND: Hook cực gắt dưới 15 từ đánh thẳng vào sai lầm/bí mật/con số sốc; văn nói đời thường gãy gọn ("Khoan đã...", "Nghe vô lý nhưng...", "90% người làm sai..."); có bước ngoặt bất ngờ ở cảnh 4; CTA đặt câu hỏi kích thích bình luận tranh luận nhẹ.',
+        funny: 'Phong cách HÀI XÉO XẮT / GEN Z: Tự trào, lầy lội, hơi phũ nhưng đúng tim đen; câu ngắn tung hứng duyên dáng kiểu nói chuyện với bạn thân; CTA rủ bạn bè vào điểm danh hoặc tag nhau.',
+        drama: 'Phong cách CẢNH BÁO / KỊCH TÍNH: Mở đầu khẩn cấp gây chú ý ngay ("Dừng lại 3 giây nếu bạn đang..."); chỉ rõ rủi ro mất tiền/hại sức khỏe; giải pháp dứt khoát; CTA nhắc gửi ngay cho người thân.',
+        healing: 'Phong cách TÂM SỰ / CHỮA LÀNH: Thủ thỉ gần gũi, chạm đúng nỗi lòng người trẻ/người đi làm; hình ảnh đời thường ấm áp; CTA tạo cảm giác được lắng nghe và muốn lưu lại.'
+    };
+
+    async function dumpFreshScripts({ existingTitles, category, categoryLabel, tone = 'viral', signal }) {
         return dedupedCall('dumpScripts', async () => {
             checkCooldown('dumpScripts', API_POLICY.DUMP_COOLDOWN_MS);
 
@@ -238,27 +276,29 @@
                 .slice(0, 3)
                 .join('; ');
 
+            const toneRule = TONE_GUIDES[tone] || TONE_GUIDES.viral;
             const categoryContext =
                 category !== 'all'
                     ? `Tập trung chủ yếu vào ngách "${categoryLabel || category}".`
                     : `Hãy khai thác 3 góc nhìn/chủ đề hoàn toàn mới mẻ sau đây để đa dạng nội dung: (${pickedAngles}).`;
 
-            const prompt = `Hãy sáng tạo 3 kịch bản video ngắn Facebook Reels chủ đề cuộc sống hằng ngày tại Việt Nam thật mới lạ, bắt trend năm 2026, gần gũi, dễ quay hoặc dựng bằng AI và có khả năng lên xu hướng cao. ${categoryContext}
-QUY TẮC BẮT BUỘC: Tuyệt đối KHÔNG trùng ý tưởng hoặc lặp lại nội dung với danh sách các tiêu đề đã có sau đây: [${existingTitles.slice(0, 45).join('; ')}].
-Mỗi kịch bản cần có:
-- title: Tiêu đề ngắn gọn, thu hút.
-- category: Chỉ chọn 1 trong 4 giá trị chính xác: "humor", "lifehack", "vlog", "bts".
-- duration: Thời lượng đề xuất (ví dụ "25s", "28s").
-- viralScore: Điểm dự đoán xu hướng từ "93%" đến "99%".
-- hook: Câu mở đầu 3 giây đầu gây tò mò hoặc đánh trúng tâm lý.
-- body: Đúng 4 ý diễn biến câu chuyện cuốn hút, tự nhiên (dùng ký tự "• " đầu mỗi dòng, không ghi mốc giây khô khan).
-- cta: Câu kêu gọi bình luận/lưu/follow tự nhiên.
-- hashtags: 4-5 hashtag tiếng Việt không dấu phù hợp.`;
+            const prompt = `Bạn là Creative Director chuyên viết kịch bản Facebook Reels triệu view tại Việt Nam.
+Hãy sáng tạo 3 kịch bản Reels đời sống CỰC CUỐN, ĐỌC LÊN NGHE NHƯ NGƯỜI THẬT NÓI CHUYỆN (tuyệt đối CẤM văn phong sách giáo khoa, báo chí hay dạy đời sáo rỗng).
+${toneRule}
+${categoryContext}
+QUY TẮC BẮT BUỘC:
+- Tuyệt đối KHÔNG trùng ý tưởng với các tiêu đề đã có: [${existingTitles.slice(0, 45).join('; ')}].
+- Hook (3 giây đầu): Tối đa 16 từ, đánh thẳng vào tò mò, sai lầm phổ biến, mất tiền/tiết kiệm hoặc POV ai cũng dính.
+- Body: Đúng 4 ý ngắn (mỗi ý 12–22 từ, dùng ký tự "• " đầu dòng), nhịp nhanh, có cao trào hoặc chi tiết bất ngờ ở ý thứ 3–4.
+- CTA: Không xin follow kiểu công nghiệp; hãy hỏi một câu khiến người xem muốn comment ngay hoặc nhắc tag người thân.
+- category: Chỉ chọn 1 trong 7 giá trị: "humor", "lifehack", "warning", "reminder", "music", "vlog", "bts".
+- duration: Ví dụ "22s", "25s".
+- viralScore: Từ "94%" đến "99%".
+- hashtags: 4-5 hashtag tiếng Việt không dấu.`;
 
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
                 generationConfig: {
-                    temperature: 1.05,
                     responseMimeType: 'application/json',
                     responseSchema: {
                         type: 'ARRAY',
@@ -280,7 +320,7 @@ Mỗi kịch bản cần có:
                 }
             };
 
-            const result = await fetchGeminiWithRetry(MODELS.TEXT, payload, { signal });
+            const result = await fetchTextWithFallback(payload, { signal });
             const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!rawText) throw new ApiError('EMPTY_RESPONSE', 'Không nhận được phản hồi kịch bản từ AI');
             const parsed = JSON.parse(rawText);
@@ -289,21 +329,24 @@ Mỗi kịch bản cần có:
         });
     }
 
-    async function enhanceStorytelling({ title, draftLines, signal }) {
+    async function enhanceStorytelling({ title, draftLines, tone = 'viral', signal }) {
         checkCooldown('rewriteStory', API_POLICY.REWRITE_COOLDOWN_MS);
 
-        const prompt = `Bạn là biên kịch triệu view chuyên viết lời bình (voice-over) cho Facebook Reels đời sống tại Việt Nam.
-Hãy viết lại kịch bản sau thành đúng 5 đoạn lời thoại tiếng Việt thật tự nhiên, cuốn hút, giàu cảm xúc, có nhịp điệu, không dùng từ ngữ chỉ đạo quay phim khô khan (tuyệt đối KHÔNG viết "Quay cận cảnh...", "Hiển thị hình ảnh...").
+        const toneRule = TONE_GUIDES[tone] || TONE_GUIDES.viral;
+        const prompt = `Bạn là biên kịch triệu view chuyên viết lời bình (voice-over) cho Facebook Reels tại Việt Nam.
+Hãy viết lại kịch bản sau thành đúng 5 đoạn lời thoại VĂN NÓI ĐỜI THƯỜNG thật cuốn, nhịp nhanh, có hồn, nghe như một người thật đang kể chuyện hoặc bật mí bí mật cho bạn thân (TUYỆT ĐỐI CẤM giọng văn sách giáo khoa, quảng cáo sáo rỗng, hoặc chỉ đạo quay phim kiểu "Quay cận cảnh...").
+${toneRule}
+
 Tiêu đề: "${title}"
 Ý tưởng gốc:
 ${draftLines.join('\n')}
 
-Yêu cầu từng phần (mỗi phần dài khoảng 20-32 từ để đọc truyền cảm, đủ ý, không bị cụt):
-- Phần 1 (Hook 3s đầu): Câu mở đầu đánh thẳng vào tò mò, nỗi đau chung hoặc sự thật bất ngờ khiến người xem phải dừng lướt ngay.
-- Phần 2 (Bối cảnh / Cao trào): Kể tình huống thực tế ai cũng từng gặp, tạo sự đồng cảm sâu sắc.
-- Phần 3 (Giải pháp / Bước ngoặt 1): Bật mí cách làm hoặc diễn biến thú vị đầu tiên với giọng điệu hào hứng, gần gũi.
-- Phần 4 (Chi tiết đắt giá 2): Chia sẻ bí quyết cốt lõi hoặc chi tiết bất ngờ tạo giá trị thực tế cho người xem.
-- Phần 5 (Kết quả & Kêu gọi Follow): Chốt lại cảm xúc trọn vẹn và kêu gọi bình luận/Follow thật tự nhiên.`;
+Yêu cầu nghiêm ngặt cho đúng 5 phần (mỗi phần 15–26 từ, ngắn gọn dứt khoát để đọc tốc độ cao cực dính):
+- Phần 1 (Hook 3 giây đầu): Câu mở đầu đánh thẳng vào tâm lý ("Khoan đã...", "90% mọi người...", "Đừng làm điều này nữa nếu...") khiến người lướt phải khựng lại ngay.
+- Phần 2 (Nỗi đau / Thực tế phũ): Mô tả tình huống ai cũng từng dính phải bằng ngôn ngữ đời thường gần gũi.
+- Phần 3 (Bước ngoặt / Cách làm 1): Bật mí mẹo hoặc diễn biến bất ngờ đầu tiên với giọng điệu hào hứng, tự nhiên.
+- Phần 4 (Chi tiết đắt giá / Twist 2): Đưa ra điểm chốt ăn tiền hoặc bí quyết ít người để ý tạo cảm giác "À hóa ra là vậy!".
+- Phần 5 (Chốt & Kích bình luận): Câu kết gây đồng cảm hoặc đặt câu hỏi mở khiến người xem muốn comment trả lời ngay lập tức (hạn chế sáo rỗng kiểu "Follow để biết thêm").`;
 
         const payload = {
             contents: [{ parts: [{ text: prompt }] }],
@@ -316,8 +359,8 @@ Yêu cầu từng phần (mỗi phần dài khoảng 20-32 từ để đọc tru
             }
         };
 
-        return dedupedCall(`rewrite:${hashString(title + draftLines.join('|'))}`, async () => {
-            const result = await fetchGeminiWithRetry(MODELS.TEXT, payload, { signal });
+        return dedupedCall(`rewrite:${tone}:${hashString(title + draftLines.join('|'))}`, async () => {
+            const result = await fetchTextWithFallback(payload, { signal });
             const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
             const parsed = JSON.parse(raw);
             if (!Array.isArray(parsed) || parsed.length < 5) {
@@ -365,7 +408,7 @@ Narration segments:
                     }
                 };
 
-                const result = await fetchGeminiWithRetry(MODELS.TEXT, payload, { signal });
+                const result = await fetchTextWithFallback(payload, { signal });
                 const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
                 const parsed = JSON.parse(raw);
                 if (Array.isArray(parsed) && parsed.length >= 5) {
@@ -381,10 +424,81 @@ Narration segments:
         });
     }
 
-    async function fetchSceneTtsPcm({ text, voiceName, signal }) {
+    async function generateMultiBeatStoryboard({ title, beatTexts, templates, themes, signal }) {
+        const cleanBeats = (beatTexts || []).map((b) => String(b || '').trim()).filter(Boolean);
+        if (cleanBeats.length === 0) return null;
+
+        const cacheKey = `storyboard:${hashString(title + '|' + cleanBeats.join('|'))}`;
+        if (caches.prompts.has(cacheKey)) {
+            return caches.prompts.get(cacheKey);
+        }
+
+        const tplList = Array.isArray(templates) && templates.length > 0 ? templates : ['character', 'lightbulb', 'alert', 'checklist', 'clock'];
+        const themeList = Array.isArray(themes) && themes.length > 0 ? themes : ['cream', 'mint', 'sky', 'rose', 'lavender', 'amber', 'teal'];
+
+        return dedupedCall(cacheKey, async () => {
+            try {
+                const numberedBeats = cleanBeats.map((b, i) => `${i + 1}. "${b}"`).join('\n');
+                const prompt = `Bạn là Art Director dựng video Reels 2D Motion Infographic chuyển cảnh nhanh theo từng nhịp giọng đọc (1.5–2.5 giây/cảnh).
+Tiêu đề video: "${title}"
+Danh sách ${cleanBeats.length} nhịp lời thoại theo đúng thứ tự âm thanh:
+${numberedBeats}
+
+Hãy thiết kế storyboard đúng ${cleanBeats.length} phần tử khớp 1-1 với từng nhịp lời thoại trên:
+- template: Chọn từ [${tplList.join(', ')}] sao cho hình vẽ minh họa sát nhất với ý đang nói ở nhịp đó. TUYỆT ĐỐI KHÔNG chọn trùng template ở 2 nhịp liền kề nhau! Hãy thay đổi đa dạng hết mức có thể để video sống động.
+- theme: Chọn từ [${themeList.join(', ')}] sao cho KHÔNG trùng màu nền giữa 2 nhịp liền kề.
+- topBadge: Nhãn ngắn 2–3 từ VIẾT HOA nổi bật góc trên (VD: "⚠️ CẢNH BÁO", "💡 BÍ QUYẾT", "📱 MẸO SỐ", "BƯỚC 1").
+- cardLabel: Cụm 2–4 từ VIẾT HOA súc tích tóm tắt đúng nội dung nhịp thoại đó.
+- highlightBadge: Con số hoặc từ khóa điểm nhấn 1–3 từ VIẾT HOA (VD: "90% SAI", "5 PHÚT", "TIẾT KIỆM").`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: 'ARRAY',
+                            items: {
+                                type: 'OBJECT',
+                                properties: {
+                                    template: { type: 'STRING', enum: tplList },
+                                    theme: { type: 'STRING', enum: themeList },
+                                    topBadge: { type: 'STRING' },
+                                    cardLabel: { type: 'STRING' },
+                                    highlightBadge: { type: 'STRING' }
+                                },
+                                required: ['template', 'theme', 'topBadge', 'cardLabel', 'highlightBadge']
+                            }
+                        }
+                    }
+                };
+
+                const result = await fetchTextWithFallback(payload, { signal });
+                const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length >= cleanBeats.length) {
+                    const normalized = parsed.slice(0, cleanBeats.length).map((item) => ({
+                        template: tplList.includes(item.template) ? item.template : '',
+                        theme: themeList.includes(item.theme) ? item.theme : '',
+                        topBadge: String(item.topBadge || '').trim().slice(0, 22),
+                        cardLabel: String(item.cardLabel || '').trim().slice(0, 26),
+                        highlightBadge: String(item.highlightBadge || '').trim().slice(0, 20)
+                    }));
+                    caches.prompts.set(cacheKey, normalized);
+                    return normalized;
+                }
+            } catch (err) {
+                if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+                console.warn('Storyboard fallback to local analyzer:', err.message);
+            }
+            return null;
+        });
+    }
+
+    async function fetchSceneTtsPcm({ text, voiceName, ttsModel, signal }) {
         const cleanText = String(text || '').trim();
         const voice = voiceName || 'Aoede';
-        const cacheKey = `tts:${voice}:${hashString(cleanText)}`;
+        const targetModel = ttsModel || MODELS.TTS;
+        const cacheKey = `tts:${targetModel}:${voice}:${hashString(cleanText)}`;
 
         if (caches.ttsPcm.has(cacheKey)) {
             return { buffer: caches.ttsPcm.get(cacheKey), fromCache: true, rateLimited: false };
@@ -392,12 +506,13 @@ Narration segments:
 
         return dedupedCall(cacheKey, async () => {
             try {
+                // Gemini 3.8 TTS treats text strictly as verbatim transcript (no instruction prefix)
                 const payload = {
                     contents: [
                         {
                             parts: [
                                 {
-                                    text: `Hãy đọc bằng giọng tiếng Việt nhịp độ nhanh, năng lượng cao, nhấn nhá cuốn hút và dứt khoát như một vlogger/reviewer triệu view đang chia sẻ bí quyết hay (không đọc chậm rãi buồn ngủ): ${cleanText}`
+                                    text: cleanText
                                 }
                             ]
                         }
@@ -412,12 +527,12 @@ Narration segments:
                     }
                 };
 
-                const result = await fetchGeminiWithRetry(MODELS.TTS, payload, { signal });
+                const result = await fetchGeminiWithRetry(targetModel, payload, { signal });
                 const part = result?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
                 if (part?.inlineData?.data) {
                     const pcmBuffer = base64ToArrayBuffer(part.inlineData.data);
                     caches.ttsPcm.set(cacheKey, pcmBuffer);
-                    return { buffer: pcmBuffer, mimeType: part.inlineData.mimeType || 'audio/L16', fromCache: false, rateLimited: false };
+                    return { buffer: pcmBuffer, mimeType: part.inlineData.mimeType || 'audio/wav', fromCache: false, rateLimited: false };
                 }
             } catch (err) {
                 if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
@@ -529,6 +644,241 @@ Narration segments:
         });
     }
 
+    // Live API WebSocket Voice Synthesis (Unlimited RPD on Gemini 3.8 Live / 2.5 Native Audio)
+    function concatUint8Arrays(arrays) {
+        let total = 0;
+        for (const a of arrays) total += a.byteLength;
+        const out = new Uint8Array(total);
+        let offset = 0;
+        for (const a of arrays) {
+            out.set(a, offset);
+            offset += a.byteLength;
+        }
+        return out.buffer;
+    }
+
+    async function fetchBatchLiveTtsPcm({ texts, voiceName, model, onSceneDone, signal }) {
+        const cleanTexts = (texts || []).map((t) => String(t || '').trim() || 'Khoảnh khắc đời sống hằng ngày.');
+        const voice = voiceName || 'Aoede';
+        const liveModel = model || MODELS.LIVE_38;
+
+        const results = new Array(cleanTexts.length).fill(null);
+        const missingIndices = [];
+
+        cleanTexts.forEach((text, i) => {
+            const cacheKey = `live:${liveModel}:${voice}:${hashString(text)}`;
+            if (caches.ttsPcm.has(cacheKey)) {
+                results[i] = caches.ttsPcm.get(cacheKey);
+                if (onSceneDone) onSceneDone(i, results[i], true);
+            } else {
+                missingIndices.push(i);
+            }
+        });
+
+        if (missingIndices.length === 0) {
+            return { buffers: results, errorReason: '' };
+        }
+
+        const apiKey = getApiKey();
+        const wsUrl = `${GEMINI_LIVE_WS_URL}?key=${encodeURIComponent(apiKey)}`;
+
+        return new Promise((resolve, reject) => {
+            if (signal && signal.aborted) {
+                reject(new DOMException('Aborted', 'AbortError'));
+                return;
+            }
+
+            let ws = null;
+            let settled = false;
+            let setupDone = false;
+            let queuePos = 0;
+            let turnChunks = [];
+            let turnTimer = null;
+
+            const cleanup = () => {
+                if (turnTimer) {
+                    clearTimeout(turnTimer);
+                    turnTimer = null;
+                }
+                if (signal) signal.removeEventListener('abort', onAbort);
+                if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                    try {
+                        ws.close(1000, 'Done');
+                    } catch (_) {}
+                }
+            };
+
+            const finishWithError = (err) => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                reject(err);
+            };
+
+            const finishSuccess = () => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                resolve({ buffers: results, errorReason: '' });
+            };
+
+            const onAbort = () => {
+                finishWithError(new DOMException('Aborted', 'AbortError'));
+            };
+            if (signal) signal.addEventListener('abort', onAbort, { once: true });
+
+            const sendNextScene = () => {
+                if (settled) return;
+                if (queuePos >= missingIndices.length) {
+                    finishSuccess();
+                    return;
+                }
+
+                const sceneIdx = missingIndices[queuePos];
+                turnChunks = [];
+
+                if (turnTimer) clearTimeout(turnTimer);
+                turnTimer = setTimeout(() => {
+                    finishWithError(new ApiError('TIMEOUT', `Gemini Live phản hồi quá lâu ở cảnh ${sceneIdx + 1}.`));
+                }, 25000);
+
+                ws.send(
+                    JSON.stringify({
+                        clientContent: {
+                            turns: [
+                                {
+                                    role: 'user',
+                                    parts: [
+                                        {
+                                            text: `Đọc thành tiếng chính xác nguyên văn câu tiếng Việt sau (không chào hỏi, không trả lời câu hỏi, không thêm bớt bất kỳ từ nào):\n"${cleanTexts[sceneIdx]}"`
+                                        }
+                                    ]
+                                }
+                            ],
+                            turnComplete: true
+                        }
+                    })
+                );
+            };
+
+            try {
+                ws = new WebSocket(wsUrl);
+            } catch (e) {
+                finishWithError(new ApiError('WS_ERROR', 'Không thể mở kết nối WebSocket tới Gemini Live API.'));
+                return;
+            }
+
+            const setupTimer = setTimeout(() => {
+                if (!setupDone) {
+                    finishWithError(new ApiError('TIMEOUT', 'Kết nối Gemini Live WebSocket quá thời gian chờ.'));
+                }
+            }, 10000);
+
+            ws.onopen = () => {
+                ws.send(
+                    JSON.stringify({
+                        setup: {
+                            model: `models/${liveModel}`,
+                            generationConfig: {
+                                responseModalities: ['AUDIO'],
+                                speechConfig: {
+                                    voiceConfig: {
+                                        prebuiltVoiceConfig: {
+                                            voiceName: voice
+                                        }
+                                    }
+                                }
+                            },
+                            systemInstruction: {
+                                parts: [
+                                    {
+                                        text: 'Bạn là diễn viên lồng tiếng Việt chuyên nghiệp cho Facebook Reels. Khi nhận được bất kỳ câu văn bản nào từ người dùng, bạn PHẢI đọc nguyên văn đúng từng chữ câu đó bằng tiếng Việt với giọng tự nhiên, năng lượng cao, truyền cảm, nhịp độ nhanh. TUYỆT ĐỐI KHÔNG chào hỏi, KHÔNG giải thích, KHÔNG bình luận, KHÔNG nói thêm bất kỳ từ nào ngoài văn bản được gửi.'
+                                    }
+                                ]
+                            }
+                        }
+                    })
+                );
+            };
+
+            ws.onmessage = async (event) => {
+                if (settled) return;
+                let rawText = '';
+                try {
+                    rawText = typeof event.data === 'string' ? event.data : await event.data.text();
+                } catch (_) {
+                    return;
+                }
+
+                let msg;
+                try {
+                    msg = JSON.parse(rawText);
+                } catch (_) {
+                    return;
+                }
+
+                if (msg.error) {
+                    clearTimeout(setupTimer);
+                    finishWithError(new ApiError('LIVE_ERROR', msg.error.message || 'Lỗi từ Gemini Live API.'));
+                    return;
+                }
+
+                if (msg.setupComplete !== undefined && !setupDone) {
+                    setupDone = true;
+                    clearTimeout(setupTimer);
+                    sendNextScene();
+                    return;
+                }
+
+                const sc = msg.serverContent;
+                if (sc?.modelTurn?.parts) {
+                    for (const part of sc.modelTurn.parts) {
+                        if (part.inlineData?.data) {
+                            const buf = base64ToArrayBuffer(part.inlineData.data);
+                            turnChunks.push(new Uint8Array(buf));
+                        }
+                    }
+                }
+
+                if (sc?.turnComplete || msg.interactionStatus === 'IDLE') {
+                    if (turnTimer) {
+                        clearTimeout(turnTimer);
+                        turnTimer = null;
+                    }
+                    const sceneIdx = missingIndices[queuePos];
+                    if (turnChunks.length > 0) {
+                        const combined = concatUint8Arrays(turnChunks);
+                        const cacheKey = `live:${liveModel}:${voice}:${hashString(cleanTexts[sceneIdx])}`;
+                        caches.ttsPcm.set(cacheKey, combined);
+                        results[sceneIdx] = combined;
+                        if (onSceneDone) onSceneDone(sceneIdx, combined, false);
+                    }
+                    queuePos++;
+                    sendNextScene();
+                }
+            };
+
+            ws.onerror = () => {
+                clearTimeout(setupTimer);
+                finishWithError(new ApiError('WS_ERROR', `Lỗi kết nối Live API (${liveModel}).`));
+            };
+
+            ws.onclose = (ev) => {
+                clearTimeout(setupTimer);
+                if (!settled) {
+                    if (!setupDone) {
+                        const reason = ev.reason || `WebSocket đóng (mã ${ev.code}) — có thể do thiếu API Key hoặc model không hỗ trợ.`;
+                        finishWithError(new ApiError('WS_CLOSED', reason));
+                    } else if (queuePos < missingIndices.length) {
+                        finishWithError(new ApiError('WS_CLOSED', ev.reason || 'Kết nối Live API bị ngắt giữa chừng.'));
+                    } else {
+                        finishSuccess();
+                    }
+                }
+            };
+        });
+    }
+
     function clearMediaCaches() {
         caches.prompts.clear();
         caches.ttsPcm.clear();
@@ -541,8 +891,10 @@ Narration segments:
         dumpFreshScripts,
         enhanceStorytelling,
         generateRealisticVisualPrompts,
+        generateMultiBeatStoryboard,
         fetchSceneTtsPcm,
         fetchCombinedTtsPcm,
+        fetchBatchLiveTtsPcm,
         fetchSceneImageDataUrl,
         clearMediaCaches
     };

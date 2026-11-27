@@ -47,7 +47,7 @@
         const dateLabel = formatDateTimeVN(script.schedule);
         const card = document.createElement('div');
         card.className =
-            'kanban-card bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm space-y-2.5 cursor-grab active:cursor-grabbing';
+            'min-w-0 kanban-card bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm space-y-2.5 cursor-grab active:cursor-grabbing';
         card.draggable = true;
         card.dataset.scriptId = script.id;
 
