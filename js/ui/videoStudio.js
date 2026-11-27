@@ -10,10 +10,11 @@
 
     const App = (global.ReelsStudio = global.ReelsStudio || {});
     const { MOTION_TYPES } = App.CONFIG;
-    const { splitScriptIntoScenes, splitTextIntoVisualBeats, hashString, escapeHtml } = App.utils;
+    const { splitScriptIntoScenes, splitTextIntoVisualBeats, hashString, escapeHtml, copyToClipboard } = App.utils;
 
     const MAX_DIALOGUE_SCENES = 14;
     let customImages = [];
+    let currentTopicHashtags = '';
     let lastChapterAudioMeta = [];
     let cachedChapterAudios = [];
     const beatAudioCache = new Map();
@@ -21,6 +22,7 @@
     let generationAbortController = null;
     let rewriteAbortController = null;
     let exportAbortController = null;
+    let socialAbortController = null;
     let lastExportedFile = null;
     let isSeeking = false;
 
@@ -32,6 +34,11 @@
         }
         lastExportedFile = null;
         document.getElementById('vs-export-ready-box')?.classList.add('hidden');
+        const wavBtn = document.getElementById('btn-download-wav');
+        if (wavBtn) {
+            wavBtn.classList.add('hidden');
+            wavBtn.href = '#';
+        }
     }
 
     function getSceneInputs() {
@@ -135,13 +142,21 @@
         return 'upbeat';
     }
 
-    function open({ title, scenes }) {
+    function setSocialCaptionPreview(captionRes) {
+        const area = document.getElementById('vs-social-caption');
+        if (area && captionRes?.fullPost) {
+            area.value = captionRes.fullPost;
+        }
+    }
+
+    function open({ title, scenes, hashtags = '' }) {
         App.mediaEngine.stopPlayback();
         cancelOngoingRequests();
         revokeLastExport();
 
         const initialScenes = Array.isArray(scenes) && scenes.length >= 2 ? scenes.slice(0, MAX_DIALOGUE_SCENES) : ['', '', '', '', ''];
         customImages = [];
+        currentTopicHashtags = String(hashtags || '').trim();
         lastChapterAudioMeta = [];
         cachedChapterAudios = [];
         isSeeking = false;
@@ -162,6 +177,13 @@
         }
 
         renderSceneInputs(initialScenes);
+        setSocialCaptionPreview(
+            App.geminiApi?.buildLocalSocialCaption?.({
+                title,
+                scenes: initialScenes,
+                existingHashtags: currentTopicHashtags
+            })
+        );
 
         const uploadInput = document.getElementById('vs-upload-images');
         if (uploadInput) uploadInput.value = '';
@@ -189,7 +211,8 @@
                 'Sau đó viết ra giấy đúng 3 việc quan trọng nhất cần xong trong hôm nay.',
                 'Làm đều đặn 7 ngày bạn sẽ thấy tinh thần nhẹ nhàng và dư thời gian rõ rệt.',
                 'Thử áp dụng ngay sáng mai nhé, bạn thường làm gì đầu tiên khi thức dậy?'
-            ]
+            ],
+            hashtags: '#thoiquensang #nangsuat #meohaydoisong #phattrienbanthan #reelsvn #xuhuong'
         });
     }
 
@@ -198,7 +221,8 @@
         if (!tpl) return;
         open({
             title: tpl.title,
-            scenes: splitScriptIntoScenes(tpl.hook, tpl.body, tpl.cta)
+            scenes: splitScriptIntoScenes(tpl.hook, tpl.body, tpl.cta),
+            hashtags: tpl.hashtags || ''
         });
     }
 
@@ -211,7 +235,8 @@
                 : splitScriptIntoScenes(item.hook, item.body, item.cta);
         open({
             title: item.title,
-            scenes
+            scenes,
+            hashtags: item.hashtags || ''
         });
     }
 
@@ -227,6 +252,10 @@
         if (exportAbortController) {
             exportAbortController.abort();
             exportAbortController = null;
+        }
+        if (socialAbortController) {
+            socialAbortController.abort();
+            socialAbortController = null;
         }
     }
 
@@ -607,6 +636,31 @@
                 }
             }
 
+            const storyTone = document.getElementById('vs-tone')?.value || 'viral';
+            const socialCaptionPromise = hasApiKey
+                ? App.geminiApi
+                      .generateSocialCaption({
+                          title: videoTitle,
+                          scenes: texts,
+                          tone: storyTone,
+                          existingHashtags: currentTopicHashtags,
+                          signal
+                      })
+                      .catch(() =>
+                          App.geminiApi.buildLocalSocialCaption({
+                              title: videoTitle,
+                              scenes: texts,
+                              existingHashtags: currentTopicHashtags
+                          })
+                      )
+                : Promise.resolve(
+                      App.geminiApi.buildLocalSocialCaption({
+                          title: videoTitle,
+                          scenes: texts,
+                          existingHashtags: currentTopicHashtags
+                      })
+                  );
+
             const [aiStoryboard, visualPrompts] = await Promise.all([storyboardPromise, visualPromptsPromise]);
             const motionCues = buildSyncedCueSequence(flatBeats, aiStoryboard, videoTitle);
 
@@ -633,7 +687,7 @@
                     const svgUrls = await App.geminiApi.generateCustomSceneSvgs({
                         title: videoTitle,
                         scenes: flatBeats.map((b) => b.text),
-                        tone: bgmStyle,
+                        tone: storyTone,
                         signal,
                         onProgress: (done, total) => {
                             const pct = 62 + Math.round((done / Math.max(1, total)) * 30);
@@ -773,6 +827,8 @@
             });
 
             App.mediaEngine.setScenes(builtScenes, videoTitle);
+            const socialRes = await socialCaptionPromise;
+            setSocialCaptionPreview(socialRes);
             const totalSec = Math.round(App.mediaEngine.getTotalDuration());
             const beatCount = builtScenes.length;
             const missingBeatCount = beatHasRealTts.filter((v) => !v).length;
@@ -813,6 +869,58 @@
         }
     }
 
+    async function handleRegenSocialCaption() {
+        const btn = document.getElementById('btn-regen-social');
+        if (!btn || btn.disabled) return;
+        const title = document.getElementById('vs-title')?.value.trim() || 'Chia sẻ hay mỗi ngày';
+        const scenes = getSceneInputs().map((el) => el.value.trim()).filter(Boolean);
+        const tone = document.getElementById('vs-tone')?.value || 'viral';
+
+        btn.disabled = true;
+        const prevHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Đang viết...</span>';
+        if (socialAbortController) socialAbortController.abort();
+        socialAbortController = new AbortController();
+
+        try {
+            const res = await App.geminiApi.generateSocialCaption({
+                title,
+                scenes,
+                tone,
+                existingHashtags: currentTopicHashtags,
+                forceRefresh: true,
+                signal: socialAbortController.signal
+            });
+            setSocialCaptionPreview(res);
+            App.toast.show('Đã tạo Caption + Hashtag mới sẵn sàng đăng!');
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                App.toast.show(err.message || 'Không tạo được Caption AI lúc này.', 'warning');
+            }
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = prevHtml;
+            socialAbortController = null;
+        }
+    }
+
+    async function handleCopySocialCaption() {
+        const area = document.getElementById('vs-social-caption');
+        const text = area ? area.value.trim() : '';
+        if (!text) {
+            App.toast.show('Chưa có nội dung để copy.', 'warning');
+            return;
+        }
+        const ok = await copyToClipboard(text);
+        if (ok) {
+            App.toast.show('Đã copy Nội dung + Hashtag! Dán ngay khi đăng Reels nhé.');
+        } else {
+            area.focus();
+            area.select();
+            App.toast.show('Hãy bấm Giữ -> Chọn Sao chép trong khung nội dung.', 'info');
+        }
+    }
+
     function handleTogglePlayPause() {
         App.mediaEngine.unlockAudioSync();
         const state = App.mediaEngine.getPlaybackState();
@@ -824,7 +932,7 @@
         }
     }
 
-    function prepareDownloadAndShare(blob, mimeType) {
+    async function prepareDownloadAndShare(blob, mimeType, bgmStyle = 'upbeat', hasAudio = true) {
         revokeLastExport();
 
         const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
@@ -832,7 +940,8 @@
             .toLowerCase()
             .replace(/[^a-z0-9\u00C0-\u1EF9]+/g, '-')
             .replace(/^-+|-+$/g, '');
-        const filename = `${safeTitle || 'facebook-reels'}-reels.${ext}`;
+        const baseName = safeTitle || 'facebook-reels';
+        const filename = `${baseName}-reels.${ext}`;
         const url = URL.createObjectURL(blob);
         const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
 
@@ -841,13 +950,29 @@
         const readyBox = document.getElementById('vs-export-ready-box');
         const infoEl = document.getElementById('vs-export-file-info');
         const manualLink = document.getElementById('btn-manual-download');
+        const wavBtn = document.getElementById('btn-download-wav');
         const shareBtn = document.getElementById('btn-share-video');
 
-        if (infoEl) infoEl.textContent = `File .${ext.toUpperCase()} (${sizeMB} MB) sẵn sàng`;
+        if (infoEl) {
+            infoEl.textContent = hasAudio
+                ? `File .${ext.toUpperCase()} (${sizeMB} MB • Có âm thanh) sẵn sàng`
+                : `File .${ext.toUpperCase()} (${sizeMB} MB — nếu máy mất tiếng hãy tải thêm .WAV bên cạnh)`;
+        }
         if (manualLink) {
             manualLink.href = url;
             manualLink.download = filename;
             manualLink.querySelector('span').textContent = `Tải .${ext.toUpperCase()}`;
+        }
+
+        if (wavBtn && App.mediaEngine.prepareMixedPreviewWavUrl) {
+            try {
+                const wavUrl = await App.mediaEngine.prepareMixedPreviewWavUrl(bgmStyle);
+                if (wavUrl) {
+                    wavBtn.href = wavUrl;
+                    wavBtn.download = `${baseName}-audio.wav`;
+                    wavBtn.classList.remove('hidden');
+                }
+            } catch (_) {}
         }
 
         if (shareBtn) {
@@ -892,9 +1017,15 @@
     }
 
     async function handleExportVideo() {
-        App.mediaEngine.unlockAudioSync();
+        // Synchronously hold AudioContext unlock BEFORE any async encoder probes so iOS/Android MediaRecorder keeps sound
+        const exportGuard = App.mediaEngine.prepareForExportSync
+            ? App.mediaEngine.prepareForExportSync()
+            : { release: () => {} };
         const scenes = App.mediaEngine.getScenes();
-        if (scenes.length === 0) return;
+        if (scenes.length === 0) {
+            exportGuard.release();
+            return;
+        }
 
         const btnExport = document.getElementById('btn-export-video');
         const btnGen = document.getElementById('btn-generate-ai-assets');
@@ -907,6 +1038,7 @@
         exportAbortController = new AbortController();
 
         const restoreButtons = () => {
+            exportGuard.release();
             if (btnExport) btnExport.disabled = false;
             if (btnGen) btnGen.disabled = false;
             exportAbortController = null;
@@ -920,10 +1052,10 @@
             });
 
             if (fastResult && fastResult.blob) {
-                const ext = prepareDownloadAndShare(fastResult.blob, fastResult.mimeType);
+                const ext = await prepareDownloadAndShare(fastResult.blob, fastResult.mimeType, bgmStyle, fastResult.hasAudio !== false);
                 restoreButtons();
-                updateStudioProgress(100, `Hoàn tất! Đã tạo file video .${ext.toUpperCase()} (tải tự động hoặc bấm Tải / Lưu vào Ảnh).`, 'done');
-                App.toast.show(`Đã xuất video .${ext.toUpperCase()} thành công!`);
+                updateStudioProgress(100, `Hoàn tất! Đã tạo file video .${ext.toUpperCase()} có âm thanh (bấm Tải hoặc Lưu vào Ảnh).`, 'done');
+                App.toast.show(`Đã xuất video .${ext.toUpperCase()} có âm thanh thành công!`);
                 return;
             }
         } catch (fastErr) {
@@ -948,10 +1080,16 @@
                 updateStudioProgress(0, err?.message || 'Lỗi khi xuất video.', 'error');
                 App.toast.show(err?.message || 'Không thể xuất video trên trình duyệt này.', 'error');
             },
-            onRecordComplete: (videoBlob, mimeType) => {
-                const ext = prepareDownloadAndShare(videoBlob, mimeType);
+            onRecordComplete: async (videoBlob, mimeType, hasAudioTrack = true) => {
+                const ext = await prepareDownloadAndShare(videoBlob, mimeType, bgmStyle, hasAudioTrack);
                 restoreButtons();
-                updateStudioProgress(100, `Hoàn tất! Video .${ext.toUpperCase()} đã sẵn sàng tải về máy.`, 'done');
+                updateStudioProgress(
+                    100,
+                    hasAudioTrack
+                        ? `Hoàn tất! Video .${ext.toUpperCase()} có âm thanh đã sẵn sàng tải về máy.`
+                        : `Đã xuất .${ext.toUpperCase()} (nếu máy chặn audio trình duyệt, hãy tải thêm file .WAV bên cạnh).`,
+                    'done'
+                );
                 App.toast.show(`Đã xuất video .${ext.toUpperCase()} thành công!`);
             }
         });
@@ -1031,6 +1169,8 @@
         document.getElementById('btn-generate-ai-assets')?.addEventListener('click', handleGenerateAssets);
         document.getElementById('btn-export-video')?.addEventListener('click', handleExportVideo);
         document.getElementById('btn-share-video')?.addEventListener('click', handleShareExportedVideo);
+        document.getElementById('btn-regen-social')?.addEventListener('click', handleRegenSocialCaption);
+        document.getElementById('btn-copy-social')?.addEventListener('click', handleCopySocialCaption);
         document.getElementById('btn-preview-bgm')?.addEventListener('click', () => {
             App.mediaEngine.unlockAudioSync();
             const bgmStyle = document.getElementById('vs-bgm')?.value || 'upbeat';

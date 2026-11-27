@@ -8,7 +8,7 @@
 
     const App = (global.ReelsStudio = global.ReelsStudio || {});
     const { CATEGORY_BADGES } = App.CONFIG;
-    const { escapeHtml, debounce } = App.utils;
+    const { escapeHtml, debounce, copyToClipboard } = App.utils;
 
     let isDirty = true;
     let lastSignature = '';
@@ -118,12 +118,16 @@
                         <p class="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-relaxed">"${escapeHtml(item.hook)}"</p>
                     </div>
 
-                    <div class="text-xs text-slate-600 dark:text-slate-300 space-y-1 whitespace-pre-line leading-relaxed mb-3 bg-slate-50 dark:bg-slate-800/70 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60">${escapeHtml(item.body)}</div>
+                    <div class="text-xs text-slate-600 dark:text-slate-300 space-y-1 whitespace-pre-line leading-relaxed mb-2.5 bg-slate-50 dark:bg-slate-800/70 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60">${escapeHtml(item.body)}</div>
+                    ${item.hashtags ? `<p class="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 mb-3 truncate">${escapeHtml(item.hashtags)}</p>` : ''}
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
                     <button type="button" data-action="studio" data-id="${escapeHtml(item.id)}" class="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 active:scale-[0.98] text-white text-xs font-extrabold shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer">
                         <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Tạo Video AI</span>
+                    </button>
+                    <button type="button" data-action="copy-tpl" data-id="${escapeHtml(item.id)}" class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] text-slate-800 dark:text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer" title="Copy nội dung &amp; Hashtag đăng MXH">
+                        <i class="fa-regular fa-copy text-emerald-600 dark:text-emerald-400"></i>
                     </button>
                     <button type="button" data-action="schedule" data-id="${escapeHtml(item.id)}" class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] text-slate-800 dark:text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer" title="Đưa vào bảng lịch đăng">
                         <i class="fa-solid fa-calendar-plus text-indigo-600 dark:text-indigo-400"></i> <span>Lên lịch</span>
@@ -251,6 +255,24 @@
 
             if (action === 'studio') {
                 App.videoStudio.openFromTemplate(id);
+            } else if (action === 'copy-tpl') {
+                const tpl = App.store.getState().templates.find((t) => t.id === id);
+                if (!tpl) return;
+                const scenes = [tpl.hook, ...(tpl.body || '').split('\n').map((s) => s.replace(/^[•\-]\s*/, '').trim()), tpl.cta].filter(Boolean);
+                const post = App.geminiApi?.buildLocalSocialCaption
+                    ? App.geminiApi.buildLocalSocialCaption({
+                          title: tpl.title,
+                          scenes,
+                          existingHashtags: tpl.hashtags || ''
+                      }).fullPost
+                    : [tpl.title, tpl.hook, tpl.cta, tpl.hashtags].filter(Boolean).join('\n\n');
+                copyToClipboard(post).then((ok) => {
+                    if (ok) {
+                        App.toast.show('Đã copy Nội dung + Hashtag! Dán ngay khi đăng Reels nhé.');
+                    } else {
+                        App.toast.show('Trình duyệt chặn copy tự động, hãy mở Tạo Video AI để copy.', 'warning');
+                    }
+                });
             } else if (action === 'schedule') {
                 App.modals.openScriptModalFromTemplate(id);
             } else if (action === 'delete-tpl') {

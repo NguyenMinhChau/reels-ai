@@ -1112,7 +1112,67 @@
 
     let currentBgmStyle = 'upbeat';
 
+    function prepareForExportSync() {
+        const ctxAudio = unlockAudioSync();
+        let keepOsc = null;
+        let keepGain = null;
+        try {
+            keepOsc = ctxAudio.createOscillator();
+            keepGain = ctxAudio.createGain();
+            keepOsc.frequency.value = 440;
+            keepGain.gain.value = 0.0001;
+            keepOsc.connect(keepGain);
+            keepGain.connect(ctxAudio.destination);
+            keepOsc.start();
+        } catch (_) {}
+
+        return {
+            release: () => {
+                try {
+                    if (keepOsc) {
+                        keepOsc.stop();
+                        keepOsc.disconnect();
+                    }
+                    if (keepGain) keepGain.disconnect();
+                } catch (_) {}
+            }
+        };
+    }
+
+    async function renderMixedOfflineAudioBuffer(bgmStyle, targetSampleRate = 44100) {
+        const OfflineCtx = global.OfflineAudioContext || global.webkitOfflineAudioContext;
+        if (typeof OfflineCtx === 'undefined' || studioScenes.length === 0 || totalDuration <= 0) {
+            return null;
+        }
+        const sr = Math.max(22050, parseInt(targetSampleRate, 10) || 44100);
+        const totalSamples = Math.max(1, Math.ceil(totalDuration * sr));
+        const offlineCtx = new OfflineCtx(1, totalSamples, sr);
+
+        let sceneStart = 0;
+        studioScenes.forEach((scene) => {
+            if (scene.audioBuffer) {
+                const src = offlineCtx.createBufferSource();
+                src.buffer = scene.audioBuffer;
+                src.playbackRate.value = scene.playbackRate || 1.0;
+                src.connect(offlineCtx.destination);
+                src.start(sceneStart);
+            }
+            sceneStart += scene.duration;
+        });
+
+        const bgmBuffer = getCachedBgmBuffer(offlineCtx, bgmStyle, totalDuration);
+        if (bgmBuffer) {
+            const bgmNode = offlineCtx.createBufferSource();
+            bgmNode.buffer = bgmBuffer;
+            bgmNode.connect(offlineCtx.destination);
+            bgmNode.start(0);
+        }
+
+        return offlineCtx.startRendering();
+    }
+
     async function fastExportVideo({ bgmStyle = 'upbeat', onProgress = null, signal = null } = {}) {
+        const OfflineCtx = global.OfflineAudioContext || global.webkitOfflineAudioContext;
         if (
             studioScenes.length === 0 ||
             !canvasEl ||
@@ -1120,22 +1180,35 @@
             typeof global.AudioEncoder === 'undefined' ||
             typeof global.VideoFrame === 'undefined' ||
             typeof global.AudioData === 'undefined' ||
-            typeof global.OfflineAudioContext === 'undefined'
+            typeof OfflineCtx === 'undefined'
         ) {
             return null;
         }
 
         const fps = 30;
-        const sampleRate = 48000;
+        const isIOS =
+            /iPad|iPhone|iPod/.test(global.navigator?.userAgent || '') ||
+            (global.navigator?.platform === 'MacIntel' && (global.navigator?.maxTouchPoints || 0) > 1);
+        const isMobile =
+            isIOS || /Android|webOS|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(global.navigator?.userAgent || '');
+        const canNativeMp4Record =
+            typeof global.MediaRecorder !== 'undefined' &&
+            (MediaRecorder.isTypeSupported('video/mp4') || MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2'));
 
         // Probe best container & codecs:
-        // 1) MP4 (H.264 + AAC) — plays & saves natively on iPhone/iOS, Android, Facebook Reels
-        // 2) WebM (VP9/VP8 + Opus) — fallback for browsers without AAC/H264 WebCodecs
+        // 1) MP4 (H.264 + Stereo/Mono AAC) — plays & saves natively on iPhone/iOS, Android, Facebook Reels
+        // 2) WebM (VP9/VP8 + Opus) — fallback for desktop/browsers when native mobile MP4 MediaRecorder isn't available
         let chosenFormat = null;
 
         if (typeof global.Mp4Muxer !== 'undefined') {
             const h264Candidates = ['avc1.42001f', 'avc1.4d001f', 'avc1.42001e'];
-            for (const h264Codec of h264Candidates) {
+            const aacProfiles = [
+                { numberOfChannels: 2, sampleRate: 48000, bitrate: 128_000 },
+                { numberOfChannels: 2, sampleRate: 44100, bitrate: 128_000 },
+                { numberOfChannels: 1, sampleRate: 48000, bitrate: 96_000 },
+                { numberOfChannels: 1, sampleRate: 44100, bitrate: 96_000 }
+            ];
+            outerMp4: for (const h264Codec of h264Candidates) {
                 const vCfg = {
                     codec: h264Codec,
                     width: CANVAS_W,
@@ -1144,41 +1217,38 @@
                     framerate: fps,
                     avc: { format: 'avc' }
                 };
-                const aCfg = {
-                    codec: 'mp4a.40.2',
-                    sampleRate,
-                    numberOfChannels: 1,
-                    bitrate: 128_000
-                };
-                const [vSup, aSup] = await Promise.all([
-                    VideoEncoder.isConfigSupported(vCfg).catch(() => ({ supported: false })),
-                    AudioEncoder.isConfigSupported(aCfg).catch(() => ({ supported: false }))
-                ]);
-                if (vSup.supported && aSup.supported) {
-                    chosenFormat = {
-                        container: 'mp4',
-                        mimeType: 'video/mp4',
-                        videoConfig: vCfg,
-                        audioConfig: aCfg
+                const vSup = await VideoEncoder.isConfigSupported(vCfg).catch(() => ({ supported: false }));
+                if (!vSup.supported) continue;
+
+                for (const aProf of aacProfiles) {
+                    const aCfg = {
+                        codec: 'mp4a.40.2',
+                        sampleRate: aProf.sampleRate,
+                        numberOfChannels: aProf.numberOfChannels,
+                        bitrate: aProf.bitrate
                     };
-                    break;
+                    const aSup = await AudioEncoder.isConfigSupported(aCfg).catch(() => ({ supported: false }));
+                    if (aSup.supported) {
+                        chosenFormat = {
+                            container: 'mp4',
+                            mimeType: 'video/mp4',
+                            videoConfig: vCfg,
+                            audioConfig: aCfg
+                        };
+                        break outerMp4;
+                    }
                 }
             }
         }
 
-        const isIOS =
-            /iPad|iPhone|iPod/.test(global.navigator?.userAgent || '') ||
-            (global.navigator?.platform === 'MacIntel' && (global.navigator?.maxTouchPoints || 0) > 1);
-        const canNativeMp4Record =
-            typeof global.MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/mp4');
-
-        // On iPhone/iPad, skip WebM (iOS Photos cannot save/play WebM with audio) when native Safari MP4 MediaRecorder works
-        if (!chosenFormat && typeof global.WebMMuxer !== 'undefined' && !(isIOS && canNativeMp4Record)) {
+        // On mobile (iOS & Android), prefer native MediaRecorder MP4 over WebM/Opus when supported so gallery players preserve sound
+        if (!chosenFormat && typeof global.WebMMuxer !== 'undefined' && !(isMobile && canNativeMp4Record)) {
             const vpCandidates = [
                 { codec: 'vp09.00.10.08', muxerCodec: 'V_VP9' },
                 { codec: 'vp8', muxerCodec: 'V_VP8' }
             ];
-            for (const vp of vpCandidates) {
+            const opusChannels = [2, 1];
+            outerWebm: for (const vp of vpCandidates) {
                 const vCfg = {
                     codec: vp.codec,
                     width: CANVAS_W,
@@ -1186,25 +1256,27 @@
                     bitrate: 2_200_000,
                     framerate: fps
                 };
-                const aCfg = {
-                    codec: 'opus',
-                    sampleRate,
-                    numberOfChannels: 1,
-                    bitrate: 96_000
-                };
-                const [vSup, aSup] = await Promise.all([
-                    VideoEncoder.isConfigSupported(vCfg).catch(() => ({ supported: false })),
-                    AudioEncoder.isConfigSupported(aCfg).catch(() => ({ supported: false }))
-                ]);
-                if (vSup.supported && aSup.supported) {
-                    chosenFormat = {
-                        container: 'webm',
-                        mimeType: 'video/webm',
-                        muxerCodec: vp.muxerCodec,
-                        videoConfig: vCfg,
-                        audioConfig: aCfg
+                const vSup = await VideoEncoder.isConfigSupported(vCfg).catch(() => ({ supported: false }));
+                if (!vSup.supported) continue;
+
+                for (const ch of opusChannels) {
+                    const aCfg = {
+                        codec: 'opus',
+                        sampleRate: 48000,
+                        numberOfChannels: ch,
+                        bitrate: ch === 2 ? 128_000 : 96_000
                     };
-                    break;
+                    const aSup = await AudioEncoder.isConfigSupported(aCfg).catch(() => ({ supported: false }));
+                    if (aSup.supported) {
+                        chosenFormat = {
+                            container: 'webm',
+                            mimeType: 'video/webm',
+                            muxerCodec: vp.muxerCodec,
+                            videoConfig: vCfg,
+                            audioConfig: aCfg
+                        };
+                        break outerWebm;
+                    }
                 }
             }
         }
@@ -1221,33 +1293,13 @@
         let audioEncoder = null;
 
         try {
+            const sampleRate = chosenFormat.audioConfig.sampleRate;
+            const numChannels = chosenFormat.audioConfig.numberOfChannels;
             if (onProgress) onProgress(5, `Đang trộn âm thanh (${chosenFormat.container.toUpperCase()})...`);
 
             // 1. Offline Audio Rendering (~0.1s for a 30s video)
-            const totalSamples = Math.max(1, Math.ceil(totalDuration * sampleRate));
-            const offlineCtx = new OfflineAudioContext(1, totalSamples, sampleRate);
-
-            let sceneStart = 0;
-            studioScenes.forEach((scene) => {
-                if (scene.audioBuffer) {
-                    const src = offlineCtx.createBufferSource();
-                    src.buffer = scene.audioBuffer;
-                    src.playbackRate.value = scene.playbackRate || 1.0;
-                    src.connect(offlineCtx.destination);
-                    src.start(sceneStart);
-                }
-                sceneStart += scene.duration;
-            });
-
-            const bgmBuffer = getCachedBgmBuffer(offlineCtx, bgmStyle, totalDuration);
-            if (bgmBuffer) {
-                const bgmNode = offlineCtx.createBufferSource();
-                bgmNode.buffer = bgmBuffer;
-                bgmNode.connect(offlineCtx.destination);
-                bgmNode.start(0);
-            }
-
-            const mixedAudio = await offlineCtx.startRendering();
+            const mixedAudio = await renderMixedOfflineAudioBuffer(bgmStyle, sampleRate);
+            if (!mixedAudio) throw new Error('Không khởi tạo được luồng âm thanh Offline.');
             if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
             // 2. Setup MP4 or WebM Muxer & Encoders
@@ -1263,7 +1315,7 @@
                           },
                           audio: {
                               codec: 'aac',
-                              numberOfChannels: 1,
+                              numberOfChannels: numChannels,
                               sampleRate
                           },
                           fastStart: 'in-memory',
@@ -1280,12 +1332,13 @@
                           audio: {
                               codec: 'A_OPUS',
                               sampleRate,
-                              numberOfChannels: 1
+                              numberOfChannels: numChannels
                           },
                           firstTimestampBehavior: 'offset'
                       });
 
             let encodeErr = null;
+            let audioChunksEncoded = 0;
             videoEncoder = new VideoEncoder({
                 output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
                 error: (e) => {
@@ -1295,31 +1348,48 @@
             videoEncoder.configure(chosenFormat.videoConfig);
 
             audioEncoder = new AudioEncoder({
-                output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+                output: (chunk, meta) => {
+                    audioChunksEncoded++;
+                    muxer.addAudioChunk(chunk, meta);
+                },
                 error: (e) => {
                     encodeErr = e;
                 }
             });
             audioEncoder.configure(chosenFormat.audioConfig);
 
-            // 3. Encode Audio in 0.5s chunks
+            // 3. Encode Audio in small hardware-friendly 2048-frame chunks (with stereo duplication if 2ch)
             if (onProgress) onProgress(15, 'Đang nén luồng âm thanh...');
             const channelData = mixedAudio.getChannelData(0);
-            const audioChunkFrames = sampleRate / 2;
+            const audioChunkFrames = 2048;
             for (let offset = 0; offset < channelData.length; offset += audioChunkFrames) {
                 if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
                 if (encodeErr) throw encodeErr;
-                const slice = channelData.subarray(offset, Math.min(channelData.length, offset + audioChunkFrames));
+
+                const frameCount = Math.min(channelData.length - offset, audioChunkFrames);
+                const slice = channelData.subarray(offset, offset + frameCount);
+                let audioPayload = slice;
+                if (numChannels === 2) {
+                    const stereo = new Float32Array(frameCount * 2);
+                    stereo.set(slice, 0);
+                    stereo.set(slice, frameCount);
+                    audioPayload = stereo;
+                }
+
                 const audioData = new AudioData({
                     format: 'f32-planar',
                     sampleRate,
-                    numberOfFrames: slice.length,
-                    numberOfChannels: 1,
+                    numberOfFrames: frameCount,
+                    numberOfChannels: numChannels,
                     timestamp: Math.round((offset / sampleRate) * 1_000_000),
-                    data: slice
+                    data: audioPayload
                 });
                 audioEncoder.encode(audioData);
                 audioData.close();
+
+                if (audioEncoder.encodeQueueSize > 8) {
+                    await new Promise((r) => setTimeout(r, 4));
+                }
             }
 
             // 4. Render & Encode Video Frames (~8-10x faster than realtime)
@@ -1356,13 +1426,17 @@
             await videoEncoder.flush();
             await audioEncoder.flush();
             if (encodeErr) throw encodeErr;
+            if (audioChunksEncoded === 0) {
+                throw new Error('Trình duyệt không xuất được track âm thanh qua WebCodecs.');
+            }
 
             muxer.finalize();
             renderFrameAtTime(0);
 
             return {
                 blob: new Blob([muxer.target.buffer], { type: chosenFormat.mimeType }),
-                mimeType: chosenFormat.mimeType
+                mimeType: chosenFormat.mimeType,
+                hasAudio: audioChunksEncoded > 0
             };
         } finally {
             isRecording = false;
@@ -1385,37 +1459,10 @@
     async function prepareMixedPreviewWavUrl(bgmStyle) {
         const cached = getCachedMixedPreviewWavUrl(bgmStyle);
         if (cached) return cached;
-        const OfflineCtx = global.OfflineAudioContext || global.webkitOfflineAudioContext;
-        if (typeof OfflineCtx === 'undefined' || studioScenes.length === 0 || totalDuration <= 0) {
-            return '';
-        }
+        const rendered = await renderMixedOfflineAudioBuffer(bgmStyle, 44100);
+        if (!rendered) return '';
+
         const cacheKey = `${bgmStyle}:${studioScenes.length}:${totalDuration.toFixed(3)}`;
-
-        const sampleRate = 44100;
-        const totalSamples = Math.max(1, Math.ceil(totalDuration * sampleRate));
-        const offlineCtx = new OfflineCtx(1, totalSamples, sampleRate);
-
-        let sceneStart = 0;
-        studioScenes.forEach((scene) => {
-            if (scene.audioBuffer) {
-                const src = offlineCtx.createBufferSource();
-                src.buffer = scene.audioBuffer;
-                src.playbackRate.value = scene.playbackRate || 1.0;
-                src.connect(offlineCtx.destination);
-                src.start(sceneStart);
-            }
-            sceneStart += scene.duration;
-        });
-
-        const bgmBuffer = getCachedBgmBuffer(offlineCtx, bgmStyle, totalDuration);
-        if (bgmBuffer) {
-            const bgmNode = offlineCtx.createBufferSource();
-            bgmNode.buffer = bgmBuffer;
-            bgmNode.connect(offlineCtx.destination);
-            bgmNode.start(0);
-        }
-
-        const rendered = await offlineCtx.startRendering();
         const wavBlob = encodeAudioBufferToWavBlob(rendered);
         const nextUrl = URL.createObjectURL(wavBlob);
         revokeMixedPreviewCache();
@@ -1546,47 +1593,79 @@
         isRecording = Boolean(recordMode);
         const destNode = recordMode ? ctxAudio.createMediaStreamDestination() : null;
 
+        // Pre-mix into ONE continuous buffer during recording + pull via -66dB monitor sink so mobile iOS/Android MediaRecorder never drops audio
+        let mixedRecBuffer = null;
+        let recordMonitorGain = null;
+        if (recordMode && destNode) {
+            try {
+                recordMonitorGain = ctxAudio.createGain();
+                recordMonitorGain.gain.value = 0.0005;
+                recordMonitorGain.connect(ctxAudio.destination);
+            } catch (_) {
+                recordMonitorGain = null;
+            }
+            try {
+                mixedRecBuffer = await renderMixedOfflineAudioBuffer(bgmStyle, ctxAudio.sampleRate || 44100);
+            } catch (_) {
+                mixedRecBuffer = null;
+            }
+            if (runId !== playbackRunId) return;
+        }
+
         audioStartTime = ctxAudio.currentTime + 0.05;
         perfStartTime = performance.now() + 50;
 
-        // Schedule scene audio buffers starting cleanly from playbackOffset
-        let sceneStart = 0;
-        studioScenes.forEach((scene) => {
-            const sceneEnd = sceneStart + scene.duration;
-            if (scene.audioBuffer && sceneEnd > playbackOffset) {
-                const src = ctxAudio.createBufferSource();
-                src.buffer = scene.audioBuffer;
-                const rate = scene.playbackRate || 1.0;
-                src.playbackRate.value = rate;
-                if (!recordMode) src.connect(ctxAudio.destination);
-                if (destNode) src.connect(destNode);
-
-                if (playbackOffset <= sceneStart) {
-                    const delay = sceneStart - playbackOffset;
-                    src.start(audioStartTime + delay);
-                } else {
-                    const skipAudioSec = (playbackOffset - sceneStart) * rate;
-                    if (skipAudioSec < scene.audioBuffer.duration) {
-                        src.start(audioStartTime, skipAudioSec);
-                    }
-                }
-                activeAudioSources.push(src);
+        if (recordMode && destNode && mixedRecBuffer) {
+            const singleMixNode = ctxAudio.createBufferSource();
+            singleMixNode.buffer = mixedRecBuffer;
+            singleMixNode.connect(destNode);
+            if (recordMonitorGain) singleMixNode.connect(recordMonitorGain);
+            if (playbackOffset < mixedRecBuffer.duration) {
+                singleMixNode.start(audioStartTime, playbackOffset);
             }
-            sceneStart = sceneEnd;
-        });
+            activeAudioSources.push(singleMixNode);
+        } else {
+            // Schedule scene audio buffers starting cleanly from playbackOffset
+            let sceneStart = 0;
+            studioScenes.forEach((scene) => {
+                const sceneEnd = sceneStart + scene.duration;
+                if (scene.audioBuffer && sceneEnd > playbackOffset) {
+                    const src = ctxAudio.createBufferSource();
+                    src.buffer = scene.audioBuffer;
+                    const rate = scene.playbackRate || 1.0;
+                    src.playbackRate.value = rate;
+                    if (!recordMode) src.connect(ctxAudio.destination);
+                    if (recordMonitorGain) src.connect(recordMonitorGain);
+                    if (destNode) src.connect(destNode);
 
-        // Schedule cached BGM
-        const bgmBuffer = getCachedBgmBuffer(ctxAudio, bgmStyle, totalDuration);
-        if (bgmBuffer) {
-            const bgmNode = ctxAudio.createBufferSource();
-            bgmNode.buffer = bgmBuffer;
-            if (!recordMode) bgmNode.connect(ctxAudio.destination);
-            if (destNode) bgmNode.connect(destNode);
-            bgmNode.start(audioStartTime, playbackOffset % bgmBuffer.duration);
-            activeAudioSources.push(bgmNode);
+                    if (playbackOffset <= sceneStart) {
+                        const delay = sceneStart - playbackOffset;
+                        src.start(audioStartTime + delay);
+                    } else {
+                        const skipAudioSec = (playbackOffset - sceneStart) * rate;
+                        if (skipAudioSec < scene.audioBuffer.duration) {
+                            src.start(audioStartTime, skipAudioSec);
+                        }
+                    }
+                    activeAudioSources.push(src);
+                }
+                sceneStart = sceneEnd;
+            });
+
+            // Schedule cached BGM
+            const bgmBuffer = getCachedBgmBuffer(ctxAudio, bgmStyle, totalDuration);
+            if (bgmBuffer) {
+                const bgmNode = ctxAudio.createBufferSource();
+                bgmNode.buffer = bgmBuffer;
+                if (!recordMode) bgmNode.connect(ctxAudio.destination);
+                if (recordMonitorGain) bgmNode.connect(recordMonitorGain);
+                if (destNode) bgmNode.connect(destNode);
+                bgmNode.start(audioStartTime, playbackOffset % bgmBuffer.duration);
+                activeAudioSources.push(bgmNode);
+            }
         }
 
-        // Keep audio stream alive during recording on Safari/WebKit even across micro gaps
+        // Keep audio stream alive immediately during recording on Safari/WebKit even across micro gaps
         if (recordMode && destNode) {
             try {
                 const keepAliveOsc = ctxAudio.createOscillator();
@@ -1594,7 +1673,8 @@
                 keepAliveGain.gain.value = 0.0001;
                 keepAliveOsc.connect(keepAliveGain);
                 keepAliveGain.connect(destNode);
-                keepAliveOsc.start(audioStartTime);
+                if (recordMonitorGain) keepAliveGain.connect(recordMonitorGain);
+                keepAliveOsc.start(ctxAudio.currentTime);
                 activeAudioSources.push(keepAliveOsc);
             } catch (_) {}
         }
@@ -1604,24 +1684,39 @@
         if (recordMode && canvasEl) {
             try {
                 const canvasStream = canvasEl.captureStream(30);
+                const recAudioTracks = destNode ? destNode.stream.getAudioTracks() : [];
+                recAudioTracks.forEach((track) => {
+                    track.enabled = true;
+                });
                 const combinedStream = new MediaStream([
                     ...canvasStream.getVideoTracks(),
-                    ...destNode.stream.getAudioTracks()
+                    ...recAudioTracks
                 ]);
 
                 const mimeTypes = [
+                    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
                     'video/mp4;codecs=avc1,mp4a.40.2',
                     'video/mp4',
-                    'video/webm;codecs=vp9,opus',
                     'video/webm;codecs=vp8,opus',
+                    'video/webm;codecs=vp9,opus',
                     'video/webm'
                 ];
                 const supportedMime = mimeTypes.find((m) => global.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
 
-                activeRecorder = new MediaRecorder(
-                    combinedStream,
-                    supportedMime ? { mimeType: supportedMime } : {}
-                );
+                if (supportedMime) {
+                    try {
+                        activeRecorder = new MediaRecorder(combinedStream, {
+                            mimeType: supportedMime,
+                            audioBitsPerSecond: 128_000,
+                            videoBitsPerSecond: 2_500_000
+                        });
+                    } catch (_) {
+                        activeRecorder = new MediaRecorder(combinedStream, { mimeType: supportedMime });
+                    }
+                } else {
+                    activeRecorder = new MediaRecorder(combinedStream);
+                }
+
                 activeRecorder.ondataavailable = (e) => {
                     if (e.data && e.data.size > 0) recordedChunks.push(e.data);
                 };
@@ -1633,7 +1728,7 @@
                     const type = supportedMime || 'video/webm';
                     const blob = new Blob(recordedChunks, { type });
                     if (onRecordComplete && recordedChunks.length > 0) {
-                        onRecordComplete(blob, type);
+                        onRecordComplete(blob, type, recAudioTracks.length > 0 && ctxAudio.state === 'running');
                     } else if (onRecordError) {
                         onRecordError(new Error('Không thu được dữ liệu video.'));
                     }
@@ -1734,6 +1829,7 @@
         bindCanvasElements,
         ensureAudioContext,
         unlockAudioSync,
+        prepareForExportSync,
         prepareMixedPreviewWavUrl,
         encodeAudioBufferToWavBlob,
         previewBgmSample,

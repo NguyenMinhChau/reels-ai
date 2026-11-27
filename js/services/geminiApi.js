@@ -1204,6 +1204,140 @@ Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho 
         });
     }
 
+    function buildLocalSocialCaption({ title = '', scenes = [], existingHashtags = '' } = {}) {
+        const cleanTitle = String(title || '').trim();
+        const cleanScenes = (Array.isArray(scenes) ? scenes : [])
+            .map((s) => String(s || '').trim())
+            .filter(Boolean);
+        const firstLine = cleanScenes[0] || cleanTitle || 'Góc nhìn thực tế ít ai nói tới!';
+        const lastLine =
+            cleanScenes.length > 1
+                ? cleanScenes[cleanScenes.length - 1]
+                : 'Bạn nghĩ sao về điều này? Chia sẻ góc nhìn bên dưới nhé!';
+
+        let tags = String(existingHashtags || '').trim();
+        if (!tags) {
+            const hay = `${cleanTitle} ${cleanScenes.join(' ')}`.toLowerCase();
+            const picked = new Set(['#reelsvn', '#xuhuong', '#chiase']);
+            if (/công sở|sếp|deadline|đồng nghiệp|tan tầm|văn phòng|lương/.test(hay)) {
+                picked.add('#congsovietnam');
+                picked.add('#dramacongso');
+                picked.add('#dilam');
+            }
+            if (/code|bug|server|it|dev|lập trình|pm/.test(hay)) {
+                picked.add('#devvietnam');
+                picked.add('#danit');
+                picked.add('#congnghe');
+            }
+            if (/marketing|ads|content|chạy quảng cáo|trend|kpi/.test(hay)) {
+                picked.add('#marketingvietnam');
+                picked.add('#contentcreator');
+            }
+            if (/sale|khách|chốt đơn|bán hàng|từ chối/.test(hay)) {
+                picked.add('#kynangbanhang');
+                picked.add('#kinhdoanh');
+            }
+            if (/tiền|tài chính|lương|tiết kiệm|chi tiêu|trả góp|nợ/.test(hay)) {
+                picked.add('#taichinhcanhan');
+                picked.add('#tietkiem');
+            }
+            if (/bếp|nấu|hành|tủ lạnh|nhà|mẹo/.test(hay)) {
+                picked.add('#meohaydoisong');
+                picked.add('#meovat');
+            }
+            tags = Array.from(picked).slice(0, 7).join(' ');
+        }
+
+        const caption = [
+            cleanTitle ? `🎬 ${cleanTitle}` : '',
+            firstLine,
+            `💬 ${lastLine}`
+        ]
+            .filter(Boolean)
+            .join('\n\n');
+
+        return {
+            caption,
+            hashtags: tags,
+            fullPost: `${caption}\n\n${tags}`.trim()
+        };
+    }
+
+    async function generateSocialCaption({
+        title = '',
+        scenes = [],
+        tone = 'viral',
+        existingHashtags = '',
+        forceRefresh = false,
+        signal
+    } = {}) {
+        const cleanTitle = String(title || '').trim();
+        const cleanScenes = (Array.isArray(scenes) ? scenes : [])
+            .map((s) => String(s || '').trim())
+            .filter(Boolean);
+        const fallback = buildLocalSocialCaption({ title: cleanTitle, scenes: cleanScenes, existingHashtags });
+        if (!getApiKey()) return fallback;
+
+        const cacheKey = `social-cap:${tone}:${hashString(cleanTitle + '|' + cleanScenes.join('|'))}`;
+        if (!forceRefresh && caches.prompts.has(cacheKey)) {
+            return caches.prompts.get(cacheKey);
+        }
+
+        const toneRule = TONE_GUIDES[tone] || TONE_GUIDES.viral;
+        const prompt = `Bạn là chuyên gia Social Media Manager chuyên tối ưu Caption & Hashtag cho Facebook Reels, TikTok và YouTube Shorts tại Việt Nam.
+Dựa vào video dưới đây, hãy viết 1 bài đăng hoàn chỉnh để người dùng copy dán đăng ngay:
+- Tiêu đề video: "${cleanTitle || 'Chia sẻ thực tế'}"
+- Tóm tắt lời thoại các cảnh:
+${cleanScenes.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+- Phong cách: ${toneRule}
+
+YÊU CẦU ĐẦU RA:
+1. "caption": Đúng 2–4 đoạn ngắn dễ đọc trên điện thoại:
+   - Dòng 1: Câu mở cực hút / đánh đúng tim đen + 1-2 emoji phù hợp.
+   - Dòng 2: Điểm nhấn giá trị hoặc câu chuyện trong video (ngắn gọn, KHÔNG tiết lộ hết đoạn kết để người xem xem hết video).
+   - Dòng 3: Câu hỏi CTA ngắn kích thích người xem bình luận, tag bạn bè hoặc lưu video.
+2. "hashtags": 6–8 hashtag tiếng Việt KHÔNG DẤU gắn sát đúng ngành/chủ đề video + hashtag khám phá (ví dụ: #reelsvn #xuhuong ...), cách nhau bằng dấu cách.`;
+
+        try {
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: 'OBJECT',
+                        properties: {
+                            caption: { type: 'STRING' },
+                            hashtags: { type: 'STRING' }
+                        },
+                        required: ['caption', 'hashtags']
+                    }
+                }
+            };
+            const res = await fetchTextWithFallback(payload, { signal });
+            const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const parsed = JSON.parse(raw);
+            if (parsed?.caption && parsed?.hashtags) {
+                const normalizedTags = String(parsed.hashtags)
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .map((t) => (t.startsWith('#') ? t : `#${t}`))
+                    .join(' ');
+                const caption = String(parsed.caption).trim();
+                const result = {
+                    caption,
+                    hashtags: normalizedTags,
+                    fullPost: `${caption}\n\n${normalizedTags}`.trim()
+                };
+                caches.prompts.set(cacheKey, result);
+                return result;
+            }
+        } catch (err) {
+            if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+            console.warn('Social caption fallback:', err.message);
+        }
+        return fallback;
+    }
+
     function clearMediaCaches() {
         caches.prompts.clear();
         caches.ttsPcm.clear();
@@ -1220,6 +1354,8 @@ Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho 
         generateRealisticVisualPrompts,
         generateCustomSceneSvgs,
         generateMultiBeatStoryboard,
+        buildLocalSocialCaption,
+        generateSocialCaption,
         fetchSceneTtsPcm,
         fetchCombinedTtsPcm,
         fetchBatchLiveTtsPcm,
