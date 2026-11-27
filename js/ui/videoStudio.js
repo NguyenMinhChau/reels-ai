@@ -339,6 +339,26 @@
         }
     }
 
+    function findClausePivotRatio(text) {
+        const clean = String(text || '').trim();
+        const words = clean.split(/\s+/).filter(Boolean);
+        if (words.length < 4) return 0.52;
+        // Locate natural Vietnamese clause break (punctuation or pivot conjunction)
+        for (let i = 1; i < words.length - 1; i++) {
+            if (/[,.;:—–]$/.test(words[i])) {
+                return Math.max(0.30, Math.min(0.76, (i + 1) / words.length));
+            }
+        }
+        const pivots = new Set(['mà', 'nhưng', 'rồi', 'thì', 'nên', 'vì', 'nếu', 'chứ', 'bảo']);
+        for (let i = 2; i < words.length - 1; i++) {
+            const w = words[i].toLowerCase().replace(/[^a-zà-ỹ]/gi, '');
+            if (pivots.has(w)) {
+                return Math.max(0.32, Math.min(0.75, i / words.length));
+            }
+        }
+        return 0.52;
+    }
+
     function buildSyncedCueSequence(flatBeats, aiStoryboard, videoTitle, visualStyle = 'motion') {
         const layouts = App.motionGraphics?.LAYOUT_NAMES || [];
         const backdrops = App.motionGraphics?.BACKDROP_NAMES || [];
@@ -415,6 +435,8 @@
                     cast,
                     action: aiItem.action || localCue.action,
                     screenType,
+                    phase2Effect: aiItem.phase2Effect || localCue.phase2Effect || 'none',
+                    visualSubject: aiItem.visualSubject || '',
                     effect: aiItem.effect || localCue.effect,
                     sfx,
                     props: chosenProps,
@@ -517,6 +539,20 @@
                           signal
                       })
                     : Promise.resolve(null);
+
+            const customPropSvgsPromise =
+                hasApiKey && (visualStyle === 'motion' || visualStyle === 'ui-motion') && typeof App.geminiApi.generateCustomPropSvgs === 'function'
+                    ? storyboardPromise
+                          .then((sb) =>
+                              App.geminiApi.generateCustomPropSvgs({
+                                  title: videoTitle,
+                                  beats: flatBeats,
+                                  storyboard: sb,
+                                  signal
+                              })
+                          )
+                          .catch(() => [])
+                    : Promise.resolve([]);
 
             const needAiImagePrompts =
                 hasApiKey && (visualStyle === 'ai-image' || (visualStyle === 'photo' && imageSourceMode !== 'stock'));
@@ -847,10 +883,33 @@
                 updateStudioProgress(80, `Đang dựng ${flatBeats.length} cảnh hoạt hình 2D khớp từng nhịp âm thanh...`);
             }
 
+            const customHeroImgs = new Array(flatBeats.length).fill(null);
+            if (visualStyle === 'motion' || visualStyle === 'ui-motion') {
+                updateStudioProgress(78, `Đang vẽ minh họa 2D khớp từng câu thoại & đồng bộ nhịp âm thanh...`);
+                const customSvgUrls = await customPropSvgsPromise;
+                if (Array.isArray(customSvgUrls) && customSvgUrls.length > 0) {
+                    await Promise.all(
+                        customSvgUrls.map(async (url, idx) => {
+                            if (!url || idx >= flatBeats.length) return;
+                            try {
+                                customHeroImgs[idx] = await App.mediaEngine.loadImageFromUrl(url);
+                            } catch (_) {
+                                customHeroImgs[idx] = null;
+                            }
+                        })
+                    );
+                }
+            }
+
             const builtScenes = flatBeats.map((beat, beatIdx) => {
                 const audioBuffer = flatAudioSlices[beatIdx];
                 const rawAudioDur = audioBuffer && Number.isFinite(audioBuffer.duration) ? audioBuffer.duration : 2.5;
                 const effectiveAudioDur = rawAudioDur / speedRate;
+                const clausePivot = findClausePivotRatio(beat.text);
+                const speechPivot =
+                    typeof App.mediaEngine.findAudioPivotRatio === 'function'
+                        ? App.mediaEngine.findAudioPivotRatio(audioBuffer, clausePivot)
+                        : clausePivot;
 
                 return {
                     text: beat.text,
@@ -862,6 +921,8 @@
                     showSubtitles,
                     motionCue: motionCues[beatIdx],
                     imageObj: sceneImageObjs[beatIdx],
+                    customHeroImg: customHeroImgs[beatIdx],
+                    speechPivot,
                     audioBuffer,
                     playbackRate: speedRate,
                     duration: Math.max(1.2, effectiveAudioDur + 0.18),

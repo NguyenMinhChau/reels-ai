@@ -16,8 +16,11 @@
     const FLOOR_Y = 784;
 
     const BACKDROPS = {
+        'studio-focus': { top: '#fafbff', bot: '#eef2ff', floor: '#dbeafe', line: '#93c5fd', accent: '#2563eb', wallTrim: '#e2e8f0', dark: false },
         'office-shelf': { top: '#f5ede0', bot: '#e2d2ba', floor: '#c8a680', line: '#9c7d5b', accent: '#2563eb', wallTrim: '#d4bfa2', dark: false },
-        'office-desk': { top: '#eef4ff', bot: '#dbe8fe', floor: '#cbd5f5', line: '#6366f1', accent: '#2563eb', wallTrim: '#c7d9fc', dark: false },
+        'office-desk': { top: '#f0f6ff', bot: '#dceafe', floor: '#c7d2fe', line: '#6366f1', accent: '#2563eb', wallTrim: '#c7d9fc', dark: false },
+        'work-late': { top: '#111827', bot: '#1e293b', floor: '#0f172a', line: '#334155', accent: '#f59e0b', wallTrim: '#1e293b', dark: true },
+        'gym-fresh': { top: '#ecfeff', bot: '#cffafe', floor: '#99f6e4', line: '#0d9488', accent: '#059669', wallTrim: '#a5f3fc', dark: false },
         'cream-room': { top: '#fef8e8', bot: '#f2e2be', floor: '#d6c194', line: '#9c8b68', accent: '#10b981', wallTrim: '#e8d4a8', dark: false },
         'grid-light': { top: '#f6f9ff', bot: '#e5efff', floor: '#dbeafe', line: '#93c5fd', accent: '#2563eb', wallTrim: '#dbeafe', dark: false },
         'blueprint-dark': { top: '#091224', bot: '#122443', floor: '#0d172a', line: '#1e3a5f', accent: '#38bdf8', wallTrim: '#172e4f', dark: true },
@@ -139,6 +142,10 @@
     const ACTION_NAMES = [
         'pointing',
         'typing',
+        'hunched-pain',
+        'stretching',
+        'empty-wallet',
+        'back-ache',
         'calling',
         'phone-scroll',
         'shocked-phone',
@@ -168,6 +175,12 @@
     ];
 
     const PROP_NAMES = [
+        'ergo_chair',
+        'spine_back',
+        'empty_wallet',
+        'stretching_pose',
+        'price_tag',
+        'shopping_bag',
         'house',
         'door',
         'city_building',
@@ -235,39 +248,64 @@
     // ---- Weighted Context-Rich Story & Domain Resolver ----
     const SEMANTIC_RULES = [
         {
+            regex: /gù lưng|cong lưng|cột sống|dán mặt vào màn hình|10 tiếng|ngồi lâu|cúi gằm|sai tư thế|đau lưng|mỏi nhừ|mỏi lưng|đau vai|bẫy ghế/,
+            backdrop: 'work-late', layout: 'character-action', cast: 'boy-spiky', action: 'hunched-pain',
+            props: ['spine_back', 'ergo_chair'], mood: 'shocked', effect: 'sweat', sfx: 'pop', screenType: 'excel_err', phase2Effect: 'back_pain'
+        },
+        {
+            regex: /ghế ergonomic|ghế công thái học|chiếc ghế|ghế xịn|ngồi êm|mua ghế|tựa lưng/,
+            backdrop: 'studio-focus', layout: 'character-left', cast: 'narrator', action: 'back-ache',
+            props: ['ergo_chair', 'spine_back'], mood: 'thinking', effect: 'sparkles', sfx: 'pop', screenType: 'checklist_done', phase2Effect: 'none'
+        },
+        {
+            regex: /đứng lên|đi lại|giãn cơ|vươn vai|tập thể dục|5 phút|đi bộ|duỗi lưng/,
+            backdrop: 'gym-fresh', layout: 'character-action', cast: 'girl-bun', action: 'stretching',
+            props: ['stretching_pose', 'clock'], mood: 'happy', effect: 'confetti', sfx: 'ding', screenType: 'checklist_done', phase2Effect: 'stretch_up'
+        },
+        {
+            regex: /ví thì xẹp|xẹp lép|cháy túi|hết tiền|rỗng túi|ví rỗng|năm củ|5 củ|5 triệu|tiền mất|tốn tiền|đắt xắt/,
+            backdrop: 'sunset-warm', layout: 'character-left', cast: 'boy-spiky', action: 'empty-wallet',
+            props: ['empty_wallet', 'price_tag'], mood: 'shocked', effect: 'money', sfx: 'pop', screenType: 'wallet_cash', phase2Effect: 'wallet_empty'
+        },
+        {
+            regex: /nghe quảng cáo|múc ngay|chốt đơn mua|mua ngay|sắm ngay|đặt mua|giỏ hàng/,
+            backdrop: 'office-desk', layout: 'hand-pov', cast: 'narrator', action: 'phone-scroll',
+            props: ['shopping_bag', 'ergo_chair'], mood: 'happy', effect: 'sparkles', sfx: 'click', screenType: 'chat_msg', phase2Effect: 'check_win'
+        },
+        {
             regex: /phòng kinh doanh|công ty|văn phòng|đội ngũ|cả team|họp team|họp sáng|nhân viên|đồng nghiệp|họp/,
             backdrop: 'office-shelf', layout: 'wide-team', cast: 'narrator', action: 'pointing',
-            props: ['laptop', 'chart_bars'], mood: 'happy', effect: 'sparkles', sfx: 'whoosh', screenType: 'revenue_up'
+            props: ['laptop', 'chart_bars'], mood: 'happy', effect: 'sparkles', sfx: 'whoosh', screenType: 'revenue_up', phase2Effect: 'none'
         },
         {
             regex: /gọi điện|nghe máy|alo|tư vấn khách|chốt sale|điện thoại lên|gọi khách/,
-            backdrop: 'office-shelf', layout: 'desk-closeup', cast: 'manager-red', action: 'calling',
-            props: ['phone', 'coffee_cup'], mood: 'happy', effect: 'sparkles', sfx: 'pop', screenType: 'notification_bell'
+            backdrop: 'office-desk', layout: 'desk-closeup', cast: 'manager-red', action: 'calling',
+            props: ['phone', 'coffee_cup'], mood: 'happy', effect: 'sparkles', sfx: 'pop', screenType: 'notification_bell', phase2Effect: 'none'
         },
         {
             regex: /hợp đồng|chữ ký|ký tên|giấy tờ|hóa đơn|bảng giá|báo giá|tài liệu|hồ sơ|duyệt đơn/,
-            backdrop: 'office-shelf', layout: 'hand-pov', cast: 'girl-bun', action: 'pointing',
-            props: ['card_doc', 'envelope'], mood: 'thinking', effect: 'sparkles', sfx: 'click', screenType: 'contract_sign'
+            backdrop: 'office-desk', layout: 'hand-pov', cast: 'girl-bun', action: 'pointing',
+            props: ['card_doc', 'envelope'], mood: 'thinking', effect: 'sparkles', sfx: 'click', screenType: 'contract_sign', phase2Effect: 'check_win'
         },
         {
             regex: /excel|bảng tính|lỗi công thức|nhập liệu|file báo cáo|mở file|phần mềm|erp|crm|hệ thống/,
             backdrop: 'office-desk', layout: 'laptop-popup', cast: 'girl-purple', action: 'typing',
-            props: ['laptop', 'card_doc'], mood: 'shocked', effect: 'sweat', sfx: 'pop', screenType: 'excel_err'
+            props: ['laptop', 'card_doc'], mood: 'shocked', effect: 'sweat', sfx: 'pop', screenType: 'excel_err', phase2Effect: 'shock_alert'
         },
         {
             regex: /deadline|trễ hạn|chạy số|kpi|áp lực|ot|tăng ca|sếp mắng|gấp rút|trưởng phòng/,
-            backdrop: 'office-desk', layout: 'desk-closeup', cast: 'boy-spiky', action: 'typing',
-            props: ['clock', 'target_kpi', 'laptop'], mood: 'shocked', effect: 'sweat', sfx: 'pop', screenType: 'calendar_due'
+            backdrop: 'work-late', layout: 'desk-closeup', cast: 'boy-spiky', action: 'typing',
+            props: ['clock', 'target_kpi', 'laptop'], mood: 'shocked', effect: 'sweat', sfx: 'pop', screenType: 'calendar_due', phase2Effect: 'shock_alert'
         },
         {
             regex: /sập server|lỗi|bug|code|it|dev|deploy|lập trình|api|crash|sự cố/,
             backdrop: 'server-tech', layout: 'character-action', cast: 'boy-spiky', action: 'typing',
-            props: ['laptop', 'fire_flame', 'warning_triangle'], mood: 'shocked', effect: 'sparks', sfx: 'pop', screenType: 'code_bug'
+            props: ['laptop', 'fire_flame', 'warning_triangle'], mood: 'shocked', effect: 'sparks', sfx: 'pop', screenType: 'code_bug', phase2Effect: 'shock_alert'
         },
         {
-            regex: /10 giờ|11 giờ|22 giờ|23 giờ|2 giờ|1 giờ|khuya|nửa đêm|ngủ|mất ngủ|nằm trên giường|giấc ngủ/,
+            regex: /đi ngủ|nằm ngủ|giấc ngủ|mất ngủ|trên giường|chăn gối|nửa đêm|2 giờ sáng|khuya rồi/,
             backdrop: 'bedroom-night', layout: 'character-action', cast: 'girl-purple', action: 'sleeping',
-            props: ['sleep_bed', 'phone', 'clock'], mood: 'sleepy', effect: 'sparkles', sfx: 'none', screenType: 'night_scroll'
+            props: ['sleep_bed', 'phone', 'clock'], mood: 'sleepy', effect: 'sparkles', sfx: 'none', screenType: 'night_scroll', phase2Effect: 'none'
         },
         {
             regex: /lướt điện thoại|tin nhắn|sếp nhắn|check tin|nhắn tin|chat|zalo|thông báo|notification|seen|im lặng/,
@@ -409,6 +447,7 @@
         const effect = bestRule ? bestRule.effect : 'sparkles';
         const sfx = bestRule?.sfx || (beatIdx === 0 ? 'whoosh' : beatIdx % 2 === 0 ? 'pop' : 'click');
         const screenType = bestRule?.screenType || domain.screenType || 'chat_msg';
+        const phase2Effect = bestRule?.phase2Effect || 'none';
 
         return {
             layout,
@@ -418,9 +457,10 @@
             effect,
             sfx,
             screenType,
+            phase2Effect,
             props: candidateProps,
             characterMood,
-            crossOut: Boolean(bestRule?.crossOut || (/sai lầm|đừng bao giờ|tuyệt đối không|cảnh báo|tránh ngay|sập bẫy/.test(beatLower))),
+            crossOut: Boolean(bestRule?.crossOut || (/sai lầm|đừng bao giờ|tuyệt đối không|cảnh báo|tránh ngay|sập bẫy|bó tay|sai bét/.test(beatLower))),
             sceneText: String(sceneText || ''),
             videoTitle: String(videoTitle || '')
         };
@@ -730,7 +770,61 @@
         if (backdropId === 'office-shelf') {
             drawOfficeBookshelfAndWindow(ctx, t, audioLevel);
         } else if (backdropId === 'office-desk') {
-            drawOfficeBookshelfAndWindow(ctx, t, audioLevel);
+            // Minimalist clean desk room (NO cloned bookshelf!) with warm pendant lamp & hanging board
+            drawOutlinedRect(ctx, 72, 175, 195, 16, 6, '#d97706', '#78350f', 2.4, true);
+            drawOutlinedRect(ctx, 94, 130, 32, 45, 5, '#38bdf8', '#1e293b', 2, false);
+            drawOutlinedRect(ctx, 136, 138, 28, 37, 5, '#facc15', '#1e293b', 2, false);
+            // Warm ceiling pendant lamp right side
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(410, 0);
+            ctx.lineTo(410, 128);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(254, 240, 138, 0.34)';
+            ctx.beginPath();
+            ctx.moveTo(378, 152);
+            ctx.lineTo(442, 152);
+            ctx.lineTo(525, FLOOR_Y);
+            ctx.lineTo(295, FLOOR_Y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(410, 152, 34, Math.PI, Math.PI * 2);
+            ctx.closePath();
+            ctx.fill();
+        } else if (backdropId === 'work-late') {
+            // Late-night desk lamp cone + dim room for working 10 hours/hunched scenes
+            const glow = ctx.createRadialGradient(270, 390, 30, 270, 390, 320);
+            glow.addColorStop(0, 'rgba(251, 191, 36, 0.22)');
+            glow.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = glow;
+            ctx.fillRect(0, 0, W, H);
+            drawOutlinedRect(ctx, 340, 118, 164, 150, 10, '#090d16', '#334155', 2.8, true);
+            ctx.fillStyle = '#facc15';
+            ctx.beginPath();
+            ctx.arc(452, 162, 18, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (backdropId === 'gym-fresh') {
+            // Bright airy diagonal sunbeams + crisp wall clock for stretching/active scenes
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.44)';
+            ctx.beginPath();
+            ctx.moveTo(40, 0);
+            ctx.lineTo(220, 0);
+            ctx.lineTo(480, FLOOR_Y);
+            ctx.lineTo(250, FLOOR_Y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+            drawPottedPlant(ctx, 474, FLOOR_Y, 0.92, Math.sin(t * 2.2));
+        } else if (backdropId === 'studio-focus') {
+            const spot = ctx.createRadialGradient(270, 410, 25, 270, 410, 310);
+            spot.addColorStop(0, 'rgba(255, 255, 255, 0.92)');
+            spot.addColorStop(1, 'rgba(219, 234, 254, 0)');
+            ctx.fillStyle = spot;
+            ctx.fillRect(0, 0, W, H);
         } else if (backdropId === 'bedroom-night' || backdropId === 'night-calm') {
             drawOutlinedRect(ctx, 318, 118, 174, 210, 12, '#020617', '#4f46e5', 3.5, true);
             ctx.save();
@@ -1539,6 +1633,114 @@
             return;
         }
 
+        if (action === 'hunched-pain') {
+            // Character hunched forward painfully over laptop + glowing red curved spine + ache bolts!
+            const leanShake = Math.sin(t * 14) * (1.2 + audioLevel * 2);
+            drawOutlinedRect(ctx, -145, 40, 290, 18, 7, '#d19c68', '#78502b', 3, true);
+            // Hunched ergonomic chair behind character
+            drawOutlinedRect(ctx, -108, -42, 24, 118, 10, '#1e293b', '#0f172a', 2.6, false);
+            drawOutlinedRect(ctx, -110, 46, 86, 16, 6, '#334155', '#0f172a', 2.4, false);
+
+            // Curved hunched torso leaning forward toward laptop
+            ctx.save();
+            ctx.translate(-34 + leanShake, 2);
+            ctx.rotate(0.42);
+            drawOutlinedRect(ctx, -28, -22, 58, 74, 18, shirtColor, '#1e293b', 3, true);
+            // Glowing red curved spine line across back
+            const pulseAlpha = 0.55 + 0.45 * Math.sin(t * 9);
+            ctx.strokeStyle = `rgba(239, 68, 68, ${pulseAlpha})`;
+            ctx.lineWidth = 6.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-18, -14);
+            ctx.quadraticCurveTo(-36, 16, -12, 46);
+            ctx.stroke();
+            ctx.restore();
+
+            // Red pain sparks behind lower back
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 3.2;
+            [[-96, -8], [-110, 14]].forEach(([px, py], i) => {
+                ctx.beginPath();
+                ctx.moveTo(px, py);
+                ctx.lineTo(px - 14, py - 8 + i * 10);
+                ctx.lineTo(px - 6, py + 2);
+                ctx.lineTo(px - 22, py - 2);
+                ctx.stroke();
+            });
+
+            drawCharacterHead(ctx, -2 + leanShake, -42, t, 'shocked', audioLevel, cast);
+            drawArticulatedLimb(ctx, -10 + leanShake, 12, 18, 22, 34, 30, 12, shirtColor, '#1e293b', prof.skin);
+            // Bright laptop screen glaring at face
+            drawOutlinedRect(ctx, 28, -22, 92, 62, 8, '#334155', '#0f172a', 2.8, true);
+            drawRichScreenContent(ctx, 35, -15, 78, 48, 'excel_err', progress, t, audioLevel);
+            ctx.restore();
+            return;
+        }
+
+        if (action === 'stretching') {
+            // Character standing tall raising arms in energizing V-stretch + bright sparkle aura!
+            const reach = Math.sin(t * 4) * 5 + audioLevel * 7;
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.16)';
+            ctx.beginPath();
+            ctx.ellipse(0, 122, 48, 9, 0, 0, Math.PI * 2);
+            ctx.fill();
+            drawArticulatedLimb(ctx, -14, 56, -18, 86, -20, 112, 16, '#334155', '#1e293b');
+            drawArticulatedLimb(ctx, 14, 56, 18, 86, 20, 112, 16, '#334155', '#1e293b');
+            drawOutlinedRect(ctx, -30, 108, 22, 12, 6, '#1e293b', '#0f172a', 2, false);
+            drawOutlinedRect(ctx, 8, 108, 22, 12, 6, '#1e293b', '#0f172a', 2, false);
+            drawArticulatedLimb(ctx, -28, -4, -52, -38, -34, -76 - reach, 13, shirtColor, '#1e293b', prof.skin);
+            drawArticulatedLimb(ctx, 28, -4, 52, -38, 34, -76 - reach, 13, shirtColor, '#1e293b', prof.skin);
+            drawOutlinedRect(ctx, -29, -14, 58, 76, 16, shirtColor, '#1e293b', 3, true);
+            drawOutlinedRect(ctx, -11, -14, 22, 74, 4, prof.inner, null, 0, false);
+            drawCharacterHead(ctx, 0, -56 - reach * 0.25, t, 'happy', audioLevel, cast);
+            drawSparkle(ctx, -64, -78, 11, '#22c55e', t * 2);
+            drawSparkle(ctx, 64, -78, 11, '#38bdf8', -t * 2);
+            ctx.restore();
+            return;
+        }
+
+        if (action === 'empty-wallet' || action === 'back-ache') {
+            const bob = Math.sin(t * 4) * 2.5;
+            ctx.translate(0, bob);
+            ctx.fillStyle = 'rgba(15,23,42,0.14)';
+            ctx.beginPath();
+            ctx.ellipse(0, 122, 44, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            drawArticulatedLimb(ctx, -14, 56, -16, 86, -18, 112, 16, '#334155', '#1e293b');
+            drawArticulatedLimb(ctx, 14, 56, 16, 86, 18, 112, 16, '#334155', '#1e293b');
+            drawOutlinedRect(ctx, -28, 108, 22, 12, 6, '#1e293b', '#0f172a', 2, false);
+            drawOutlinedRect(ctx, 6, 108, 22, 12, 6, '#1e293b', '#0f172a', 2, false);
+            if (action === 'back-ache') {
+                drawArticulatedLimb(ctx, -28, 0, -48, 26, -24, 42, 13, shirtColor, '#1e293b', prof.skin);
+                drawArticulatedLimb(ctx, 28, -2, 44, 18, 56, -8, 13, shirtColor, '#1e293b', prof.skin, true);
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 3.2;
+                ctx.beginPath();
+                ctx.moveTo(-42, 32);
+                ctx.lineTo(-58, 24);
+                ctx.lineTo(-50, 36);
+                ctx.lineTo(-66, 30);
+                ctx.stroke();
+            } else {
+                drawArticulatedLimb(ctx, -28, 0, -46, 18, -20, 26, 13, shirtColor, '#1e293b', prof.skin);
+                drawArticulatedLimb(ctx, 28, 0, 50, 16, 54, 4, 13, shirtColor, '#1e293b', prof.skin);
+                // Held open flat brown wallet
+                drawOutlinedRect(ctx, 42, -16, 42, 30, 6, '#92400e', '#1e293b', 2.4, true);
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(62, -22);
+                ctx.quadraticCurveTo(72, -38, 86, -34);
+                ctx.stroke();
+            }
+            drawOutlinedRect(ctx, -30, -14, 60, 76, 16, shirtColor, '#1e293b', 3, true);
+            drawOutlinedRect(ctx, -11, -14, 22, 74, 4, prof.inner, null, 0, false);
+            drawCharacterHead(ctx, 0, -56, t, action === 'back-ache' ? mood : 'shocked', audioLevel, cast);
+            ctx.restore();
+            return;
+        }
+
         // Default standing presenter with articulated pointing/gesturing arm responding to speech energy!
         const bob = Math.sin(t * 4.2) * 2.5 + audioLevel * -2.5;
         ctx.translate(0, bob);
@@ -2235,6 +2437,122 @@
                 drawOutlinedRect(ctx, -30, -6, 120, 34, 12, '#818cf8', '#1e293b', 2.8, false);
                 break;
             }
+            case 'ergo_chair': {
+                // Detailed Modern Ergonomic Mesh Office Chair with Headrest, Lumbar Cushion & 5-Star Base
+                const hover = Math.sin(t * 2.5) * 3;
+                ctx.translate(0, hover);
+                // 5-star caster base
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(0, 48);
+                ctx.lineTo(0, 92);
+                ctx.moveTo(-64, 108);
+                ctx.lineTo(0, 90);
+                ctx.lineTo(64, 108);
+                ctx.stroke();
+                [-64, 0, 64].forEach((wx) => {
+                    ctx.fillStyle = '#334155';
+                    ctx.beginPath();
+                    ctx.arc(wx, 114, 9, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                // Headrest
+                drawOutlinedRect(ctx, -36, -124, 72, 26, 10, '#334155', '#0f172a', 3, true);
+                drawOutlinedRect(ctx, -8, -98, 16, 16, 4, '#64748b', '#0f172a', 2.4, false);
+                // Mesh Backrest + Ergonomic Lumbar Pillow Highlight
+                drawOutlinedRect(ctx, -56, -86, 112, 116, 22, '#1e293b', '#0f172a', 3.4, true);
+                drawOutlinedRect(ctx, -46, -76, 92, 96, 16, '#334155', '#475569', 2, false);
+                drawOutlinedRect(ctx, -40, -14, 80, 26, 10, '#38bdf8', '#0284c7', 2.2, false);
+                // Armrests + Seat cushion
+                drawOutlinedRect(ctx, -78, 6, 22, 34, 6, '#475569', '#0f172a', 2.4, false);
+                drawOutlinedRect(ctx, 56, 6, 22, 34, 6, '#475569', '#0f172a', 2.4, false);
+                drawOutlinedRect(ctx, -64, 28, 128, 26, 10, '#1e293b', '#0f172a', 3.2, true);
+                break;
+            }
+            case 'spine_back': {
+                // Curving Red-Warning Spine vs Upright Vertebrae Stack
+                drawOutlinedRect(ctx, -84, -112, 168, 224, 24, '#ffffff', '#1e293b', 3.4, true);
+                const pulse = 0.65 + 0.35 * Math.sin(t * 7);
+                ctx.strokeStyle = `rgba(239, 68, 68, ${pulse})`;
+                ctx.lineWidth = 10;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(8, -76);
+                ctx.bezierCurveTo(-48, -28, 48, 24, -10, 78);
+                ctx.stroke();
+                for (let v = 0; v < 6; v++) {
+                    const vy = -66 + v * 26;
+                    const vx = Math.sin(v * 0.9) * -14;
+                    drawOutlinedRect(ctx, vx - 18, vy - 7, 36, 14, 6, '#fee2e2', '#ef4444', 2.4, false);
+                }
+                break;
+            }
+            case 'empty_wallet': {
+                const flapOpen = easeOutBack(clamp01(progress * 1.6));
+                ctx.rotate(-0.08);
+                drawOutlinedRect(ctx, -96, -54, 192, 118, 16, '#92400e', '#1e293b', 3.4, true);
+                drawOutlinedRect(ctx, -84, -42, 168, 94, 12, '#78350f', null, 0, false);
+                // Falling coins out of empty wallet
+                for (let c = 0; c < 3; c++) {
+                    const fall = (t * 0.6 + c * 0.32) % 1;
+                    ctx.save();
+                    ctx.globalAlpha = 1 - fall;
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.strokeStyle = '#1e293b';
+                    ctx.lineWidth = 2.4;
+                    ctx.beginPath();
+                    ctx.arc(-40 + c * 42, 54 + fall * 58, 14, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                // Empty puff wave arcs
+                if (flapOpen > 0.3) {
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 3.2;
+                    ctx.beginPath();
+                    ctx.arc(0, -78, 22 * flapOpen, Math.PI * 0.2, Math.PI * 0.8);
+                    ctx.stroke();
+                }
+                break;
+            }
+            case 'stretching_pose': {
+                drawOutlinedRect(ctx, -92, -104, 184, 208, 28, '#dcfce7', '#059669', 3.2, true);
+                // Joyful stick-cartoon figure stretching upward + green checkmark wave
+                ctx.strokeStyle = '#059669';
+                ctx.lineWidth = 10;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(0, -28);
+                ctx.lineTo(0, 34);
+                ctx.moveTo(0, -14);
+                ctx.lineTo(-42, -58 - Math.sin(t * 4) * 6);
+                ctx.moveTo(0, -14);
+                ctx.lineTo(42, -58 - Math.sin(t * 4) * 6);
+                ctx.moveTo(0, 34);
+                ctx.lineTo(-26, 78);
+                ctx.moveTo(0, 34);
+                ctx.lineTo(26, 78);
+                ctx.stroke();
+                ctx.fillStyle = '#059669';
+                ctx.beginPath();
+                ctx.arc(0, -54, 18, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+            }
+            case 'price_tag':
+            case 'shopping_bag': {
+                drawOutlinedRect(ctx, -78, -56, 156, 140, 18, '#fb7185', '#1e293b', 3.4, true);
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 8;
+                ctx.beginPath();
+                ctx.arc(0, -56, 34, Math.PI, Math.PI * 2);
+                ctx.stroke();
+                drawSparkle(ctx, 0, 12, 26 + audioLevel * 6, '#fef08a', t * 2);
+                break;
+            }
             default: {
                 drawOutlinedRect(ctx, -68, -68, 136, 136, 28, '#fef3c7', '#1e293b', 3.4, true);
                 drawSparkle(ctx, 0, 0, 36 + audioLevel * 8, '#facc15', t * 2);
@@ -2260,27 +2578,112 @@
         ctx.restore();
     }
 
+    function drawHeroSubject(ctx, scene, propId, cx, cy, scale, progress, t, audioLevel, screenType, allowCustomHero = true) {
+        if (scale <= 0.02) return;
+        const customImg = allowCustomHero ? scene?.customHeroImg : null;
+        if (customImg) {
+            ctx.save();
+            ctx.translate(cx, cy + Math.sin(t * 2.5) * 3.5);
+            const dynScale = scale * (1 + audioLevel * 0.045);
+            ctx.scale(dynScale, dynScale);
+            // Soft grounded studio halo behind custom AI vector prop
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
+            ctx.beginPath();
+            ctx.ellipse(0, 88, 110, 22, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.drawImage(customImg, -140, -140, 280, 280);
+            ctx.restore();
+            return;
+        }
+        drawProp(ctx, propId, cx, cy, scale, progress, t, audioLevel, screenType);
+    }
+
+    function drawPhase2Overlay(ctx, phase2Effect, pivot, progress, t, audioLevel) {
+        if (!phase2Effect || phase2Effect === 'none' || progress < pivot) return;
+        const localP = stagePop(progress, pivot, 0.16);
+        if (localP <= 0.03) return;
+        ctx.save();
+        if (phase2Effect === 'cross_mistake') {
+            drawRedCross(ctx, 270, 390, 118, localP);
+        } else if (phase2Effect === 'check_win' || phase2Effect === 'stretch_up') {
+            ctx.translate(418, 224);
+            ctx.scale(localP * (1 + audioLevel * 0.06), localP * (1 + audioLevel * 0.06));
+            ctx.fillStyle = '#22c55e';
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.arc(0, 0, 32, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 5.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-13, 2);
+            ctx.lineTo(-3, 12);
+            ctx.lineTo(15, -10);
+            ctx.stroke();
+        } else if (phase2Effect === 'wallet_empty' || phase2Effect === 'money_fly') {
+            for (let i = 0; i < 4; i++) {
+                const fly = clamp01((progress - pivot) * 2.2);
+                const px = 270 + (i - 1.5) * (48 + fly * 52);
+                const py = 360 - fly * 120 + i * 18;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0.15, 1 - fly * 0.85);
+                ctx.fillStyle = '#fbbf24';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 2.4;
+                ctx.beginPath();
+                ctx.arc(px, py, 14, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+        } else if (phase2Effect === 'back_pain' || phase2Effect === 'shock_alert') {
+            const shake = Math.sin(t * 24) * 3;
+            ctx.translate(425 + shake, 226);
+            ctx.scale(localP, localP);
+            ctx.fillStyle = '#ef4444';
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.moveTo(0, -34);
+            ctx.lineTo(34, 26);
+            ctx.lineTo(-34, 26);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(-3.5, -16, 7, 22);
+            ctx.beginPath();
+            ctx.arc(0, 14, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
     // ---- Main Storyboard & UI Motion Choreography ----
     function renderSingleMotionScene(ctx, scene, progress, sceneIdx, t, audioLevel = 0) {
         const visualStyle = scene.visualStyle || 'motion';
         const cue = scene.motionCue || analyzeSceneVisualCue(scene.text, sceneIdx, '', {}, visualStyle);
-        const backdropId = BACKDROPS[cue.backdrop] ? cue.backdrop : (visualStyle === 'ui-motion' ? 'grid-light' : 'office-shelf');
+        const backdropId = BACKDROPS[cue.backdrop] ? cue.backdrop : (visualStyle === 'ui-motion' ? 'grid-light' : 'studio-focus');
         const props = Array.isArray(cue.props) && cue.props.length > 0 ? cue.props : ['lightbulb'];
         const mood = cue.characterMood || 'happy';
         const action = cue.action || 'pointing';
         const cast = cue.cast || 'narrator';
         const effect = cue.effect || 'sparkles';
         const screenType = cue.screenType || 'chat_msg';
+        const pivot = Number.isFinite(scene.speechPivot) ? scene.speechPivot : 0.52;
+        const phase2Effect = cue.phase2Effect || 'none';
 
         drawBackdrop(ctx, backdropId, progress, t, audioLevel);
 
         const pop1 = stagePop(progress, 0.02, 0.18);
-        const pop2 = stagePop(progress, 0.16, 0.20);
-        const pop3 = stagePop(progress, 0.42, 0.20);
+        const pop2 = stagePop(progress, 0.14, 0.18);
+        const pop3 = stagePop(progress, 0.36, 0.18);
 
         switch (cue.layout) {
             case 'wide-team': {
-                // Multi-angle office room with slow camera push-in, animated screen, teammates & speaking narrator
                 const camZoom = 1 + easeOutCubic(progress) * 0.055;
                 ctx.save();
                 ctx.translate(270, 520);
@@ -2290,38 +2693,36 @@
                 drawSeatedDeskCharacter(ctx, 304, 545, pop2 * 0.72, t, 'boy-spiky', mood, 0, false);
                 drawSeatedDeskCharacter(ctx, 438, 480, pop2 * 0.56, t, 'manager-red', 'happy', 0, action === 'calling');
                 ctx.restore();
-                // Contextual focus card floating softly in upper-center of office room
-                if (props[0]) {
-                    drawOutlinedRect(ctx, 178, 224, 184, 120, 18, 'rgba(255,255,255,0.92)', '#94a3b8', 2.4, true);
-                    drawProp(ctx, props[0], 270, 284, pop2 * 0.42, progress, t, audioLevel, screenType);
-                }
+                drawOutlinedRect(ctx, 152, 200, 236, 156, 22, 'rgba(255,255,255,0.94)', '#94a3b8', 2.4, true);
+                drawHeroSubject(ctx, scene, props[0], 270, 278, pop2 * 0.50, progress, t, audioLevel, screenType, true);
                 drawAnimatedActor(ctx, 444, 702, pop1 * 0.94, progress, t, action === 'celebrating' ? 'celebrating' : 'pointing', mood, audioLevel, cast);
                 drawComicReaction(ctx, 378, 590, mood, audioLevel, t);
                 break;
             }
 
             case 'desk-closeup': {
-                // Tight medium close-up with cinematic zoom, laptop, side context prop & comic reaction!
                 const camZoom = 1 + easeOutCubic(progress) * 0.065;
                 ctx.save();
                 ctx.translate(270, 545);
                 ctx.scale(camZoom, camZoom);
                 ctx.translate(-270, -545);
                 drawSeatedDeskCharacter(ctx, 265, 540, pop1 * 1.48, t, cast, mood, audioLevel, action === 'calling');
-                drawProp(ctx, props[0], 438, 360, pop2 * 0.44, progress, t, audioLevel, screenType);
+                drawHeroSubject(ctx, scene, props[0], 430, 345, pop2 * 0.52, progress, t, audioLevel, screenType, true);
                 drawComicReaction(ctx, 118, 385, mood, audioLevel, t);
                 ctx.restore();
                 break;
             }
 
             case 'hand-pov': {
-                // First-person POV hands holding phone with animated screen OR signing paper with red stamp "APPROVED"
                 drawOutlinedRect(ctx, 88, 198, 364, 440, 22, '#ffffff', '#cbd5e1', 3, true);
                 const docScale = pop1 * 1.12;
                 const isDocShot = props[0] === 'card_doc' || props[0] === 'envelope' || screenType === 'contract_sign';
-                drawProp(ctx, isDocShot ? 'card_doc' : 'phone', 270, 398, docScale * 0.96, progress, t, audioLevel, screenType);
+                if (scene?.customHeroImg) {
+                    drawHeroSubject(ctx, scene, props[0], 270, 402, pop1 * 1.05, progress, t, audioLevel, screenType, true);
+                } else {
+                    drawProp(ctx, isDocShot ? 'card_doc' : 'phone', 270, 398, docScale * 0.96, progress, t, audioLevel, screenType);
+                }
 
-                // Animated POV arms & hands
                 const drawPovHand = (hx, hy, tilt, sleeveCol = '#1e3a5f') => {
                     ctx.save();
                     ctx.translate(hx, hy);
@@ -2335,7 +2736,6 @@
                     ctx.arc(0, -20, 24, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.stroke();
-                    // Thumb
                     ctx.beginPath();
                     ctx.ellipse(16, -24, 8, 14, 0.4, 0, Math.PI * 2);
                     ctx.fill();
@@ -2358,9 +2758,8 @@
                     }
                     ctx.stroke();
                     drawPovHand(signX + 34, signY + 32, -0.45);
-                    // Red circle stamp popping on payoff!
-                    if (progress > 0.65) {
-                        const stP = stagePop(progress, 0.65, 0.16);
+                    if (progress > pivot) {
+                        const stP = stagePop(progress, pivot, 0.16);
                         ctx.save();
                         ctx.translate(342, 466);
                         ctx.scale(stP, stP);
@@ -2381,8 +2780,8 @@
                     const handY = 635 - easeOutBack(clamp01(progress * 2.2)) * 42;
                     drawPovHand(94, handY, -0.24);
                     drawPovHand(446, handY, 0.24);
-                    if (progress > 0.52) {
-                        drawCursorPointer(ctx, 270, 420, progress > 0.58 && progress < 0.72 ? 0.85 : 1, clamp01((progress - 0.58) * 3.5));
+                    if (progress > pivot) {
+                        drawCursorPointer(ctx, 270, 420, progress > pivot && progress < pivot + 0.14 ? 0.85 : 1, clamp01((progress - pivot) * 3.5));
                     }
                 }
                 break;
@@ -2403,21 +2802,24 @@
                     ctx.arc(-182 + di * 22, -140, 7, 0, Math.PI * 2);
                     ctx.fill();
                 });
-                drawRichScreenContent(ctx, -192, -102, 384, 234, screenType, progress, t, audioLevel);
+                if (scene?.customHeroImg) {
+                    drawHeroSubject(ctx, scene, props[0], 0, 14, 0.86, progress, t, audioLevel, screenType, true);
+                } else {
+                    drawRichScreenContent(ctx, -192, -102, 384, 234, screenType, progress, t, audioLevel);
+                }
                 ctx.restore();
                 const curT = easeInOutCubic(clamp01(progress * 1.4));
                 drawCursorPointer(
                     ctx,
                     400 - curT * 92,
                     490 - curT * 58,
-                    progress > 0.56 && progress < 0.70 ? 0.84 : 1,
-                    progress > 0.58 ? clamp01((progress - 0.58) * 3.5) : 0
+                    progress > pivot && progress < pivot + 0.14 ? 0.84 : 1,
+                    progress > pivot ? clamp01((progress - pivot) * 3.5) : 0
                 );
                 break;
             }
 
             case 'ui-window': {
-                // Sleek SaaS App Mockup Window with real animated UI screen & Bezier cursor click
                 ctx.save();
                 ctx.translate(270, 410);
                 ctx.scale(pop1, pop1);
@@ -2429,10 +2831,15 @@
                     ctx.arc(-178 + i * 18, -168, 5.5, 0, Math.PI * 2);
                     ctx.fill();
                 });
-                drawRichScreenContent(ctx, -196, -132, 392, 236, screenType, progress, t, audioLevel);
+                if (scene?.customHeroImg) {
+                    drawOutlinedRect(ctx, -196, -132, 392, 236, 14, '#f8fafc', '#334155', 1.8, false);
+                    drawHeroSubject(ctx, scene, props[0], 0, -14, 0.78, progress, t, audioLevel, screenType, true);
+                } else {
+                    drawRichScreenContent(ctx, -196, -132, 392, 236, screenType, progress, t, audioLevel);
+                }
 
-                const btnClicked = progress > 0.62;
-                const btnScale = progress > 0.6 && progress < 0.72 ? 0.94 : 1;
+                const btnClicked = progress > pivot;
+                const btnScale = progress > pivot && progress < pivot + 0.12 ? 0.94 : 1;
                 ctx.save();
                 ctx.translate(0, 146);
                 ctx.scale(btnScale, btnScale);
@@ -2458,13 +2865,13 @@
                 ctx.restore();
                 ctx.restore();
 
-                const curP = easeInOutCubic(clamp01((progress - 0.12) / 0.52));
+                const curP = easeInOutCubic(clamp01((progress - 0.1) / Math.max(0.25, pivot - 0.1)));
                 drawCursorPointer(
                     ctx,
                     430 - curP * 145,
                     640 - curP * 85,
-                    progress > 0.6 && progress < 0.72 ? 0.84 : 1,
-                    progress > 0.62 ? clamp01((progress - 0.62) * 3.2) : 0
+                    progress > pivot && progress < pivot + 0.12 ? 0.84 : 1,
+                    progress > pivot ? clamp01((progress - pivot) * 3.2) : 0
                 );
                 break;
             }
@@ -2482,7 +2889,7 @@
                     ctx.translate(px, py);
                     ctx.scale(cardP, cardP);
                     drawOutlinedRect(ctx, -106, -82, 212, 164, 24, '#ffffff', '#bfdbfe', 2.8, true);
-                    drawProp(ctx, props[idx % props.length], 0, -6, 0.40, progress, t, audioLevel, screenType);
+                    drawHeroSubject(ctx, scene, props[idx % props.length], 0, -6, 0.44, progress, t, audioLevel, screenType, idx === 0);
                     const chkP = stagePop(progress, 0.24 + idx * 0.14, 0.16);
                     if (chkP > 0.05) {
                         ctx.save();
@@ -2507,7 +2914,6 @@
             }
 
             case 'ui-flow': {
-                // Marching-ants connector lines + 3 crisp floating icon pills + animated chart widget below
                 const s1 = stagePop(progress, 0.04, 0.18);
                 const s2 = stagePop(progress, 0.22, 0.18);
                 const s3 = stagePop(progress, 0.40, 0.18);
@@ -2532,13 +2938,17 @@
                     ctx.restore();
                 });
 
-                const heroP = stagePop(progress, 0.50, 0.20);
+                const heroP = stagePop(progress, pivot * 0.85, 0.20);
                 if (heroP > 0.05) {
                     ctx.save();
                     ctx.translate(270, 525);
                     ctx.scale(heroP, heroP);
                     drawOutlinedRect(ctx, -188, -96, 376, 192, 24, '#0f172a', '#3b82f6', 3, true);
-                    drawRichScreenContent(ctx, -172, -80, 344, 160, screenType, progress, t, audioLevel);
+                    if (scene?.customHeroImg) {
+                        drawHeroSubject(ctx, scene, props[0], 0, 0, 0.62, progress, t, audioLevel, screenType, true);
+                    } else {
+                        drawRichScreenContent(ctx, -172, -80, 344, 160, screenType, progress, t, audioLevel);
+                    }
                     ctx.restore();
                 }
                 break;
@@ -2549,28 +2959,28 @@
                 ctx.translate(270, 410);
                 ctx.scale(pop1 * (1 + audioLevel * 0.04), pop1 * (1 + audioLevel * 0.04));
                 drawOutlinedRect(ctx, -162, -162, 324, 324, 46, '#ffffff', '#93c5fd', 3.2, true);
-                drawProp(ctx, props[0], 0, 0, 0.94, progress, t, audioLevel, screenType);
+                drawHeroSubject(ctx, scene, props[0], 0, 0, 0.96, progress, t, audioLevel, screenType, true);
                 ctx.restore();
                 const curP = easeInOutCubic(clamp01(progress * 1.4));
                 drawCursorPointer(
                     ctx,
                     415 - curP * 105,
                     555 - curP * 100,
-                    progress > 0.55 && progress < 0.68 ? 0.82 : 1,
-                    progress > 0.58 ? clamp01((progress - 0.58) * 3) : 0
+                    progress > pivot && progress < pivot + 0.13 ? 0.82 : 1,
+                    progress > pivot ? clamp01((progress - pivot) * 3) : 0
                 );
                 break;
             }
 
             case 'character-action': {
-                drawProp(ctx, props[0], 355, 290, pop2 * 0.76, progress, t, audioLevel, screenType);
-                if (props[1]) {
+                drawHeroSubject(ctx, scene, props[0], 342, 292, pop2 * 0.88, progress, t, audioLevel, screenType, true);
+                if (props[1] && !scene?.customHeroImg) {
                     drawProp(ctx, props[1], 138, 270, pop3 * 0.48, progress, t, audioLevel, screenType);
                 }
-                drawAnimatedActor(ctx, 260, 628, pop1 * 1.12, progress, t, action, mood, audioLevel, cast);
+                drawAnimatedActor(ctx, 255, 628, pop1 * 1.12, progress, t, action, mood, audioLevel, cast);
                 drawComicReaction(ctx, 355, 515, mood, audioLevel, t);
-                if (cue.crossOut && pop3 > 0.2) {
-                    drawRedCross(ctx, 355, 290, 75, pop3);
+                if (cue.crossOut && progress > pivot * 0.7) {
+                    drawRedCross(ctx, 342, 292, 78, stagePop(progress, pivot * 0.7, 0.16));
                 }
                 break;
             }
@@ -2578,12 +2988,12 @@
             case 'character-left': {
                 drawAnimatedActor(ctx, 134, 622, pop1 * 1.06, progress, t, action, mood, audioLevel, cast);
                 drawComicReaction(ctx, 212, 515, mood, audioLevel, t);
-                drawProp(ctx, props[0], 362, 410, pop2 * 0.98, progress, t, audioLevel, screenType);
-                if (props[1] && pop3 > 0.1) {
+                drawHeroSubject(ctx, scene, props[0], 362, 410, pop2 * 1.02, progress, t, audioLevel, screenType, true);
+                if (props[1] && pop3 > 0.1 && !scene?.customHeroImg) {
                     drawProp(ctx, props[1], 418, 215, pop3 * 0.44, progress, t, audioLevel, screenType);
                 }
-                if (cue.crossOut && pop3 > 0.2) {
-                    drawRedCross(ctx, 362, 410, 95, pop3);
+                if (cue.crossOut && progress > pivot * 0.7) {
+                    drawRedCross(ctx, 362, 410, 95, stagePop(progress, pivot * 0.7, 0.16));
                 }
                 break;
             }
@@ -2591,10 +3001,10 @@
             case 'split-compare': {
                 drawOutlinedRect(ctx, 42, 235, 212, 336, 24, 'rgba(254, 226, 226, 0.9)', '#1e293b', 3, true);
                 drawOutlinedRect(ctx, 286, 235, 212, 336, 24, 'rgba(220, 252, 231, 0.94)', '#1e293b', 3, true);
-                drawProp(ctx, props[0], 148, 405, pop1 * 0.74, progress, t, audioLevel, 'excel_err');
+                drawHeroSubject(ctx, scene, props[0], 148, 405, pop1 * 0.74, progress, t, audioLevel, 'excel_err', true);
                 drawProp(ctx, props[1] || props[0], 392, 405, pop2 * 0.74, progress, t, audioLevel, 'revenue_up');
-                if (cue.crossOut && pop3 > 0.2) {
-                    drawRedCross(ctx, 148, 405, 76, pop3);
+                if (cue.crossOut && progress > pivot * 0.65) {
+                    drawRedCross(ctx, 148, 405, 76, stagePop(progress, pivot * 0.65, 0.16));
                 } else if (pop3 > 0.2) {
                     ctx.save();
                     ctx.translate(458, 260);
@@ -2622,7 +3032,7 @@
                 [108, 270, 432].forEach((px, idx) => {
                     const pr = props[idx] || props[idx % props.length];
                     const hoverY = 445 + Math.sin(t * 3 + idx) * 8;
-                    drawProp(ctx, pr, px, hoverY, [pop1, pop2, pop3][idx] * 0.64, progress, t, audioLevel, screenType);
+                    drawHeroSubject(ctx, scene, pr, px, hoverY, [pop1, pop2, pop3][idx] * 0.64, progress, t, audioLevel, screenType, idx === 1);
                 });
                 break;
             }
@@ -2646,7 +3056,7 @@
                     ctx.scale(pop2, pop2);
                     drawOutlinedRect(ctx, -162, -112, 324, 224, 52, '#ffffff', '#1e293b', 3.5, true);
                     ctx.restore();
-                    drawProp(ctx, props[0], 320, 345, pop2 * 0.78, progress, t, audioLevel, screenType);
+                    drawHeroSubject(ctx, scene, props[0], 320, 345, pop2 * 0.80, progress, t, audioLevel, screenType, true);
                 }
                 break;
             }
@@ -2656,13 +3066,17 @@
                 ctx.translate(270, 415);
                 ctx.scale(pop1, pop1);
                 drawOutlinedRect(ctx, -168, -195, 336, 370, 24, '#ffffff', '#1e293b', 3.8, true);
-                drawRichScreenContent(ctx, -148, -172, 296, 324, 'checklist_done', progress, t, audioLevel);
+                if (scene?.customHeroImg) {
+                    drawHeroSubject(ctx, scene, props[0], 0, -10, 0.92, progress, t, audioLevel, screenType, true);
+                } else {
+                    drawRichScreenContent(ctx, -148, -172, 296, 324, 'checklist_done', progress, t, audioLevel);
+                }
                 ctx.restore();
                 break;
             }
 
             case 'action-flow': {
-                drawProp(ctx, props[0], 136, 435, pop1 * 0.74, progress, t, audioLevel, screenType);
+                drawHeroSubject(ctx, scene, props[0], 136, 435, pop1 * 0.74, progress, t, audioLevel, screenType, true);
                 if (pop2 > 0.1) {
                     ctx.save();
                     ctx.translate(270, 430);
@@ -2689,17 +3103,18 @@
 
             case 'center-hero':
             default: {
-                drawProp(ctx, props[0], 270, 435, pop1 * (1 + audioLevel * 0.05), progress, t, audioLevel, screenType);
-                if (props[1] && pop2 > 0.1) {
+                drawHeroSubject(ctx, scene, props[0], 270, 435, pop1 * (1.06 + audioLevel * 0.05), progress, t, audioLevel, screenType, true);
+                if (props[1] && pop2 > 0.1 && !scene?.customHeroImg) {
                     drawProp(ctx, props[1], 420, 245, pop2 * 0.45, progress, t, audioLevel, screenType);
                 }
-                if (cue.crossOut && pop3 > 0.2) {
-                    drawRedCross(ctx, 270, 435, 130, pop3);
+                if (cue.crossOut && progress > pivot * 0.7) {
+                    drawRedCross(ctx, 270, 435, 130, stagePop(progress, pivot * 0.7, 0.16));
                 }
                 break;
             }
         }
 
+        drawPhase2Overlay(ctx, phase2Effect, pivot, progress, t, audioLevel);
         drawAmbientEffects(ctx, effect, t, audioLevel);
     }
 

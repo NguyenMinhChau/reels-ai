@@ -574,7 +574,7 @@ ${cleanTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
         });
     }
 
-    function sanitizeAndWrapSvg(rawSvg) {
+    function sanitizeAndWrapSvg(rawSvg, defaultViewBox = '0 0 540 960', defaultW = 540, defaultH = 960) {
         let s = String(rawSvg || '')
             .replace(/^```(?:svg|xml)?\s*/i, '')
             .replace(/```$/i, '')
@@ -600,12 +600,90 @@ ${cleanTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
             s = s.replace(/^<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
         }
         if (!/\bviewBox=/.test(s)) {
-            s = s.replace(/^<svg\b/i, '<svg viewBox="0 0 540 960"');
+            s = s.replace(/^<svg\b/i, `<svg viewBox="${defaultViewBox}"`);
         }
         if (!/\bwidth=/.test(s)) {
-            s = s.replace(/^<svg\b/i, '<svg width="540" height="960"');
+            s = s.replace(/^<svg\b/i, `<svg width="${defaultW}" height="${defaultH}"`);
         }
         return s;
+    }
+
+    async function generateCustomPropSvgs({ title, beats, storyboard, signal } = {}) {
+        const cleanBeats = (beats || []).map((b) => String(b?.text || b || '').trim()).filter(Boolean);
+        if (cleanBeats.length === 0) return [];
+
+        const subjects = cleanBeats.map((text, idx) => {
+            const sb = Array.isArray(storyboard) ? storyboard[idx] : null;
+            return (sb && sb.visualSubject) ? sb.visualSubject : text;
+        });
+
+        const results = new Array(cleanBeats.length).fill('');
+        const missingIndices = [];
+        cleanBeats.forEach((sc, idx) => {
+            const key = `prop-svg-v1:${hashString(title + '|' + idx + '|' + sc + '|' + subjects[idx])}`;
+            if (caches.images.has(key)) {
+                results[idx] = caches.images.get(key);
+            } else {
+                missingIndices.push(idx);
+            }
+        });
+
+        if (missingIndices.length === 0) return results;
+
+        const BATCH_SIZE = 3;
+        for (let b = 0; b < missingIndices.length; b += BATCH_SIZE) {
+            if (signal && signal.aborted) {
+                throw new DOMException('Aborted', 'AbortError');
+            }
+            const chunkIndices = missingIndices.slice(b, b + BATCH_SIZE);
+            const itemLines = chunkIndices
+                .map((idx) => `- Cảnh ${idx + 1}: Lời nói "${cleanBeats[idx]}" -> Vật thể/hình ảnh chính cần vẽ: "${subjects[idx]}"`)
+                .join('\n');
+
+            const prompt = `Bạn là họa sĩ Vector 2D chuyên vẽ minh họa hoạt hình phẳng hiện đại (cel-shaded cartoon vector, viền đậm #1e293b).
+Chủ đề video: "${title}".
+Hãy vẽ ${chunkIndices.length} icon/cụm minh họa SVG TRONG SUỐT (KHÔNG nền chữ nhật bao ngoài) khắc họa CHÍNH XÁC từng câu nói sau:
+${itemLines}
+
+YÊU CẦU KỸ THUẬT:
+1. Mỗi phần tử trả về là 1 chuỗi <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" width="320" height="320">...</svg> hợp lệ XML.
+2. NỀN TRONG SUỐT 100%: TUYỆT ĐỐI không vẽ hình chữ nhật nền to kín 320x320; vật thể nằm cân đối ở giữa khung (vùng 35..285) với 8–20 path/circle/rect chi tiết, viền đậm stroke="#1e293b" stroke-width="4.5" stroke-linejoin="round", màu tươi tắn có bóng đổ & vệt sáng cel-shade.
+3. KHỚP TỪNG CHI TIẾT CÂU NÓI: Ví dụ nhắc "ghế công thái học 5 củ" phải vẽ đúng chiếc ghế lưới công thái học có tựa đầu + bánh xe + thẻ giá; nhắc "ví xẹp lép bay tiền" phải vẽ ví da rỗng mở toang + đồng xu bay; nhắc "cột sống cong/gù lưng" phải vẽ xương sống uốn cong cảnh báo đỏ + laptop; nhắc "vươn vai 5 phút" phải vẽ người đứng giơ tay giãn cơ + đồng hồ.
+4. TUYỆT ĐỐI KHÔNG dùng thẻ <text>, không viết chữ lên hình; mọi ký tự "&" viết là "&amp;".`;
+
+            try {
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: 'ARRAY',
+                            items: { type: 'STRING' }
+                        }
+                    }
+                };
+                const res = await fetchTextWithFallback(payload, { signal });
+                const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
+                const parsed = JSON.parse(raw);
+                const svgList = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.svgs) ? parsed.svgs : null;
+                if (Array.isArray(svgList)) {
+                    chunkIndices.forEach((sceneIdx, pos) => {
+                        const clean = sanitizeAndWrapSvg(svgList[pos], '0 0 320 320', 320, 320);
+                        if (clean) {
+                            const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clean)}`;
+                            results[sceneIdx] = dataUrl;
+                            const key = `prop-svg-v1:${hashString(title + '|' + sceneIdx + '|' + cleanBeats[sceneIdx] + '|' + subjects[sceneIdx])}`;
+                            caches.images.set(key, dataUrl);
+                        }
+                    });
+                }
+            } catch (err) {
+                if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+                console.warn('Custom prop SVG batch fallback:', err.message);
+            }
+        }
+
+        return results;
     }
 
     async function generateCustomSceneSvgs({ title, scenes, tone = 'viral', onProgress = null, signal } = {}) {
@@ -707,7 +785,7 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
         const cleanBeats = (beatTexts || []).map((b) => String(b || '').trim()).filter(Boolean);
         if (cleanBeats.length === 0) return null;
 
-        const cacheKey = `storyboard-v5:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
+        const cacheKey = `storyboard-v6:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
         if (caches.prompts.has(cacheKey)) {
             return caches.prompts.get(cacheKey);
         }
@@ -717,13 +795,13 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
             : ['wide-team', 'desk-closeup', 'hand-pov', 'laptop-popup', 'character-action', 'character-left', 'split-compare', 'multi-trio', 'thought-bubble', 'document-card', 'action-flow', 'center-hero', 'ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
         const backdropList = Array.isArray(backdrops) && backdrops.length > 0
             ? backdrops
-            : ['office-shelf', 'office-desk', 'bedroom-night', 'kitchen-cozy', 'cafe-chill', 'server-tech', 'cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint', 'grid-light', 'blueprint-dark'];
+            : ['studio-focus', 'office-shelf', 'office-desk', 'work-late', 'gym-fresh', 'bedroom-night', 'kitchen-cozy', 'cafe-chill', 'server-tech', 'cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint', 'grid-light', 'blueprint-dark'];
         const propList = Array.isArray(props) && props.length > 0
             ? props
-            : ['house', 'envelope', 'jar', 'phone', 'lightbulb', 'clock', 'water_glass', 'plug_socket', 'laptop', 'card_doc', 'chart_bars', 'cash_stack'];
+            : ['ergo_chair', 'spine_back', 'empty_wallet', 'stretching_pose', 'price_tag', 'shopping_bag', 'house', 'envelope', 'jar', 'phone', 'lightbulb', 'clock', 'water_glass', 'plug_socket', 'laptop', 'card_doc', 'chart_bars', 'cash_stack'];
         const actionList = Array.isArray(actions) && actions.length > 0
             ? actions
-            : ['pointing', 'typing', 'phone-scroll', 'shocked-phone', 'calling', 'cooking', 'counting-money', 'sleeping', 'running', 'drinking', 'celebrating'];
+            : ['pointing', 'typing', 'hunched-pain', 'stretching', 'empty-wallet', 'back-ache', 'calling', 'phone-scroll', 'shocked-phone', 'cooking', 'counting-money', 'sleeping', 'running', 'drinking', 'celebrating'];
         const effectList = Array.isArray(effects) && effects.length > 0
             ? effects
             : ['sparkles', 'sparks', 'sweat', 'steam', 'hearts', 'confetti', 'money', 'notes'];
@@ -736,6 +814,7 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
         const screenList = Array.isArray(screenTypes) && screenTypes.length > 0
             ? screenTypes
             : ['chat_msg', 'excel_err', 'revenue_up', 'revenue_down', 'checklist_done', 'calendar_due', 'notification_bell', 'wallet_cash', 'code_bug', 'contract_sign', 'tea_break', 'night_scroll'];
+        const phase2List = ['none', 'wallet_empty', 'back_pain', 'stretch_up', 'cross_mistake', 'check_win', 'shock_alert', 'money_fly'];
 
         return dedupedCall(cacheKey, async () => {
             try {
@@ -744,33 +823,32 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
                 const styleDirective = isUiMode
                     ? `PHONG CÁCH HIỆN ĐẠI DOT-GRID UI MOTION:
 - Ưu tiên các bố cục UI sạch tối giản [ui-window, ui-checklist, ui-flow, ui-grid-hero] và xen kẽ 1-2 cảnh action-flow hoặc split-compare. KHÔNG lặp cùng layout 2 cảnh liền nhau.
-- backdrop: Chọn từ [grid-light, blueprint-dark, cream-room, mint-fresh], chuyển đổi sáng/tối theo cảm xúc từng câu.
-- screenType: Chọn giao diện bên trong màn hình/thẻ từ [${screenList.join(', ')}] khớp sát 100% nội dung câu nói.
-- sfx: Gán tiếng động micro UI crisp khớp nhịp (click = bấm nút/con trỏ; pop = bật thẻ/thông báo; whoosh = chuyển bước/quy trình; ding = hoàn tất/thành công).`
+- backdrop: Chọn từ [grid-light, blueprint-dark, studio-focus, mint-fresh].
+- screenType & visualSubject: Mô tả chính xác vật thể/biểu đồ trung tâm cần minh họa cho từng câu.`
                     : `PHONG CÁCH HOẠT HÌNH 2D KỂ CHUYỆN GÓC MÁY ĐIỆN ẢNH:
-- Kết hợp đa dạng góc máy điện ảnh [wide-team (toàn cảnh phòng team làm việc), desk-closeup (cận mặt nhân vật tại bàn), hand-pov (góc nhìn tay cầm điện thoại/ký hợp đồng), laptop-popup (màn hình bật hộp thoại cảnh báo/báo cáo), character-action, split-compare, thought-bubble]. TUYỆT ĐỐI KHÔNG lặp cùng 1 layout ở 2 cảnh kề nhau.
-- GIỮ MẠCH BỐI CẢNH TỰ NHIÊN: Nếu câu chuyện vẫn diễn ra trong văn phòng/nhà/công trường thì giữ cùng backdrop hợp lý (ví dụ office-shelf / office-desk) và đổi góc máy + nhân vật (wide-team -> desk-closeup -> hand-pov -> laptop-popup), tuyệt đối không nhảy bối cảnh vô lý sang nhà bếp hay thiên nhiên nếu lời thoại không nhắc tới!
-- cast: Đổi vai nhân vật hợp lý theo từng câu từ [${castList.join(', ')}].
-- screenType: Chọn đúng nội dung hiển thị trên màn hình điện thoại/laptop từ [${screenList.join(', ')}] khớp chính xác câu nói.`;
+- ĐA DẠNG BỐI CẢNH & GÓC MÁY: Dùng luân phiên các góc máy [wide-team, desk-closeup, hand-pov, laptop-popup, character-action, character-left, split-compare, thought-bubble, center-hero] kết hợp với đúng nền không gian [studio-focus, office-desk, work-late, gym-fresh, office-shelf, mint-fresh, cafe-chill, bedroom-night, city-skyline, alert-tint]. KHÔNG dùng 1 nền mãi cho cả video, cũng KHÔNG nhảy sang phòng ngủ trừ khi lời nói thực sự nói về đi ngủ/giường ngủ!
+- ĐÚNG HÀNH ĐỘNG & ĐẠO CỤ THẬT: Nếu nhắc ngồi gù lưng/đau lưng chọn hunched-pain / back-ache + spine_back; nếu nhắc đứng lên giãn cơ/đi lại chọn stretching + stretching_pose + gym-fresh; nếu nhắc ví xẹp/mất tiền chọn empty-wallet + empty_wallet; nếu nhắc ghế ergonomic chọn ergo_chair.`;
 
-                const prompt = `Bạn là Đạo diễn Hoạt Hình 2D chuyên dựng phim ngắn hành động khớp chặt từng câu nói (KHÔNG ghi chữ lên hình, kể chuyện bằng góc máy, hành động nhân vật, giao diện màn hình và đạo cụ).
+                const prompt = `Bạn là Đạo diễn Hoạt Hình 2D chuyên dựng phim ngắn hành động khớp chặt từng câu chữ lời thoại (KHÔNG ghi chữ lên hình).
 Tiêu đề tổng thể: "${title}"
 Danh sách ${cleanBeats.length} nhịp lời thoại theo thứ tự:
 ${numberedBeats}
 
 ${styleDirective}
 
-Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh sao cho mỗi cảnh phản ánh ĐÚNG 100% ý nghĩa câu nói đó:
+Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân cảnh riêng) khớp 100% ý nghĩa câu nói:
+- visualSubject: Mô tả ngắn 6-14 từ vật thể/tình huống trung tâm cần vẽ minh họa (VD: "Ghế công thái học lưới đen kèm thẻ giá 5 triệu", "Ví da xẹp lép mở toang bay hết tiền", "Cột sống cong màu đỏ bên cạnh laptop", "Người đứng vươn vai giãn cơ bên đồng hồ 5 phút").
 - layout: Chọn từ [${layoutList.join(', ')}].
-- backdrop: Chọn đúng bối cảnh từ [${backdropList.join(', ')}].
+- backdrop: Chọn từ [${backdropList.join(', ')}].
 - cast: Chọn nhân vật từ [${castList.join(', ')}].
 - action: Chọn động tác từ [${actionList.join(', ')}].
-- screenType: Chọn đúng nội dung màn hình/thẻ từ [${screenList.join(', ')}].
+- screenType: Chọn nội dung màn hình từ [${screenList.join(', ')}].
+- phase2Effect: Hiệu ứng chuyển biến ở vế sau của câu nói từ [${phase2List.join(', ')}].
 - characterMood: "happy", "shocked", "thinking", hoặc "sleepy".
 - effect: Hiệu ứng từ [${effectList.join(', ')}].
-- sfx: Âm thanh điểm nhấn từ [${sfxOptions.join(', ')}].
-- props: Mảng 1 đến 3 đạo cụ chọn từ [${propList.join(', ')}] khớp chính xác câu nói (KHÔNG chọn bừa đạo cụ không liên quan).
-- crossOut: true nếu câu nói mang ý sai lầm / cấm làm / rủi ro / lừa đảo, ngược lại false.`;
+- sfx: Âm thanh từ [${sfxOptions.join(', ')}].
+- props: Mảng 1-2 đạo cụ gần nhất từ [${propList.join(', ')}].
+- crossOut: true chỉ khi câu nói mang ý sai lầm / gạch bỏ / cảnh báo cấm.`;
 
                 const payload = {
                     contents: [{ parts: [{ text: prompt }] }],
@@ -781,18 +859,20 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh sao cho mỗi cảnh phản
                             items: {
                                 type: 'OBJECT',
                                 properties: {
+                                    visualSubject: { type: 'STRING' },
                                     layout: { type: 'STRING', enum: layoutList },
                                     backdrop: { type: 'STRING', enum: backdropList },
                                     cast: { type: 'STRING', enum: castList },
                                     action: { type: 'STRING', enum: actionList },
                                     screenType: { type: 'STRING', enum: screenList },
+                                    phase2Effect: { type: 'STRING', enum: phase2List },
                                     effect: { type: 'STRING', enum: effectList },
                                     sfx: { type: 'STRING', enum: sfxOptions },
                                     props: { type: 'ARRAY', items: { type: 'STRING', enum: propList } },
                                     characterMood: { type: 'STRING', enum: ['happy', 'shocked', 'thinking', 'sleepy'] },
                                     crossOut: { type: 'BOOLEAN' }
                                 },
-                                required: ['layout', 'backdrop', 'cast', 'action', 'screenType', 'effect', 'sfx', 'props', 'characterMood', 'crossOut']
+                                required: ['visualSubject', 'layout', 'backdrop', 'cast', 'action', 'screenType', 'phase2Effect', 'effect', 'sfx', 'props', 'characterMood', 'crossOut']
                             }
                         }
                     }
@@ -802,12 +882,14 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh sao cho mỗi cảnh phản
                 const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
                 const parsed = JSON.parse(raw);
                 if (Array.isArray(parsed) && parsed.length >= cleanBeats.length) {
-                    const normalized = parsed.slice(0, cleanBeats.length).map((item) => ({
+                    const normalized = parsed.slice(0, cleanBeats.length).map((item, idx) => ({
+                        visualSubject: String(item.visualSubject || cleanBeats[idx] || '').trim(),
                         layout: layoutList.includes(item.layout) ? item.layout : '',
                         backdrop: backdropList.includes(item.backdrop) ? item.backdrop : '',
                         cast: castList.includes(item.cast) ? item.cast : '',
                         action: actionList.includes(item.action) ? item.action : '',
                         screenType: screenList.includes(item.screenType) ? item.screenType : '',
+                        phase2Effect: phase2List.includes(item.phase2Effect) ? item.phase2Effect : 'none',
                         effect: effectList.includes(item.effect) ? item.effect : 'sparkles',
                         sfx: sfxOptions.includes(item.sfx) ? item.sfx : 'none',
                         props: Array.isArray(item.props) ? item.props.filter((p) => propList.includes(p)).slice(0, 3) : [],
@@ -1387,6 +1469,7 @@ YÊU CẦU ĐẦU RA:
         generateNextSeriesEpisode,
         generateRealisticVisualPrompts,
         generateCustomSceneSvgs,
+        generateCustomPropSvgs,
         generateMultiBeatStoryboard,
         buildLocalSocialCaption,
         generateSocialCaption,

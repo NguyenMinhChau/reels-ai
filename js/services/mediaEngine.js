@@ -571,6 +571,40 @@
         });
     }
 
+    function findAudioPivotRatio(audioBuffer, targetRatio = 0.52) {
+        const clampedTarget = Math.max(0.28, Math.min(0.78, Number(targetRatio) || 0.52));
+        if (!audioBuffer || typeof audioBuffer.getChannelData !== 'function' || audioBuffer.length === 0) {
+            return clampedTarget;
+        }
+        const sr = audioBuffer.sampleRate || 24000;
+        const data = audioBuffer.getChannelData(0);
+        const total = data.length;
+        if (total < sr * 0.9) return clampedTarget;
+
+        const win = Math.max(1, Math.floor(sr * 0.045));
+        const expected = Math.floor(total * clampedTarget);
+        const radius = Math.floor(total * 0.18);
+        const minS = Math.max(Math.floor(total * 0.24), expected - radius);
+        const maxS = Math.min(Math.floor(total * 0.82) - win, expected + radius);
+        if (maxS <= minS) return clampedTarget;
+
+        let bestSample = expected;
+        let minEnergy = Infinity;
+        const step = Math.max(1, Math.floor(win / 2));
+        for (let s = minS; s <= maxS; s += step) {
+            let energy = 0;
+            for (let j = 0; j < win; j++) {
+                const v = data[s + j];
+                energy += v * v;
+            }
+            if (energy < minEnergy) {
+                minEnergy = energy;
+                bestSample = s + Math.floor(win / 2);
+            }
+        }
+        return Math.max(0.24, Math.min(0.84, bestSample / total));
+    }
+
     function computeAudioEnvelope(audioBuffer, bins = 96) {
         if (!audioBuffer || typeof audioBuffer.getChannelData !== 'function' || audioBuffer.length === 0) {
             return new Float32Array(bins);
@@ -829,7 +863,7 @@
         const bdName = currentScene.motionCue?.backdrop;
         const useLightBar =
             isPhotoVisual ||
-            (isMotionStyle && (bdName === 'night-calm' || bdName === 'bedroom-night' || bdName === 'server-tech' || bdName === 'blueprint-dark'));
+            (isMotionStyle && (bdName === 'night-calm' || bdName === 'bedroom-night' || bdName === 'server-tech' || bdName === 'blueprint-dark' || bdName === 'work-late'));
         const isCleanSubtitle = isMotionStyle || isSvgVisual;
         for (let i = 0; i < count; i++) {
             const bx = 24 + i * (barWidth + barGap);
@@ -2249,6 +2283,7 @@
         decodeTtsToAudioBuffer,
         pcm16ToAudioBuffer,
         splitAudioBufferIntoBeats,
+        findAudioPivotRatio,
         splitCombinedAudioBuffer,
         createSilentBuffer,
         loadImageFromUrl,
