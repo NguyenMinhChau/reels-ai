@@ -64,6 +64,7 @@
         App.libraryView.init();
         App.plannerView.init();
         App.videoStudio.init();
+        if (App.seriesModal) App.seriesModal.init();
     }
 
     App.router = { switchTab };

@@ -10,11 +10,12 @@
 
     const App = (global.ReelsStudio = global.ReelsStudio || {});
     const { MOTION_TYPES } = App.CONFIG;
-    const { splitScriptIntoFiveScenes, splitTextIntoVisualBeats, hashString } = App.utils;
+    const { splitScriptIntoScenes, splitTextIntoVisualBeats, hashString, escapeHtml } = App.utils;
 
-    let customImages = [null, null, null, null, null];
-    let lastChapterAudioMeta = [null, null, null, null, null];
-    let cachedChapterAudios = [null, null, null, null, null];
+    const MAX_DIALOGUE_SCENES = 14;
+    let customImages = [];
+    let lastChapterAudioMeta = [];
+    let cachedChapterAudios = [];
     const beatAudioCache = new Map();
     let generationAbortController = null;
     let rewriteAbortController = null;
@@ -33,7 +34,53 @@
     }
 
     function getSceneInputs() {
-        return [1, 2, 3, 4, 5].map((i) => document.getElementById(`vs-scene-${i}`));
+        const container = document.getElementById('vs-scenes-container');
+        if (!container) return [];
+        return Array.from(container.querySelectorAll('input[data-scene-input]'));
+    }
+
+    function updateSceneCountUI() {
+        const inputs = getSceneInputs();
+        const count = inputs.length;
+        const label = document.getElementById('vs-scenes-count-label');
+        if (label) {
+            label.innerHTML = `<i class="fa-solid fa-microphone-lines text-indigo-600 dark:text-indigo-400 mr-1"></i> Lời thoại (${count} cảnh)`;
+        }
+        const addBtn = document.getElementById('btn-add-scene');
+        if (addBtn) {
+            addBtn.disabled = count >= MAX_DIALOGUE_SCENES;
+        }
+    }
+
+    function renderSceneInputs(scenesArray) {
+        const container = document.getElementById('vs-scenes-container');
+        if (!container) return;
+        const list = Array.isArray(scenesArray) && scenesArray.length >= 2 ? scenesArray.slice(0, MAX_DIALOGUE_SCENES) : ['', '', '', '', ''];
+        const canDelete = list.length > 2;
+
+        container.innerHTML = '';
+        list.forEach((sceneVal, idx) => {
+            const isFirst = idx === 0;
+            const isLast = idx === list.length - 1;
+            const badgeText = isFirst ? '1. Hook' : isLast ? `${idx + 1}. Kết/CTA` : `${idx + 1}. Cảnh ${idx + 1}`;
+            const badgeCls = isFirst
+                ? 'text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/20'
+                : isLast
+                    ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-500/20'
+                    : 'text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/20';
+
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-1.5 min-w-0';
+            row.innerHTML = `
+                <span class="w-16 shrink-0 text-[10px] font-extrabold ${badgeCls} px-1.5 py-1 rounded-lg text-center truncate">${badgeText}</span>
+                <input type="text" data-scene-input="${idx}" value="${escapeHtml(sceneVal || '')}" placeholder="Nhập lời thoại cảnh ${idx + 1}..." class="w-full min-w-0 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500" />
+                <button type="button" data-remove-scene="${idx}" ${canDelete ? '' : 'disabled'} class="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/15 disabled:opacity-30 disabled:cursor-not-allowed shrink-0 flex items-center justify-center transition cursor-pointer" title="Xóa cảnh này">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                </button>
+            `;
+            container.appendChild(row);
+        });
+        updateSceneCountUI();
     }
 
     function updateStudioProgress(pct, text, statusType = 'loading') {
@@ -62,7 +109,7 @@
         const count = customImages.filter(Boolean).length;
         const label = document.getElementById('vs-img-status');
         if (!label) return;
-        label.textContent = count > 0 ? `Đã chọn ${count}/5 ảnh thật` : 'Chế độ ảnh thật tự nhiên';
+        label.textContent = count > 0 ? `Đã chọn ${count} ảnh thật` : 'Chế độ ảnh thật tự nhiên';
     }
 
     function syncPlaybackUI(playbackState) {
@@ -92,9 +139,10 @@
         cancelOngoingRequests();
         revokeLastExport();
 
-        customImages = [null, null, null, null, null];
-        lastChapterAudioMeta = [null, null, null, null, null];
-        cachedChapterAudios = [null, null, null, null, null];
+        const initialScenes = Array.isArray(scenes) && scenes.length >= 2 ? scenes.slice(0, MAX_DIALOGUE_SCENES) : ['', '', '', '', ''];
+        customImages = [];
+        lastChapterAudioMeta = [];
+        cachedChapterAudios = [];
         isSeeking = false;
         updateImageStatusLabel();
 
@@ -104,10 +152,15 @@
         const bgmSelect = document.getElementById('vs-bgm');
         if (bgmSelect) bgmSelect.value = pickDefaultBgmForTitle(title);
 
-        const inputs = getSceneInputs();
-        inputs.forEach((el, i) => {
-            if (el) el.value = scenes[i] || '';
-        });
+        const targetSel = document.getElementById('vs-target-scenes');
+        if (targetSel) {
+            if (initialScenes.length >= 11) targetSel.value = '12';
+            else if (initialScenes.length >= 9) targetSel.value = '10';
+            else if (initialScenes.length >= 7) targetSel.value = '8';
+            else targetSel.value = '5';
+        }
+
+        renderSceneInputs(initialScenes);
 
         const uploadInput = document.getElementById('vs-upload-images');
         if (uploadInput) uploadInput.value = '';
@@ -127,11 +180,14 @@
         open({
             title: 'Mẹo nhỏ giúp cuộc sống nhẹ nhàng hơn',
             scenes: [
-                'Bạn có biết chỉ một thay đổi nhỏ mỗi sáng có thể giúp cả ngày làm việc hiệu quả gấp đôi?',
-                'Nhiều người thường vội vàng lướt điện thoại ngay khi vừa mở mắt khiến tinh thần mệt mỏi.',
-                'Thay vào đó, hãy uống một ly nước ấm và mở cửa sổ đón ánh nắng tự nhiên trong 5 phút.',
-                'Tiếp theo, viết ra đúng 3 việc quan trọng nhất cần hoàn thành trong ngày hôm nay.',
-                'Thử áp dụng ngay sáng mai nhé, và đừng quên Follow mình để nhận thêm năng lượng tích cực!'
+                'Bạn có biết chỉ một thay đổi nhỏ mỗi sáng có thể giúp cả ngày hiệu quả gấp đôi?',
+                'Nhiều người vội vàng lướt điện thoại ngay khi mở mắt khiến não quá tải từ sáng sớm.',
+                'Hậu quả là cả ngày làm việc uể oải, dễ cáu gắt và mất tập trung liên tục.',
+                'Thay vào đó, hãy uống một cốc nước ấm để đánh thức cơ thể trong 2 phút.',
+                'Tiếp theo, mở rèm đón ánh nắng tự nhiên giúp đồng hồ sinh học tỉnh táo hẳn lên.',
+                'Sau đó viết ra giấy đúng 3 việc quan trọng nhất cần xong trong hôm nay.',
+                'Làm đều đặn 7 ngày bạn sẽ thấy tinh thần nhẹ nhàng và dư thời gian rõ rệt.',
+                'Thử áp dụng ngay sáng mai nhé, bạn thường làm gì đầu tiên khi thức dậy?'
             ]
         });
     }
@@ -141,16 +197,20 @@
         if (!tpl) return;
         open({
             title: tpl.title,
-            scenes: splitScriptIntoFiveScenes(tpl.hook, tpl.body, tpl.cta)
+            scenes: splitScriptIntoScenes(tpl.hook, tpl.body, tpl.cta)
         });
     }
 
     function openFromUserScript(userScriptId) {
         const item = App.store.getState().userScripts.find((s) => s.id === userScriptId);
         if (!item) return;
+        const scenes =
+            Array.isArray(item.scenes) && item.scenes.length >= 2
+                ? item.scenes
+                : splitScriptIntoScenes(item.hook, item.body, item.cta);
         open({
             title: item.title,
-            scenes: splitScriptIntoFiveScenes(item.hook, item.body, item.cta)
+            scenes
         });
     }
 
@@ -179,10 +239,10 @@
     }
 
     function handleCustomImagesUpload(e) {
-        const files = Array.from(e.target.files || []).slice(0, 5);
+        const files = Array.from(e.target.files || []).slice(0, 12);
         if (files.length === 0) return;
 
-        customImages = [null, null, null, null, null];
+        customImages = [];
         let loaded = 0;
 
         files.forEach((file, idx) => {
@@ -209,11 +269,12 @@
 
         const title = document.getElementById('vs-title')?.value.trim() || '';
         const tone = document.getElementById('vs-tone')?.value || 'viral';
-        const draftLines = getSceneInputs().map((el) => (el ? el.value.trim() : ''));
+        const targetCount = parseInt(document.getElementById('vs-target-scenes')?.value || '8', 10) || 8;
+        const draftLines = getSceneInputs().map((el) => (el ? el.value.trim() : '')).filter(Boolean);
 
         btn.disabled = true;
         const prevHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Đang viết lại cực cuốn...</span>';
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Đang viết ${targetCount} cảnh...</span>`;
 
         if (rewriteAbortController) rewriteAbortController.abort();
         rewriteAbortController = new AbortController();
@@ -223,13 +284,12 @@
                 title,
                 draftLines,
                 tone,
+                targetCount,
                 signal: rewriteAbortController.signal
             });
 
-            getSceneInputs().forEach((el, i) => {
-                if (el && rewritten[i]) el.value = rewritten[i];
-            });
-            App.toast.show('Đã nâng cấp 5 đoạn lời thoại kể chuyện cuốn hút!');
+            renderSceneInputs(rewritten);
+            App.toast.show(`Đã nâng cấp thành ${rewritten.length} cảnh lời thoại kể chuyện cực cuốn!`);
         } catch (err) {
             if (err.name === 'AbortError') return;
             App.toast.show(err.message || 'Không thể viết lại lời thoại.', 'error');
@@ -324,7 +384,12 @@
         const signal = generationAbortController.signal;
 
         const videoTitle = document.getElementById('vs-title')?.value.trim() || 'Mẹo hay cuộc sống';
-        const texts = getSceneInputs().map((el) => (el ? el.value.trim() : '') || 'Chia sẻ khoảnh khắc đời sống hằng ngày gần gũi.');
+        const texts = getSceneInputs()
+            .map((el) => (el ? el.value.trim() : ''))
+            .filter(Boolean);
+        if (texts.length === 0) texts.push('Chia sẻ khoảnh khắc đời sống hằng ngày gần gũi.');
+
+        const chapterCount = texts.length;
         const voiceName = document.getElementById('vs-voice')?.value || 'Aoede';
         const ttsEngine = document.getElementById('vs-tts-engine')?.value || 'live-3.8';
         const speedRate = parseFloat(document.getElementById('vs-speed')?.value || '1.0') || 1.0;
@@ -338,8 +403,16 @@
         isSeeking = false;
 
         try {
-            // 1. Expand 5 narration chapters into balanced audio-locked scenes
-            const maxBeatsPerChapter = scenePacing === 'dynamic' ? 3 : scenePacing === 'balanced' ? 2 : 1;
+            // 1. Expand narration chapters into balanced audio-locked scenes
+            // If user already wrote >= 7 scenes, keep 1 scene/line in 'balanced' mode for crisp pacing!
+            const maxBeatsPerChapter =
+                scenePacing === 'standard'
+                    ? 1
+                    : scenePacing === 'dynamic'
+                        ? (chapterCount >= 8 ? 2 : 3)
+                        : chapterCount >= 7
+                            ? 1
+                            : 2;
             const chapterBeatTexts = texts.map((t) => splitTextIntoVisualBeats(t, maxBeatsPerChapter));
             const flatBeats = [];
             chapterBeatTexts.forEach((beatList, chapterIdx) => {
@@ -454,8 +527,8 @@
             });
 
             if (missingChapters.size > 0) {
-                const chapterAudios = new Array(5);
-                const chapterHasRealTts = new Array(5).fill(false);
+                const chapterAudios = new Array(chapterCount);
+                const chapterHasRealTts = new Array(chapterCount).fill(false);
 
                 await Promise.all(
                     Array.from(missingChapters).map(async (cIdx) => {
@@ -498,7 +571,7 @@
                 // Assign sliced buffers for missing chapters
                 const chapterOffsets = {};
                 let cursor = 0;
-                for (let c = 0; c < 5; c++) {
+                for (let c = 0; c < chapterCount; c++) {
                     chapterOffsets[c] = cursor;
                     cursor += chapterBeatTexts[c].length;
                 }
@@ -820,6 +893,23 @@
 
         document.getElementById('btn-open-studio-scratch')?.addEventListener('click', openFromScratch);
         document.getElementById('btn-rewrite-story')?.addEventListener('click', handleEnhanceStorytelling);
+        document.getElementById('btn-add-scene')?.addEventListener('click', () => {
+            const values = getSceneInputs().map((el) => el.value);
+            if (values.length >= MAX_DIALOGUE_SCENES) return;
+            values.push('');
+            renderSceneInputs(values);
+            const all = getSceneInputs();
+            all[all.length - 1]?.focus();
+        });
+        document.getElementById('vs-scenes-container')?.addEventListener('click', (e) => {
+            const rmBtn = e.target.closest('button[data-remove-scene]');
+            if (!rmBtn || rmBtn.disabled) return;
+            const rmIdx = parseInt(rmBtn.dataset.removeScene, 10);
+            const values = getSceneInputs().map((el) => el.value);
+            if (values.length <= 2) return;
+            values.splice(rmIdx, 1);
+            renderSceneInputs(values);
+        });
         document.getElementById('btn-generate-ai-assets')?.addEventListener('click', handleGenerateAssets);
         document.getElementById('btn-export-video')?.addEventListener('click', handleExportVideo);
         document.getElementById('btn-share-video')?.addEventListener('click', handleShareExportedVideo);
@@ -840,7 +930,7 @@
         });
         document.getElementById('vs-upload-images')?.addEventListener('change', handleCustomImagesUpload);
         document.getElementById('btn-clear-custom-images')?.addEventListener('click', () => {
-            customImages = [null, null, null, null, null];
+            customImages = [];
             const uploadInput = document.getElementById('vs-upload-images');
             if (uploadInput) uploadInput.value = '';
             updateImageStatusLabel();

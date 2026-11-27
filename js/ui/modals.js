@@ -279,15 +279,17 @@
                 if (target === 'script-modal') closeScriptModal();
                 else if (target === 'goal-modal') closeGoalModal();
                 else if (target === 'settings-modal') closeSettingsModal();
+                else if (target === 'series-modal') App.seriesModal?.close();
                 else if (target === 'video-studio-modal') App.videoStudio.close();
             });
         });
 
-        ['script-modal', 'goal-modal', 'settings-modal', 'video-studio-modal'].forEach((id) => {
+        ['script-modal', 'goal-modal', 'settings-modal', 'series-modal', 'video-studio-modal'].forEach((id) => {
             const el = document.getElementById(id);
             el?.addEventListener('click', (e) => {
                 if (e.target !== el) return;
                 if (id === 'video-studio-modal') App.videoStudio.close();
+                else if (id === 'series-modal') App.seriesModal?.close();
                 else el.classList.add('hidden');
             });
         });
@@ -296,6 +298,8 @@
             if (e.key !== 'Escape') return;
             if (!document.getElementById('video-studio-modal')?.classList.contains('hidden')) {
                 App.videoStudio.close();
+            } else if (!document.getElementById('series-modal')?.classList.contains('hidden')) {
+                App.seriesModal?.close();
             } else if (!document.getElementById('settings-modal')?.classList.contains('hidden')) {
                 closeSettingsModal();
             } else if (!document.getElementById('script-modal')?.classList.contains('hidden')) {

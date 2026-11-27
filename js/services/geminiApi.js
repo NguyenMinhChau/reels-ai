@@ -329,24 +329,23 @@ QUY TẮC BẮT BUỘC:
         });
     }
 
-    async function enhanceStorytelling({ title, draftLines, tone = 'viral', signal }) {
+    async function enhanceStorytelling({ title, draftLines, tone = 'viral', targetCount = 5, signal }) {
         checkCooldown('rewriteStory', API_POLICY.REWRITE_COOLDOWN_MS);
 
+        const count = Math.max(5, Math.min(12, parseInt(targetCount, 10) || 5));
         const toneRule = TONE_GUIDES[tone] || TONE_GUIDES.viral;
-        const prompt = `Bạn là biên kịch triệu view chuyên viết lời bình (voice-over) cho Facebook Reels tại Việt Nam.
-Hãy viết lại kịch bản sau thành đúng 5 đoạn lời thoại VĂN NÓI ĐỜI THƯỜNG thật cuốn, nhịp nhanh, có hồn, nghe như một người thật đang kể chuyện hoặc bật mí bí mật cho bạn thân (TUYỆT ĐỐI CẤM giọng văn sách giáo khoa, quảng cáo sáo rỗng, hoặc chỉ đạo quay phim kiểu "Quay cận cảnh...").
+        const prompt = `Bạn là biên kịch triệu view chuyên viết lời bình (voice-over) nhiều phân cảnh cho Facebook Reels / TikTok tại Việt Nam.
+Hãy viết lại & mở rộng kịch bản sau thành đúng ${count} đoạn lời thoại (từng cảnh ngắn nối tiếp nhau) VĂN NÓI ĐỜI THƯỜNG thật cuốn, có cao trào, nghe như người thật đang kể chuyện cho bạn thân (TUYỆT ĐỐI CẤM giọng văn sách giáo khoa, báo chí hay chỉ đạo quay phim).
 ${toneRule}
 
 Tiêu đề: "${title}"
 Ý tưởng gốc:
 ${draftLines.join('\n')}
 
-Yêu cầu nghiêm ngặt cho đúng 5 phần (mỗi phần 15–26 từ, ngắn gọn dứt khoát để đọc tốc độ cao cực dính):
-- Phần 1 (Hook 3 giây đầu): Câu mở đầu đánh thẳng vào tâm lý ("Khoan đã...", "90% mọi người...", "Đừng làm điều này nữa nếu...") khiến người lướt phải khựng lại ngay.
-- Phần 2 (Nỗi đau / Thực tế phũ): Mô tả tình huống ai cũng từng dính phải bằng ngôn ngữ đời thường gần gũi.
-- Phần 3 (Bước ngoặt / Cách làm 1): Bật mí mẹo hoặc diễn biến bất ngờ đầu tiên với giọng điệu hào hứng, tự nhiên.
-- Phần 4 (Chi tiết đắt giá / Twist 2): Đưa ra điểm chốt ăn tiền hoặc bí quyết ít người để ý tạo cảm giác "À hóa ra là vậy!".
-- Phần 5 (Chốt & Kích bình luận): Câu kết gây đồng cảm hoặc đặt câu hỏi mở khiến người xem muốn comment trả lời ngay lập tức (hạn chế sáo rỗng kiểu "Follow để biết thêm").`;
+Yêu cầu nghiêm ngặt cho ĐÚNG ${count} cảnh (mỗi cảnh 12–22 từ, ngắn gọn 1–2 câu rõ ràng để đọc và đổi cảnh mượt mà):
+- Cảnh 1 (Hook 3 giây đầu): Mở đầu gây tò mò cực mạnh đánh thẳng tâm lý khiến người lướt phải khựng lại.
+- Các cảnh giữa (Cảnh 2 đến Cảnh ${count - 1}): Chia nhỏ diễn biến thành từng bước / từng tình huống chi tiết tăng dần cảm xúc, có cú ngoặt bất ngờ ở đoạn 2/3 cuối.
+- Cảnh ${count} (Chốt & CTA): Kết luận đắt giá hoặc đặt câu hỏi mở kích thích comment / theo dõi tiếp.`;
 
         const payload = {
             contents: [{ parts: [{ text: prompt }] }],
@@ -359,14 +358,148 @@ Yêu cầu nghiêm ngặt cho đúng 5 phần (mỗi phần 15–26 từ, ngắn
             }
         };
 
-        return dedupedCall(`rewrite:${tone}:${hashString(title + draftLines.join('|'))}`, async () => {
+        return dedupedCall(`rewrite:${tone}:${count}:${hashString(title + draftLines.join('|'))}`, async () => {
             const result = await fetchTextWithFallback(payload, { signal });
             const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
             const parsed = JSON.parse(raw);
-            if (!Array.isArray(parsed) || parsed.length < 5) {
-                throw new ApiError('INVALID_JSON', 'AI chưa trả về đủ 5 phân cảnh lời thoại');
+            if (!Array.isArray(parsed) || parsed.length < Math.min(count, 4)) {
+                throw new ApiError('INVALID_JSON', `AI chưa trả về đủ ${count} phân cảnh lời thoại`);
             }
-            return parsed.slice(0, 5).map((s) => String(s || '').trim());
+            return parsed.slice(0, count).map((s) => String(s || '').trim()).filter(Boolean);
+        });
+    }
+
+    async function generateConnectedSeries({ topic, episodeCount = 5, scenesPerEp = 8, tone = 'viral', signal }) {
+        checkCooldown('generateSeries', API_POLICY.DUMP_COOLDOWN_MS);
+
+        const epCount = Math.max(2, Math.min(8, parseInt(episodeCount, 10) || 5));
+        const scCount = Math.max(5, Math.min(12, parseInt(scenesPerEp, 10) || 8));
+        const toneRule = TONE_GUIDES[tone] || TONE_GUIDES.viral;
+
+        const prompt = `Bạn là Giám đốc Nội dung chuyên xây dựng CHUỖI SERI REELS/TIKTOK NHIỀU TẬP LIÊN HOÀN để khán giả theo dõi ngày này qua ngày khác.
+Chủ đề seri: "${topic}"
+Số tập cần tạo: ${epCount} tập liên tiếp (Tập 1 → Tập ${epCount}).
+Số cảnh lời thoại mỗi tập: đúng ${scCount} cảnh (12–20 từ/cảnh, văn nói tự nhiên cực cuốn).
+${toneRule}
+
+QUY TẮC TIẾP NỐI CỐT TRUYỆN BẮT BUỘC:
+1. Tập 1 mở màn hấp dẫn và kết thúc bằng 1 câu MÓC CÂU (cliffhanger) dẫn sang Tập 2.
+2. Từ Tập 2 trở đi, Cảnh 1 (hook) PHẢI nhắc khéo lại diễn biến tập trước ("Tiếp nối tập trước...", "Sau chuyện hôm qua...", "Đoán xem điều gì xảy ra tiếp...") rồi đi sâu vào diễn biến mới, KHÔNG kể lại nội dung đã nói ở tập trước.
+3. Mỗi tập có "scenes" gồm đúng ${scCount} câu lời thoại chi tiết từng bước rõ ràng.
+4. "cliffhanger": Tóm tắt ngắn 1 câu điều còn bỏ ngỏ để làm cầu nối viết tiếp tập sau nữa.
+5. "hashtags": 4–5 hashtag tiếng Việt không dấu phù hợp seri.`;
+
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: 'OBJECT',
+                    properties: {
+                        seriesTitle: { type: 'STRING' },
+                        episodes: {
+                            type: 'ARRAY',
+                            items: {
+                                type: 'OBJECT',
+                                properties: {
+                                    episodeNumber: { type: 'INTEGER' },
+                                    title: { type: 'STRING' },
+                                    hook: { type: 'STRING' },
+                                    scenes: { type: 'ARRAY', items: { type: 'STRING' } },
+                                    cta: { type: 'STRING' },
+                                    cliffhanger: { type: 'STRING' },
+                                    hashtags: { type: 'STRING' }
+                                },
+                                required: ['episodeNumber', 'title', 'hook', 'scenes', 'cta', 'cliffhanger', 'hashtags']
+                            }
+                        }
+                    },
+                    required: ['seriesTitle', 'episodes']
+                }
+            }
+        };
+
+        return dedupedCall(`series:${tone}:${epCount}:${scCount}:${hashString(topic)}`, async () => {
+            const result = await fetchTextWithFallback(payload, { signal });
+            const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const parsed = JSON.parse(raw);
+            if (!parsed || !Array.isArray(parsed.episodes) || parsed.episodes.length === 0) {
+                throw new ApiError('INVALID_JSON', 'AI chưa trả về đúng cấu trúc chuỗi Seri');
+            }
+            return {
+                seriesTitle: String(parsed.seriesTitle || topic).trim(),
+                episodes: parsed.episodes.slice(0, epCount).map((ep, idx) => ({
+                    episodeNumber: Number(ep.episodeNumber) || idx + 1,
+                    title: String(ep.title || `Tập ${idx + 1}: ${topic}`).trim(),
+                    hook: String(ep.hook || '').trim(),
+                    scenes: Array.isArray(ep.scenes) ? ep.scenes.map((s) => String(s || '').trim()).filter(Boolean) : [],
+                    cta: String(ep.cta || '').trim(),
+                    cliffhanger: String(ep.cliffhanger || '').trim(),
+                    hashtags: String(ep.hashtags || '#seri #reelsvn').trim()
+                }))
+            };
+        });
+    }
+
+    async function generateNextSeriesEpisode({ seriesTitle, previousEpisodes, scenesPerEp = 8, tone = 'viral', signal }) {
+        checkCooldown('nextEpisode', API_POLICY.REWRITE_COOLDOWN_MS);
+
+        const nextEpNum = previousEpisodes.length + 1;
+        const scCount = Math.max(5, Math.min(12, parseInt(scenesPerEp, 10) || 8));
+        const toneRule = TONE_GUIDES[tone] || TONE_GUIDES.viral;
+        const historySummary = previousEpisodes
+            .map((ep, i) => `Tập ${ep.episodeNumber || i + 1} (${ep.title}): Hook="${ep.hook}" | Móc câu="${ep.cliffhanger || ep.cta}"`)
+            .join('\n');
+
+        const prompt = `Bạn đang viết tiếp TẬP ${nextEpNum} cho chuỗi Seri "${seriesTitle}".
+Tóm tắt các tập đã có trước đó:
+${historySummary}
+
+Hãy sáng tạo Tập ${nextEpNum} nối tiếp liền mạch với các tập trên (không lặp lại ý cũ, phải giải quyết móc câu tập ${nextEpNum - 1} và mở ra móc câu mới cho Tập ${nextEpNum + 1}).
+${toneRule}
+Trả về đúng 1 JSON object có:
+- episodeNumber: ${nextEpNum}
+- title: Tiêu đề Tập ${nextEpNum} hấp dẫn
+- hook: Câu mở đầu 3s nối tiếp trực tiếp từ tập trước
+- scenes: Mảng đúng ${scCount} câu lời thoại chi tiết (12–20 từ/cảnh)
+- cta: Lời kết + hẹn xem Tập ${nextEpNum + 1}
+- cliffhanger: Tóm tắt ngắn điểm mở cho tập tiếp theo nữa
+- hashtags: 4–5 hashtag tiếng Việt.`;
+
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: 'OBJECT',
+                    properties: {
+                        episodeNumber: { type: 'INTEGER' },
+                        title: { type: 'STRING' },
+                        hook: { type: 'STRING' },
+                        scenes: { type: 'ARRAY', items: { type: 'STRING' } },
+                        cta: { type: 'STRING' },
+                        cliffhanger: { type: 'STRING' },
+                        hashtags: { type: 'STRING' }
+                    },
+                    required: ['episodeNumber', 'title', 'hook', 'scenes', 'cta', 'cliffhanger', 'hashtags']
+                }
+            }
+        };
+
+        return dedupedCall(`next-ep:${nextEpNum}:${hashString(seriesTitle + historySummary)}`, async () => {
+            const result = await fetchTextWithFallback(payload, { signal });
+            const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const ep = JSON.parse(raw);
+            if (!ep || !ep.title) throw new ApiError('INVALID_JSON', 'Không nhận được tập tiếp theo từ AI');
+            return {
+                episodeNumber: Number(ep.episodeNumber) || nextEpNum,
+                title: String(ep.title || `Tập ${nextEpNum}: ${seriesTitle}`).trim(),
+                hook: String(ep.hook || '').trim(),
+                scenes: Array.isArray(ep.scenes) ? ep.scenes.map((s) => String(s || '').trim()).filter(Boolean) : [],
+                cta: String(ep.cta || '').trim(),
+                cliffhanger: String(ep.cliffhanger || '').trim(),
+                hashtags: String(ep.hashtags || '#seri #reelsvn').trim()
+            };
         });
     }
 
@@ -391,11 +524,7 @@ CRITICAL REALISM RULES:
 - Vertical 9:16 framing, natural depth of field, realistic skin tones and textures.
 - NEVER include any text, letters, watermarks, captions, or UI overlays in the image.
 Narration segments:
-1. ${sceneTexts[0]}
-2. ${sceneTexts[1]}
-3. ${sceneTexts[2]}
-4. ${sceneTexts[3]}
-5. ${sceneTexts[4]}`;
+${sceneTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
 
                 const payload = {
                     contents: [{ parts: [{ text: prompt }] }],
@@ -908,6 +1037,8 @@ Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho 
         testApiKey,
         dumpFreshScripts,
         enhanceStorytelling,
+        generateConnectedSeries,
+        generateNextSeriesEpisode,
         generateRealisticVisualPrompts,
         generateMultiBeatStoryboard,
         fetchSceneTtsPcm,

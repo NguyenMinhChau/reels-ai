@@ -60,6 +60,7 @@
 		<script defer src="js/ui/libraryView.js"></script>
 		<script defer src="js/ui/plannerView.js"></script>
 		<script defer src="js/ui/videoStudio.js"></script>
+		<script defer src="js/ui/seriesModal.js"></script>
 		<script defer src="js/app.js"></script>
 	</head>
 	<body
@@ -277,7 +278,16 @@
 					</button>
 				</nav>
 
-				<div class="flex items-center gap-2 w-full sm:w-auto">
+				<div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+					<button
+						type="button"
+						id="btn-open-series-modal"
+						class="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 active:scale-[0.98] text-white text-xs sm:text-sm font-bold shadow-md shadow-rose-500/20 transition flex items-center justify-center gap-1.5 cursor-pointer"
+						title="Tạo chuỗi Seri nhiều tập tiếp nối để đăng dần"
+					>
+						<i class="fa-solid fa-layer-group"></i>
+						<span>Chuỗi Seri</span>
+					</button>
 					<button
 						type="button"
 						id="btn-open-studio-scratch"
@@ -1079,7 +1089,7 @@
 								AI Reels Video &amp; Voice Studio
 								<span
 									class="hidden sm:inline-block px-2 py-0.5 text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 rounded-full"
-									>9:16 • 5 Phân Cảnh</span
+									>9:16 • Đa Phân Cảnh</span
 								>
 							</h3>
 							<p class="text-[11px] text-slate-300 truncate">
@@ -1124,7 +1134,7 @@
 							/>
 						</div>
 
-						<!-- 5 Scene Inputs -->
+						<!-- Dynamic Multi-Scene Dialogue Inputs (5 to 14 scenes) -->
 						<div
 							class="space-y-2.5 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/70"
 						>
@@ -1132,11 +1142,12 @@
 								class="flex flex-col sm:flex-row sm:items-center justify-between gap-2"
 							>
 								<span
+									id="vs-scenes-count-label"
 									class="text-xs font-bold text-slate-700 dark:text-slate-200"
 									><i
 										class="fa-solid fa-microphone-lines text-indigo-600 dark:text-indigo-400 mr-1"
 									></i>
-									Lời thoại 5 cảnh (20–35s)</span
+									Lời thoại (8 cảnh)</span
 								>
 								<div class="flex items-center gap-1.5 flex-wrap">
 									<select
@@ -1147,6 +1158,16 @@
 										<option value="funny">😂 Hài Xéo Xắt</option>
 										<option value="drama">⚠️ Kịch Tính / Sốc</option>
 										<option value="healing">🌙 Tâm Sự / Chữa Lành</option>
+									</select>
+									<select
+										id="vs-target-scenes"
+										class="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-[11px] font-bold text-indigo-700 dark:text-indigo-300 focus:outline-none focus:border-indigo-500"
+										title="Số cảnh lời thoại AI sẽ viết lại"
+									>
+										<option value="5">5 cảnh (~22s)</option>
+										<option value="8" selected>8 cảnh (~35s)</option>
+										<option value="10">10 cảnh (~45s)</option>
+										<option value="12">12 cảnh (~55s)</option>
 									</select>
 									<button
 										id="btn-rewrite-story"
@@ -1159,68 +1180,19 @@
 								</div>
 							</div>
 
-							<div class="grid grid-cols-1 gap-2">
-								<div class="flex items-center gap-2 min-w-0">
-									<span
-										class="w-16 shrink-0 text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/20 px-2 py-1 rounded-lg text-center"
-										>1. Hook</span
-									>
-									<input
-										type="text"
-										id="vs-scene-1"
-										placeholder="Câu mở đầu 3 giây đầu gây tò mò..."
-										class="w-full min-w-0 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500"
-									/>
-								</div>
-								<div class="flex items-center gap-2 min-w-0">
-									<span
-										class="w-16 shrink-0 text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/20 px-2 py-1 rounded-lg text-center"
-										>2. Bối cảnh</span
-									>
-									<input
-										type="text"
-										id="vs-scene-2"
-										placeholder="Thực trạng đời thường ai cũng gặp..."
-										class="w-full min-w-0 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500"
-									/>
-								</div>
-								<div class="flex items-center gap-2 min-w-0">
-									<span
-										class="w-16 shrink-0 text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/20 px-2 py-1 rounded-lg text-center"
-										>3. Bước 1</span
-									>
-									<input
-										type="text"
-										id="vs-scene-3"
-										placeholder="Diễn biến / Cách làm chi tiết 1..."
-										class="w-full min-w-0 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500"
-									/>
-								</div>
-								<div class="flex items-center gap-2 min-w-0">
-									<span
-										class="w-16 shrink-0 text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/20 px-2 py-1 rounded-lg text-center"
-										>4. Bước 2</span
-									>
-									<input
-										type="text"
-										id="vs-scene-4"
-										placeholder="Bí quyết đắt giá / Diễn biến 2..."
-										class="w-full min-w-0 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500"
-									/>
-								</div>
-								<div class="flex items-center gap-2 min-w-0">
-									<span
-										class="w-16 shrink-0 text-[10px] font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-1 rounded-lg text-center"
-										>5. Kết/CTA</span
-									>
-									<input
-										type="text"
-										id="vs-scene-5"
-										placeholder="Thành quả &amp; Kêu gọi Follow..."
-										class="w-full min-w-0 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-900 focus:outline-none focus:border-indigo-500"
-									/>
-								</div>
-							</div>
+							<div
+								id="vs-scenes-container"
+								class="grid grid-cols-1 gap-2 max-h-[260px] overflow-y-auto pr-1"
+							></div>
+
+							<button
+								type="button"
+								id="btn-add-scene"
+								class="w-full py-1.5 rounded-xl border border-dashed border-indigo-300 dark:border-indigo-500/40 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+							>
+								<i class="fa-solid fa-plus"></i>
+								<span>Thêm cảnh lời thoại (tối đa 14 cảnh)</span>
+							</button>
 						</div>
 
 						<!-- Voice, Style, Scene Pacing, Speed & BGM (Balanced 3x2 / 2x3 Grid with min-w-0) -->
@@ -1388,7 +1360,7 @@
 										class="flex-1 min-w-0 px-2.5 py-2 rounded-xl border border-dashed border-indigo-400 bg-indigo-50/60 dark:bg-indigo-500/10 hover:bg-indigo-100/70 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition truncate"
 									>
 										<i class="fa-solid fa-image"></i>
-										<span class="truncate">Tải 1–5 ảnh</span>
+										<span class="truncate">Tải 1–12 ảnh</span>
 										<input
 											type="file"
 											id="vs-upload-images"
@@ -1561,6 +1533,129 @@
 							Khung chuẩn dọc <strong>9:16</strong> • Phụ đề tự co giãn &amp;
 							tua mượt
 						</p>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- ==================== MODAL 5: TẠO CHUỖI SERI TIẾP NỐI ==================== -->
+		<div
+			id="series-modal"
+			class="fixed inset-0 z-50 hidden bg-slate-900/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+		>
+			<div
+				class="modal-panel bg-white dark:bg-slate-900 w-full max-w-4xl rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden max-h-[92vh] flex flex-col"
+			>
+				<div
+					class="px-4 sm:px-6 py-4 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white flex items-center justify-between shrink-0"
+				>
+					<div class="flex items-center gap-2.5 min-w-0">
+						<div class="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+							<i class="fa-solid fa-layer-group"></i>
+						</div>
+						<div class="min-w-0">
+							<h3 class="font-extrabold text-sm sm:text-base truncate">
+								Tạo Chuỗi Seri Kể Chuyện Tiếp Nối Nhiều Tập
+							</h3>
+							<p class="text-[11px] text-amber-50 truncate">
+								Tập sau nối tiếp diễn biến &amp; giải đáp móc câu tập trước — tự động xếp lịch đăng dần từng ngày
+							</p>
+						</div>
+					</div>
+					<button
+						type="button"
+						data-close-modal="series-modal"
+						class="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition shrink-0 cursor-pointer"
+					>
+						<i class="fa-solid fa-xmark"></i>
+					</button>
+				</div>
+
+				<div class="p-4 sm:p-6 overflow-y-auto space-y-4">
+					<div class="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/70 space-y-3">
+						<div>
+							<label for="series-topic-input" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+								Chủ đề / Cốt truyện gốc của Seri
+							</label>
+							<input
+								type="text"
+								id="series-topic-input"
+								placeholder="VD: Hành trình ở quê lương 8 triệu vs lên thành phố lương 15 triệu..."
+								class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold focus:outline-none focus:border-amber-500"
+							/>
+							<div class="flex flex-wrap gap-1.5 mt-2" id="series-quick-chips">
+								<button type="button" data-topic="Hành trình thoát nợ và tích lũy 100 triệu đầu tiên từ lương văn phòng" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-amber-400 text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
+									💰 Thoát nợ &amp; tiết kiệm 100tr
+								</button>
+								<button type="button" data-topic="Chuỗi cảnh báo các chiêu lừa đảo công nghệ mới ai cũng dễ sập bẫy" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-amber-400 text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
+									⚠️ Chuỗi cảnh báo lừa đảo
+								</button>
+								<button type="button" data-topic="5 ngày đổi thói quen buổi sáng giúp hết mệt mỏi và làm việc gấp đôi" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-amber-400 text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
+									🌿 Đổi thói quen sống khỏe
+								</button>
+								<button type="button" data-topic="Nhật ký đi làm xa quê tự lập: những sự thật ít ai kể trước khi dọn lên thành phố" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-amber-400 text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
+									🏙️ Tự lập nơi thành phố
+								</button>
+							</div>
+						</div>
+
+						<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+							<div class="min-w-0">
+								<label for="series-ep-count" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 truncate">Số tập ban đầu</label>
+								<select id="series-ep-count" class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold focus:outline-none focus:border-amber-500">
+									<option value="3">3 tập liên tiếp</option>
+									<option value="5" selected>5 tập liên tiếp</option>
+									<option value="7">7 tập dài kỳ</option>
+								</select>
+							</div>
+							<div class="min-w-0">
+								<label for="series-scenes-per-ep" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 truncate">Cảnh mỗi tập</label>
+								<select id="series-scenes-per-ep" class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold focus:outline-none focus:border-amber-500">
+									<option value="6">6 cảnh (~28s)</option>
+									<option value="8" selected>8 cảnh (~38s)</option>
+									<option value="10">10 cảnh (~48s)</option>
+								</select>
+							</div>
+							<div class="min-w-0">
+								<label for="series-tone" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 truncate">Phong cách kể</label>
+								<select id="series-tone" class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold focus:outline-none focus:border-amber-500">
+									<option value="viral" selected>🔥 Gu Triệu View</option>
+									<option value="funny">😂 Hài Xéo Xắt</option>
+									<option value="drama">⚠️ Kịch Tính / Sốc</option>
+									<option value="healing">🌙 Tâm Sự / Chữa Lành</option>
+								</select>
+							</div>
+							<div class="min-w-0">
+								<label for="series-start-date" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 truncate">Ngày bắt đầu đăng</label>
+								<input type="datetime-local" id="series-start-date" class="w-full min-w-0 px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold focus:outline-none focus:border-amber-500" />
+							</div>
+						</div>
+
+						<div class="flex flex-col sm:flex-row gap-2 pt-1">
+							<button
+								type="button"
+								id="btn-generate-series"
+								class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white text-xs sm:text-sm font-extrabold shadow-md flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-60"
+							>
+								<i class="fa-solid fa-wand-magic-sparkles"></i>
+								<span>AI Dựng Chuỗi Seri Tiếp Nối</span>
+							</button>
+							<button
+								type="button"
+								id="btn-save-series-to-planner"
+								disabled
+								class="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-extrabold shadow-md flex items-center justify-center gap-2 transition cursor-pointer"
+							>
+								<i class="fa-solid fa-calendar-plus"></i>
+								<span>Lưu Cả Seri Vào Lịch Đăng</span>
+							</button>
+						</div>
+					</div>
+
+					<div id="series-preview-list" class="space-y-3">
+						<div class="text-center py-8 px-4 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
+							Nhập chủ đề phía trên rồi bấm <strong>"AI Dựng Chuỗi Seri Tiếp Nối"</strong> để xem trước toàn bộ các tập liên kết nhau — bạn có thể quay ngay từng tập hoặc lưu vào Lịch Đăng dần, và bấm <strong>"+ Tập tiếp"</strong> bất cứ lúc nào để kéo dài Seri vô hạn!
+						</div>
 					</div>
 				</div>
 			</div>

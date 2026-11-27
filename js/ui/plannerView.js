@@ -8,7 +8,7 @@
     'use strict';
 
     const App = (global.ReelsStudio = global.ReelsStudio || {});
-    const { escapeHtml, formatDateTimeVN, copyToClipboard } = App.utils;
+    const { escapeHtml, formatDateTimeVN, copyToClipboard, addDaysToSchedule, getDefaultTomorrowSchedule } = App.utils;
 
     let isDirty = true;
     let draggedScriptId = null;
@@ -61,9 +61,20 @@
                        </div>`
                     : `<span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><i class="fa-solid fa-check-double"></i>Hoàn tất</span>`;
 
+        const seriesBadge = script.episodeNumber
+            ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30"><i class="fa-solid fa-layer-group"></i>Tập ${script.episodeNumber}${script.totalEpisodes ? '/' + script.totalEpisodes : ''}</span>`
+            : '';
+
+        const sceneBadge = Array.isArray(script.scenes) && script.scenes.length > 0
+            ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300">${script.scenes.length} cảnh</span>`
+            : '';
+
         card.innerHTML = `
             <div class="flex items-start justify-between gap-2">
-                <h4 class="font-bold text-sm text-slate-900 dark:text-slate-100 leading-snug">${escapeHtml(script.title)}</h4>
+                <div class="min-w-0 space-y-1">
+                    ${seriesBadge || sceneBadge ? `<div class="flex items-center gap-1 flex-wrap">${seriesBadge}${sceneBadge}</div>` : ''}
+                    <h4 class="font-bold text-sm text-slate-900 dark:text-slate-100 leading-snug">${escapeHtml(script.title)}</h4>
+                </div>
                 <div class="flex items-center gap-1 shrink-0">
                     <button type="button" data-action="edit" data-id="${escapeHtml(script.id)}" class="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-indigo-600 dark:text-slate-400 flex items-center justify-center transition cursor-pointer" title="Chỉnh sửa">
                         <i class="fa-solid fa-pen text-xs"></i>
@@ -76,17 +87,22 @@
 
             <p class="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 bg-slate-50 dark:bg-slate-800/70 p-2 rounded-xl border border-slate-100 dark:border-slate-700/60">"${escapeHtml(script.hook)}"</p>
 
+            ${script.cliffhanger ? `<p class="text-[11px] font-semibold text-rose-600 dark:text-rose-400 line-clamp-1">🔗 ${escapeHtml(script.cliffhanger)}</p>` : ''}
+
             <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                 <span><i class="fa-regular fa-clock mr-1 text-indigo-500"></i>${escapeHtml(dateLabel)}</span>
             </div>
 
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1.5 flex-wrap">
-                <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1 flex-wrap">
                     <button type="button" data-action="studio" data-id="${escapeHtml(script.id)}" class="px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold transition flex items-center gap-1 cursor-pointer">
                         <i class="fa-solid fa-film"></i> Video AI
                     </button>
-                    <button type="button" data-action="copy" data-id="${escapeHtml(script.id)}" class="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer" title="Copy Caption & Hashtag">
-                        <i class="fa-regular fa-copy"></i> Copy
+                    <button type="button" data-action="sequel" data-id="${escapeHtml(script.id)}" class="px-2 py-1.5 rounded-lg bg-amber-100 dark:bg-amber-500/20 hover:bg-amber-200 text-amber-900 dark:text-amber-300 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-60" title="AI viết tiếp tập kế nối mạch chuyện">
+                        <i class="fa-solid fa-forward-step"></i> + Tập tiếp
+                    </button>
+                    <button type="button" data-action="copy" data-id="${escapeHtml(script.id)}" class="px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer" title="Copy Caption & Hashtag">
+                        <i class="fa-regular fa-copy"></i>
                     </button>
                 </div>
                 ${moveControls}
@@ -170,6 +186,80 @@
         });
     }
 
+    async function handleGenerateSequel(scriptId, btn) {
+        const state = App.store.getState();
+        const origin = state.userScripts.find((s) => s.id === scriptId);
+        if (!origin || !btn || btn.disabled) return;
+
+        const seriesId = origin.seriesId || `series-${origin.id}`;
+        const seriesTitle = origin.seriesTitle || origin.title;
+        let previousEpisodes = state.userScripts.filter((s) => s.seriesId === seriesId);
+        if (previousEpisodes.length === 0) {
+            previousEpisodes = [origin];
+        } else {
+            previousEpisodes.sort((a, b) => (a.episodeNumber || 1) - (b.episodeNumber || 1));
+        }
+
+        const latestEp = previousEpisodes[previousEpisodes.length - 1];
+        const nextSchedule = addDaysToSchedule(latestEp.schedule || getDefaultTomorrowSchedule(20, 0), 1);
+
+        btn.disabled = true;
+        const prevHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Đang viết...</span>';
+
+        try {
+            const ep = await App.geminiApi.generateNextSeriesEpisode({
+                seriesTitle,
+                previousEpisodes,
+                scenesPerEp: Array.isArray(origin.scenes) && origin.scenes.length >= 6 ? origin.scenes.length : 8,
+                tone: document.getElementById('vs-tone')?.value || 'viral'
+            });
+
+            // Tag origin into the same series if it started as a standalone script
+            if (!origin.seriesId) {
+                App.store.upsertUserScript({
+                    ...origin,
+                    seriesId,
+                    seriesTitle,
+                    episodeNumber: 1,
+                    totalEpisodes: ep.episodeNumber
+                });
+            }
+
+            const epScenes = ep.scenes && ep.scenes.length > 0 ? ep.scenes : [ep.hook, ep.cta];
+            const middleScenes = epScenes.length > 2 ? epScenes.slice(1, -1) : epScenes;
+            const newId = `${seriesId}-ep-${ep.episodeNumber}-${Date.now()}`;
+
+            App.store.upsertUserScript({
+                id: newId,
+                seriesId,
+                seriesTitle,
+                episodeNumber: ep.episodeNumber,
+                totalEpisodes: ep.episodeNumber,
+                cliffhanger: ep.cliffhanger || '',
+                title: ep.title,
+                status: 'scheduled',
+                schedule: nextSchedule,
+                hook: ep.hook || epScenes[0] || '',
+                body: middleScenes.map((s) => `• ${s}`).join('\n'),
+                cta: ep.cta || '',
+                scenes: epScenes,
+                hashtags: ep.hashtags || origin.hashtags || '#seri #reelsvn'
+            });
+
+            App.toast.show(`Đã viết tiếp Tập ${ep.episodeNumber} nối mạch Seri!`, 'success', {
+                actionLabel: 'Quay Video',
+                onAction: () => App.videoStudio.openFromUserScript(newId),
+                duration: 6000
+            });
+        } catch (err) {
+            App.toast.show(err.message || 'Không thể tạo tập tiếp theo.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = prevHtml;
+        }
+    }
+
     function init() {
         const board = document.getElementById('planner-board');
         if (board) {
@@ -186,6 +276,8 @@
                     handleDeleteScript(id);
                 } else if (action === 'studio') {
                     App.videoStudio.openFromUserScript(id);
+                } else if (action === 'sequel') {
+                    handleGenerateSequel(id, btn);
                 } else if (action === 'copy') {
                     handleCopyCaption(id);
                 } else if (action === 'move') {

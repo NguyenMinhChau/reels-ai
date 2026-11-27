@@ -99,10 +99,19 @@
         });
     }
 
-    function getDefaultTomorrowSchedule(hour = 20, minute = 0) {
-        const tomorrow = new Date(Date.now() + 86400000);
-        tomorrow.setHours(hour, minute, 0, 0);
-        return new Date(tomorrow.getTime() - tomorrow.getTimezoneOffset() * 60000)
+    function getDefaultTomorrowSchedule(hour = 20, minute = 0, daysAhead = 1) {
+        const target = new Date(Date.now() + daysAhead * 86400000);
+        target.setHours(hour, minute, 0, 0);
+        return new Date(target.getTime() - target.getTimezoneOffset() * 60000)
+            .toISOString()
+            .slice(0, 16);
+    }
+
+    function addDaysToSchedule(scheduleIso, daysToAdd) {
+        const base = scheduleIso ? new Date(scheduleIso) : new Date(Date.now() + 86400000);
+        const safe = Number.isNaN(base.getTime()) ? new Date(Date.now() + 86400000) : base;
+        const shifted = new Date(safe.getTime() + daysToAdd * 86400000);
+        return new Date(shifted.getTime() - shifted.getTimezoneOffset() * 60000)
             .toISOString()
             .slice(0, 16);
     }
@@ -176,6 +185,21 @@
         }
 
         return [cleanHook, mid1, mid2, mid3, cleanCta];
+    }
+
+    function splitScriptIntoScenes(hook, body, cta) {
+        const rawLines = (body || '')
+            .split('\n')
+            .map((l) => cleanNarrationText(l))
+            .filter(Boolean);
+
+        const cleanHook = cleanNarrationText(hook) || 'Bí quyết cuộc sống hằng ngày cực hay mà bạn nhất định phải biết!';
+        const cleanCta = cleanNarrationText(cta) || 'Lưu ngay video này và Follow mình để đón xem phần tiếp theo nhé!';
+
+        if (rawLines.length >= 4) {
+            return [cleanHook, ...rawLines, cleanCta];
+        }
+        return splitScriptIntoFiveScenes(hook, body, cta);
     }
 
     function splitTextIntoVisualBeats(text, maxBeats = 3) {
@@ -260,9 +284,11 @@
         formatTimeMMSS,
         formatDateTimeVN,
         getDefaultTomorrowSchedule,
+        addDaysToSchedule,
         copyToClipboard,
         cleanNarrationText,
         splitScriptIntoFiveScenes,
+        splitScriptIntoScenes,
         splitTextIntoVisualBeats,
         base64ToArrayBuffer,
         sleep

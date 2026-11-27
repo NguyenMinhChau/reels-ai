@@ -241,6 +241,17 @@
             return isUpdate;
         },
 
+        addUserScriptsBatch(items) {
+            if (!Array.isArray(items) || items.length === 0) return 0;
+            const existingIds = new Set(state.userScripts.map((s) => s.id));
+            const clean = items.filter((item) => item && item.id && !existingIds.has(item.id));
+            if (clean.length === 0) return 0;
+            state.userScripts = [...clean, ...state.userScripts];
+            safeStorage.set(STORAGE_KEYS.SCRIPTS, state.userScripts);
+            notify('scripts');
+            return clean.length;
+        },
+
         moveScriptStatus(id, newStatus) {
             const item = state.userScripts.find((s) => s.id === id);
             if (!item || item.status === newStatus) return false;
