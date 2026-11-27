@@ -433,7 +433,7 @@
     }
 
     // Precompute subtitle chunks & wrapped lines once per scene build!
-    function precomputeSceneSubtitles(text) {
+    function precomputeSceneSubtitles(text, isMotion = false) {
         const fullSubText = cleanNarrationText(text);
         const allWords = fullSubText.split(/\s+/).filter(Boolean);
         const chunkSize = 5; // Snappy 5-word Reels captions for fast reading retention
@@ -447,12 +447,12 @@
         const measureCtx = ctx || document.createElement('canvas').getContext('2d');
 
         return rawChunks.map((chunkText) => {
-            const fontSize = chunkText.length > 26 ? 29 : 33;
-            const lineHeight = fontSize + 12;
+            const fontSize = isMotion ? (chunkText.length > 26 ? 25 : 28) : chunkText.length > 26 ? 29 : 33;
+            const lineHeight = fontSize + 10;
             measureCtx.font = `900 ${fontSize}px Inter, sans-serif`;
             const lines = measureWrappedLines(measureCtx, chunkText, 460);
             const totalHeight = lines.length * lineHeight;
-            const bottomMargin = 105;
+            const bottomMargin = isMotion ? 215 : 105;
             const startY = CANVAS_H - bottomMargin - totalHeight + fontSize;
             return {
                 fontSize,
@@ -461,6 +461,26 @@
                 startY
             };
         });
+    }
+
+    function computeAudioEnvelope(audioBuffer, bins = 48) {
+        if (!audioBuffer || typeof audioBuffer.getChannelData !== 'function' || audioBuffer.length === 0) {
+            return new Float32Array(bins);
+        }
+        const data = audioBuffer.getChannelData(0);
+        const env = new Float32Array(bins);
+        const step = Math.max(1, Math.floor(data.length / bins));
+        for (let b = 0; b < bins; b++) {
+            const start = b * step;
+            const end = Math.min(data.length, start + step);
+            let sum = 0;
+            for (let i = start; i < end; i++) {
+                sum += Math.abs(data[i]);
+            }
+            const avg = end > start ? sum / (end - start) : 0;
+            env[b] = Math.min(1, avg * 3.4);
+        }
+        return env;
     }
 
     function setScenes(scenes, videoTitle = '') {
@@ -474,7 +494,8 @@
 
         studioScenes = (scenes || []).map((scene) => ({
             ...scene,
-            precomputedChunks: precomputeSceneSubtitles(scene.text)
+            precomputedChunks: precomputeSceneSubtitles(scene.text, scene.visualStyle === 'motion'),
+            audioEnvelope: computeAudioEnvelope(scene.audioBuffer)
         }));
         totalDuration = studioScenes.reduce((sum, s) => sum + (Number.isFinite(s.duration) ? s.duration : 2.0), 0);
         pausedAt = 0;
@@ -617,9 +638,17 @@
         ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
         if (isMotionStyle) {
-            // 1. Flat-Vector 2D Motion Infographic Scene (with whip-slide transition)
+            // 1. Composable 2D Motion Infographic Scene driven by real speech audio envelope
             const prevScene = activeIdx > 0 ? studioScenes[activeIdx - 1] : null;
-            App.motionGraphics.drawMotionScene(ctx, currentScene, sceneProgress, activeIdx, elapsed, prevScene);
+            let audioLevel = 0;
+            if (currentScene.audioEnvelope && currentScene.audioEnvelope.length > 0 && sceneProgress < 0.94) {
+                const envIdx = Math.min(
+                    currentScene.audioEnvelope.length - 1,
+                    Math.floor((sceneProgress / 0.94) * currentScene.audioEnvelope.length)
+                );
+                audioLevel = currentScene.audioEnvelope[envIdx] || 0;
+            }
+            App.motionGraphics.drawMotionScene(ctx, currentScene, sceneProgress, activeIdx, elapsed, prevScene, audioLevel);
         } else {
             // 1. Photo background + smooth crossfade
             if (currentScene.imageObj) {
@@ -655,24 +684,25 @@
             ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
         }
 
-        // 3. Top Story Progress Bars (adapts cleanly for 5..15+ synced beats)
+        // 3. Top Story Progress Bars (adapts cleanly for dark night backdrop & photo mode)
         const count = studioScenes.length;
         const barGap = count > 8 ? 4 : 6;
         const barWidth = (CANVAS_W - 48 - (count - 1) * barGap) / count;
+        const useLightBar = !isMotionStyle || currentScene.motionCue?.backdrop === 'night-calm';
         for (let i = 0; i < count; i++) {
             const bx = 24 + i * (barWidth + barGap);
-            ctx.fillStyle = isMotionStyle ? 'rgba(15,23,42,0.18)' : 'rgba(255,255,255,0.32)';
+            ctx.fillStyle = useLightBar ? 'rgba(255,255,255,0.32)' : 'rgba(15,23,42,0.18)';
             ctx.beginPath();
             ctx.roundRect(bx, 18, barWidth, 5, 3);
             ctx.fill();
 
             if (i < activeIdx) {
-                ctx.fillStyle = isMotionStyle ? '#0f172a' : '#ffffff';
+                ctx.fillStyle = useLightBar ? '#ffffff' : '#0f172a';
                 ctx.beginPath();
                 ctx.roundRect(bx, 18, barWidth, 5, 3);
                 ctx.fill();
             } else if (i === activeIdx) {
-                ctx.fillStyle = isMotionStyle ? '#0f172a' : '#ffffff';
+                ctx.fillStyle = useLightBar ? '#ffffff' : '#0f172a';
                 ctx.beginPath();
                 ctx.roundRect(bx, 18, barWidth * Math.min(1, sceneProgress), 5, 3);
                 ctx.fill();
@@ -681,7 +711,10 @@
 
         // 3b. Dynamic Beat Callout Pill in Photo mode (so every synced cut feels fresh)
         if (!isMotionStyle && currentScene.motionCue && (activeIdx > 0 || precomputedTitleLines.length === 0)) {
-            const badgeText = currentScene.motionCue.highlightBadge || currentScene.motionCue.topBadge;
+            const badgeText =
+                currentScene.motionCue.accentBadge ||
+                currentScene.motionCue.topBadge ||
+                (currentScene.motionCue.items && currentScene.motionCue.items[0]);
             if (badgeText) {
                 const badgeAlpha = sceneProgress < 0.15 ? sceneProgress / 0.15 : 1;
                 ctx.save();

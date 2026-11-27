@@ -424,32 +424,44 @@ Narration segments:
         });
     }
 
-    async function generateMultiBeatStoryboard({ title, beatTexts, templates, themes, signal }) {
+    async function generateMultiBeatStoryboard({ title, beatTexts, layouts, backdrops, props, signal }) {
         const cleanBeats = (beatTexts || []).map((b) => String(b || '').trim()).filter(Boolean);
         if (cleanBeats.length === 0) return null;
 
-        const cacheKey = `storyboard:${hashString(title + '|' + cleanBeats.join('|'))}`;
+        const cacheKey = `storyboard-v2:${hashString(title + '|' + cleanBeats.join('|'))}`;
         if (caches.prompts.has(cacheKey)) {
             return caches.prompts.get(cacheKey);
         }
 
-        const tplList = Array.isArray(templates) && templates.length > 0 ? templates : ['character', 'lightbulb', 'alert', 'checklist', 'clock'];
-        const themeList = Array.isArray(themes) && themes.length > 0 ? themes : ['cream', 'mint', 'sky', 'rose', 'lavender', 'amber', 'teal'];
+        const layoutList = Array.isArray(layouts) && layouts.length > 0 ? layouts : ['center-hero', 'character-left', 'split-compare', 'multi-trio', 'thought-bubble', 'document-card', 'action-flow'];
+        const backdropList = Array.isArray(backdrops) && backdrops.length > 0 ? backdrops : ['cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint'];
+        const propList = Array.isArray(props) && props.length > 0 ? props : ['house', 'envelope', 'jar', 'phone', 'lightbulb', 'clock', 'water_glass', 'plug_socket'];
 
         return dedupedCall(cacheKey, async () => {
             try {
                 const numberedBeats = cleanBeats.map((b, i) => `${i + 1}. "${b}"`).join('\n');
-                const prompt = `Bạn là Art Director dựng video Reels 2D Motion Infographic chuyển cảnh nhanh theo từng nhịp giọng đọc (1.5–2.5 giây/cảnh).
-Tiêu đề video: "${title}"
-Danh sách ${cleanBeats.length} nhịp lời thoại theo đúng thứ tự âm thanh:
+                const prompt = `Bạn là Đạo diễn Đồ họa Chuyển động 2D (Motion Infographic) cho Reels/TikTok giống phong cách minh họa phẳng từng ý rất cuốn hút.
+Tiêu đề: "${title}"
+Danh sách ${cleanBeats.length} nhịp lời thoại theo thứ tự:
 ${numberedBeats}
 
-Hãy thiết kế storyboard đúng ${cleanBeats.length} phần tử khớp 1-1 với từng nhịp lời thoại trên:
-- template: Chọn từ [${tplList.join(', ')}] sao cho hình vẽ minh họa sát nhất với ý đang nói ở nhịp đó. TUYỆT ĐỐI KHÔNG chọn trùng template ở 2 nhịp liền kề nhau! Hãy thay đổi đa dạng hết mức có thể để video sống động.
-- theme: Chọn từ [${themeList.join(', ')}] sao cho KHÔNG trùng màu nền giữa 2 nhịp liền kề.
-- topBadge: Nhãn ngắn 2–3 từ VIẾT HOA nổi bật góc trên (VD: "⚠️ CẢNH BÁO", "💡 BÍ QUYẾT", "📱 MẸO SỐ", "BƯỚC 1").
-- cardLabel: Cụm 2–4 từ VIẾT HOA súc tích tóm tắt đúng nội dung nhịp thoại đó.
-- highlightBadge: Con số hoặc từ khóa điểm nhấn 1–3 từ VIẾT HOA (VD: "90% SAI", "5 PHÚT", "TIẾT KIỆM").`;
+Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho BỐ CỤC, MÀU SẮC NỀN và ĐẠO CỤ minh họa khớp chính xác từng câu chữ đang nói và TUYỆT ĐỐI KHÔNG lặp lại:
+- layout: Chọn từ [${layoutList.join(', ')}]:
+  * center-hero: 1 vật thể chính to giữa màn hình
+  * character-left: nhân vật nói chuyện bên trái + vật thể lớn bên phải
+  * split-compare: so sánh 2 vế trái/phải (trước-sau, đúng-sai, rẻ-đắt)
+  * multi-trio: 3 vật thể nhỏ xếp hàng ngang có thẻ giá/nhãn chỉ xuống
+  * thought-bubble: nhân vật suy nghĩ nhìn lên bóng mây ý tưởng
+  * document-card: tờ bảng/hóa đơn/danh sách tick từng dòng
+  * action-flow: mũi tên biến đổi từ trái sang phải
+  (BẮT BUỘC thay đổi layout liên tục giữa các cảnh liền kề!)
+- backdrop: Chọn bối cảnh màu từ [${backdropList.join(', ')}] phù hợp hoàn cảnh (hills-nature cho quê/thiên nhiên, city-skyline cho thành phố/công ty, night-calm cho đêm/ngủ/chill, alert-tint cho cảnh báo/nguy hiểm, mint-fresh cho sức khỏe/tiền bạc, sunset-warm/cream-room cho đời thường). KHÔNG trùng backdrop ở 2 cảnh liền kề!
+- props: Mảng gồm 1 đến 3 đạo cụ chọn từ [${propList.join(', ')}] ghép đúng với từng ý câu nói (không lặp prop chính ở cảnh kế).
+- characterMood: "happy", "shocked", "thinking", hoặc "none".
+- topBadge: Nhãn ngắn 1–3 từ VIẾT HOA góc trên (hoặc rỗng "").
+- items: Mảng gồm 1–3 nhãn ngắn (2–4 từ VIẾT HOA) gắn trực tiếp lên từng vật thể/dòng liệt kê (VD: ["NHÀ", "CƠM", "XE"] hoặc ["PHÒNG: 3,5 TR", "ĐIỆN NƯỚC: 600K", "ĂN: 4 TR"]).
+- accentBadge: Con số hoặc điểm nhấn nổi bật ("X2", "+7 TRIỆU", "NGUY HIỂM", "CHÚ Ý!" hoặc "").
+- crossOut: true nếu câu nói mang ý gạch bỏ / sai lầm / cấm làm, ngược lại false.`;
 
                 const payload = {
                     contents: [{ parts: [{ text: prompt }] }],
@@ -460,13 +472,16 @@ Hãy thiết kế storyboard đúng ${cleanBeats.length} phần tử khớp 1-1 
                             items: {
                                 type: 'OBJECT',
                                 properties: {
-                                    template: { type: 'STRING', enum: tplList },
-                                    theme: { type: 'STRING', enum: themeList },
+                                    layout: { type: 'STRING', enum: layoutList },
+                                    backdrop: { type: 'STRING', enum: backdropList },
+                                    props: { type: 'ARRAY', items: { type: 'STRING', enum: propList } },
+                                    characterMood: { type: 'STRING', enum: ['happy', 'shocked', 'thinking', 'none'] },
                                     topBadge: { type: 'STRING' },
-                                    cardLabel: { type: 'STRING' },
-                                    highlightBadge: { type: 'STRING' }
+                                    items: { type: 'ARRAY', items: { type: 'STRING' } },
+                                    accentBadge: { type: 'STRING' },
+                                    crossOut: { type: 'BOOLEAN' }
                                 },
-                                required: ['template', 'theme', 'topBadge', 'cardLabel', 'highlightBadge']
+                                required: ['layout', 'backdrop', 'props', 'characterMood', 'topBadge', 'items', 'accentBadge', 'crossOut']
                             }
                         }
                     }
@@ -477,11 +492,14 @@ Hãy thiết kế storyboard đúng ${cleanBeats.length} phần tử khớp 1-1 
                 const parsed = JSON.parse(raw);
                 if (Array.isArray(parsed) && parsed.length >= cleanBeats.length) {
                     const normalized = parsed.slice(0, cleanBeats.length).map((item) => ({
-                        template: tplList.includes(item.template) ? item.template : '',
-                        theme: themeList.includes(item.theme) ? item.theme : '',
+                        layout: layoutList.includes(item.layout) ? item.layout : '',
+                        backdrop: backdropList.includes(item.backdrop) ? item.backdrop : '',
+                        props: Array.isArray(item.props) ? item.props.filter((p) => propList.includes(p)).slice(0, 3) : [],
+                        characterMood: ['happy', 'shocked', 'thinking', 'none'].includes(item.characterMood) ? item.characterMood : 'happy',
                         topBadge: String(item.topBadge || '').trim().slice(0, 22),
-                        cardLabel: String(item.cardLabel || '').trim().slice(0, 26),
-                        highlightBadge: String(item.highlightBadge || '').trim().slice(0, 20)
+                        items: Array.isArray(item.items) ? item.items.map((x) => String(x || '').trim().slice(0, 24)).filter(Boolean).slice(0, 3) : [],
+                        accentBadge: String(item.accentBadge || '').trim().slice(0, 20),
+                        crossOut: Boolean(item.crossOut)
                     }));
                     caches.prompts.set(cacheKey, normalized);
                     return normalized;

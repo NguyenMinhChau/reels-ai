@@ -1,7 +1,9 @@
 /* ==========================================================================
-   2D Motion Infographic Renderer (18 Vector Templates + Anti-Repeat Engine)
-   - Zero external image API required (crisp 60fps procedural Canvas 2D)
-   - Synchronizes multi-beat scene changes with exact narration audio segments
+   Composable 2D Motion Infographic Engine
+   - Inspired by modern viral TikTok/Reels explainer animations
+   - Combines 7 Backdrops x 7 Spatial Layouts x 30+ Vector Props
+   - Real Audio-Envelope Lip Sync & Dynamic Motion Choreography
+   - Zero consecutive repetition across layouts, backdrops, and props
    ========================================================================== */
 (function (global) {
     'use strict';
@@ -9,41 +11,66 @@
     const App = (global.ReelsStudio = global.ReelsStudio || {});
     const W = 540;
     const H = 960;
-    const FLOOR_Y = 778;
+    const FLOOR_Y = 782;
 
-    const THEMES = {
-        cream: { bgTop: '#f6edd9', bgBot: '#ebe0c5', floor: '#dfd0ae', line: '#9c8b68', accent: '#10b981', pill: '#fbbf24' },
-        mint: { bgTop: '#e7f2df', bgBot: '#d5e8cb', floor: '#a5c882', line: '#7aa158', accent: '#059669', pill: '#34d399' },
-        sky: { bgTop: '#e3f0fb', bgBot: '#d3e5f8', floor: '#c2d8f0', line: '#7da1c4', accent: '#2563eb', pill: '#fbbf24' },
-        rose: { bgTop: '#fbe9e7', bgBot: '#f6d8d4', floor: '#e8c1bc', line: '#b87c75', accent: '#e11d48', pill: '#fb7185' },
-        lavender: { bgTop: '#efe8fb', bgBot: '#e2d7f6', floor: '#cfc0ec', line: '#8b74b8', accent: '#7c3aed', pill: '#c084fc' },
-        amber: { bgTop: '#fef3c7', bgBot: '#fde68a', floor: '#f5d061', line: '#b45309', accent: '#d97706', pill: '#f59e0b' },
-        teal: { bgTop: '#e0f7f6', bgBot: '#ccefeb', floor: '#99dcd5', line: '#0f766e', accent: '#0d9488', pill: '#2dd4bf' }
+    const BACKDROPS = {
+        'cream-room': { top: '#f5ecd4', bot: '#e7d9b6', floor: '#d6c398', line: '#9c8b68', accent: '#10b981', dark: false },
+        'hills-nature': { top: '#e2f1dc', bot: '#cde5c4', floor: '#8cb369', hill: '#a2c97d', line: '#6c914d', accent: '#059669', dark: false },
+        'city-skyline': { top: '#dce9f6', bot: '#c5d9ef', floor: '#b8cce2', line: '#6e8bad', accent: '#2563eb', dark: false },
+        'sunset-warm': { top: '#fde8d7', bot: '#f9ceb7', floor: '#ecc1aa', line: '#b57b61', accent: '#ea580c', dark: false },
+        'mint-fresh': { top: '#dff7ec', bot: '#c3eedb', floor: '#a2dcc2', line: '#4d9b7b', accent: '#0d9488', dark: false },
+        'night-calm': { top: '#1e1b4b', bot: '#312e81', floor: '#17153b', line: '#6366f1', accent: '#f59e0b', dark: true },
+        'alert-tint': { top: '#fee2e2', bot: '#fecdd3', floor: '#fca5a5', line: '#be123c', accent: '#e11d48', dark: false }
     };
 
-    const THEME_NAMES = Object.keys(THEMES);
+    const BACKDROP_NAMES = Object.keys(BACKDROPS);
 
-    const VISUAL_TEMPLATES = [
-        'character',
-        'house',
-        'envelope',
-        'jar',
-        'city',
-        'checklist',
-        'chart',
-        'alert',
-        'calendar',
-        'music',
-        'food',
-        'phone',
-        'lightbulb',
-        'clock',
-        'water',
-        'battery',
-        'heart',
-        'cart'
+    const LAYOUT_NAMES = [
+        'center-hero',
+        'character-left',
+        'split-compare',
+        'multi-trio',
+        'thought-bubble',
+        'document-card',
+        'action-flow'
     ];
 
+    const PROP_NAMES = [
+        'house',
+        'door',
+        'city_building',
+        'bus',
+        'scooter',
+        'envelope',
+        'cash_stack',
+        'jar',
+        'locked_jar',
+        'card_doc',
+        'coin',
+        'red_button',
+        'chart_bars',
+        'rice_bowl',
+        'coffee_cup',
+        'water_glass',
+        'heart',
+        'cake',
+        'gift_box',
+        'phone',
+        'scam_link',
+        'plug_socket',
+        'battery',
+        'padlock',
+        'fire_flame',
+        'warning_triangle',
+        'suitcase',
+        'clock',
+        'calendar',
+        'lightbulb',
+        'music_bars',
+        'sleep_bed'
+    ];
+
+    // ---- Math & Easing ----
     function clamp01(t) {
         return Math.max(0, Math.min(1, t));
     }
@@ -60,15 +87,21 @@
         return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
     }
 
+    function stagePop(progress, startP, span = 0.18) {
+        if (progress < startP) return 0;
+        return easeOutBack(clamp01((progress - startP) / span));
+    }
+
+    // ---- Context & Keyword Parsing ----
     function extractMetricBadge(text) {
-        const match = String(text || '').match(/(\d+(?:[.,]\d+)?\s*(?:triệu|tr|k|nghìn|ngàn|%|giây|s|phút|giờ|h|ngày|tháng|độ|lần|món|bước|câu|lít|ml))/i);
-        if (match) return match[1].toUpperCase();
-        const timeMatch = String(text || '').match(/(\d{1,2}:\d{2})/);
-        if (timeMatch) return timeMatch[1];
+        const m = String(text || '').match(/(\d+(?:[.,]\d+)?\s*(?:triệu|tr|k|nghìn|ngàn|%|giây|s|phút|giờ|h|ngày|tháng|độ|lần|món|bước|câu|lít|ml|đ))/i);
+        if (m) return m[1].toUpperCase();
+        const tm = String(text || '').match(/(\d{1,2}:\d{2})/);
+        if (tm) return tm[1];
         return '';
     }
 
-    function extractShortLabel(text, fallback) {
+    function extractShortLabel(text, fallback = 'CUỘC SỐNG') {
         const clean = String(text || '')
             .replace(/[•\-!?,.:;"“”()]/g, ' ')
             .trim()
@@ -78,116 +111,100 @@
         return clean.slice(0, 3).join(' ').toUpperCase();
     }
 
-    const TEMPLATE_MATCHERS = [
-        { template: 'alert', regex: /lừa đảo|cảnh báo|nguy hiểm|cháy|nổ|vi khuẩn|khẩn|otp|link lạ|tránh|sai lầm|cẩn thận/ },
-        { template: 'phone', regex: /điện thoại|màn hình|app|tin nhắn|reels|lướt|thông báo|bấm|tải|online|wifi|mạng/ },
-        { template: 'battery', regex: /pin|sạc|ổ điện|cắm|điện|năng lượng|mệt mỏi|kết nối|tắt máy/ },
-        { template: 'water', regex: /uống nước|nước ấm|ly nước|cốc nước|trà|nước lọc|thải độc/ },
-        { template: 'food', regex: /hành|tỏi|cơm|ăn|bếp|chảo|cà phê|nấu|bữa|rau|thịt|nồi/ },
-        { template: 'clock', regex: /giờ|phút|giây|đồng hồ|sáng|tối|đêm|thức|ngủ dậy|5h|21h|22h|lịch/ },
-        { template: 'heart', regex: /ngủ|chữa lành|gia đình|bố mẹ|thương|ấm áp|bình yên|nghỉ ngơi|thư giãn/ },
-        { template: 'music', regex: /nhạc|lofi|lo-fi|giai điệu|âm thanh|piano|nghe|chill|bài hát/ },
-        { template: 'cart', regex: /mua|siêu thị|chợ|giỏ|đắt|rẻ|tốn|thanh toán|hóa đơn|chi tiêu/ },
-        { template: 'jar', regex: /tiết kiệm|hũ|để dành|còn lại|số dư|giữ lại|tích lũy/ },
-        { template: 'envelope', regex: /lương|tiền|nghìn|triệu|50k|100k|ví|thu nhập/ },
-        { template: 'chart', regex: /gấp đôi|tăng|giảm|so sánh|chênh|tổng|hiệu quả|top|%/ },
-        { template: 'lightbulb', regex: /bí quyết|mẹo|hóa ra|thay vào đó|thử ngay|ý tưởng|bất ngờ|não|tập trung/ },
-        { template: 'house', regex: /quê|nhà|phòng|cửa|khóa|gọn|dọn|ban công/ },
-        { template: 'city', regex: /thành phố|công ty|văn phòng|deadline|làm việc|bàn|đi làm|sếp/ },
-        { template: 'checklist', regex: /bước|cách|danh sách|kiểm tra|viết ra|ghi nhớ|áp dụng|3 việc/ },
-        { template: 'calendar', regex: /mỗi ngày|hằng ngày|tuần|tháng|định kỳ|thói quen/ },
-        { template: 'character', regex: /bạn|mọi người|ai cũng|follow|comment|chia sẻ|mình/ }
+    const SEMANTIC_RULES = [
+        { regex: /lừa đảo|link lạ|otp|giả mạo|tin nhắn lạ|bẫy/, backdrop: 'alert-tint', layout: 'character-left', props: ['phone', 'scam_link', 'warning_triangle'], mood: 'shocked', badge: '⚠️ CẢNH BÁO', crossOut: true },
+        { regex: /ổ điện|cháy|nổ|quá tải|giật điện|nóng máy|cắm sạc/, backdrop: 'alert-tint', layout: 'split-compare', props: ['plug_socket', 'fire_flame', 'battery'], mood: 'shocked', badge: '🔥 NGUY HIỂM', crossOut: true },
+        { regex: /điện thoại|màn hình|lướt|thông báo|app|reels|mạng/, backdrop: 'city-skyline', layout: 'center-hero', props: ['phone', 'lightbulb'], mood: 'thinking', badge: '📱 MẸO SỐ' },
+        { regex: /uống nước|ly nước|cốc nước|nước ấm|nước lọc|thải độc/, backdrop: 'mint-fresh', layout: 'character-left', props: ['water_glass', 'clock'], mood: 'happy', badge: '💧 SỨC KHỎE' },
+        { regex: /cơm|ăn|nấu|bếp|chảo|hành|tỏi|bữa|mì|trà sữa|cà phê/, backdrop: 'cream-room', layout: 'multi-trio', props: ['rice_bowl', 'coffee_cup', 'clock'], mood: 'happy', badge: '🍳 ĐỜI SỐNG' },
+        { regex: /nhạc|lofi|lo-fi|giai điệu|âm thanh|piano|chill|nghe/, backdrop: 'night-calm', layout: 'center-hero', props: ['music_bars', 'coffee_cup'], mood: 'happy', badge: '🎵 MOOD CHILL' },
+        { regex: /ngủ|đêm|tối|chữa lành|thư giãn|nghỉ ngơi|21h|22h/, backdrop: 'night-calm', layout: 'thought-bubble', props: ['sleep_bed', 'heart', 'clock'], mood: 'happy', badge: '🌙 THƯ GIÃN' },
+        { regex: /lương|thu nhập|tiền|phong bì|triệu|nghìn|50k|100k/, backdrop: 'cream-room', layout: 'character-left', props: ['envelope', 'cash_stack'], mood: 'happy', badge: '💵 THU NHẬP' },
+        { regex: /tiết kiệm|hũ|giữ lại|để dành|tích lũy|còn lại|số dư/, backdrop: 'mint-fresh', layout: 'action-flow', props: ['jar', 'locked_jar', 'coin'], mood: 'happy', badge: '💰 TÍCH LŨY' },
+        { regex: /liệt kê|danh sách|hóa đơn|chi tiêu|cộng lại|tính|bước|kiểm tra|viết ra/, backdrop: 'cream-room', layout: 'document-card', props: ['card_doc', 'coin'], mood: 'thinking', badge: '📝 GHI CHÉP' },
+        { regex: /đắt|tốn|giá|mua|chợ|siêu thị|phí|trả/, backdrop: 'sunset-warm', layout: 'multi-trio', props: ['house', 'rice_bowl', 'scooter'], mood: 'shocked', badge: '🏷️ CHI PHÍ' },
+        { regex: /so sánh|gấp đôi|chênh lệch|ít hơn|hơn hẳn|tăng|x2/, backdrop: 'city-skyline', layout: 'split-compare', props: ['chart_bars', 'jar'], mood: 'thinking', badge: '📊 SO SÁNH' },
+        { regex: /quê|nhà|gia đình|bố mẹ|ở ghép/, backdrop: 'hills-nature', layout: 'character-left', props: ['house', 'heart'], mood: 'happy', badge: '🏠 GIA ĐÌNH' },
+        { regex: /thành phố|công ty|văn phòng|cơ hội|sự nghiệp|làm việc|deadline/, backdrop: 'city-skyline', layout: 'action-flow', props: ['city_building', 'suitcase'], mood: 'happy', badge: '💼 CÔNG VIỆC' },
+        { regex: /xe|đi làm|xăng|chuyến|về quê|du lịch/, backdrop: 'hills-nature', layout: 'center-hero', props: ['bus', 'scooter'], mood: 'happy', badge: '🛵 DI CHUYỂN' },
+        { regex: /sinh nhật|chúc mừng|quà|thiệp|tiệc|tình cảm/, backdrop: 'sunset-warm', layout: 'center-hero', props: ['cake', 'gift_box'], mood: 'happy', badge: '🎁 KHOẢNH KHẮC' },
+        { regex: /bí quyết|hóa ra|tưởng tượng|bật mí|đừng|khoan|sai lầm|90%/, backdrop: 'cream-room', layout: 'thought-bubble', props: ['lightbulb', 'red_button'], mood: 'thinking', badge: '💡 BÍ QUYẾT' },
+        { regex: /khóa|bảo mật|an toàn|cửa|cất/, backdrop: 'mint-fresh', layout: 'center-hero', props: ['padlock', 'door'], mood: 'happy', badge: '🔒 AN TOÀN' },
+        { regex: /giờ|phút|giây|sáng|tháng|tuần|ngày|lịch|cuối tháng/, backdrop: 'sunset-warm', layout: 'center-hero', props: ['calendar', 'clock'], mood: 'thinking', badge: '⏰ THỜI GIAN' }
     ];
 
-    const DEFAULT_CUE_META = {
-        alert: { theme: 'rose', badge: '⚠️ CẢNH BÁO', label: 'PHÒNG TRÁNH', highlight: 'CHÚ Ý!' },
-        phone: { theme: 'sky', badge: '📱 MẸO SỐ', label: 'ĐIỆN THOẠI', highlight: 'CỰC NHANH' },
-        battery: { theme: 'amber', badge: '⚡ NĂNG LƯỢNG', label: 'AN TOÀN', highlight: 'BẬT NGAY' },
-        water: { theme: 'teal', badge: '💧 SỨC KHỎE', label: 'MỖI NGÀY', highlight: 'TỐT CHO BẠN' },
-        food: { theme: 'mint', badge: '🍳 BẾP NHÀ', label: 'NGON SẠCH', highlight: 'MẸO HAY' },
-        clock: { theme: 'amber', badge: '⏰ THỜI GIAN', label: 'ĐÚNG NHỊP', highlight: 'KHUNG GIỜ VÀNG' },
-        heart: { theme: 'rose', badge: '🌙 CHỮA LÀNH', label: 'BÌNH YÊN', highlight: 'NHẸ NHÀNG' },
-        music: { theme: 'lavender', badge: '🎵 MOOD CHILL', label: 'ÂM THANH', highlight: 'THƯ GIÃN' },
-        cart: { theme: 'cream', badge: '🛒 CHI TIÊU', label: 'THÔNG MINH', highlight: 'TIẾT KIỆM' },
-        jar: { theme: 'mint', badge: '💰 TÍCH LŨY', label: 'GIỮ TIỀN', highlight: 'TĂNG DẦN' },
-        envelope: { theme: 'cream', badge: '💵 TÀI CHÍNH', label: 'THỰC TẾ', highlight: 'QUAN TRỌNG' },
-        chart: { theme: 'sky', badge: '📈 HIỆU QUẢ', label: 'SO SÁNH', highlight: 'X2 KẾT QUẢ' },
-        lightbulb: { theme: 'amber', badge: '💡 BÍ QUYẾT', label: 'HÓA RA LÀ', highlight: 'ÁP DỤNG NGAY' },
-        house: { theme: 'mint', badge: '🏠 TẠI NHÀ', label: 'KHÔNG GIAN', highlight: 'GỌN GÀNG' },
-        city: { theme: 'sky', badge: '💼 CÔNG VIỆC', label: 'NHỊP SỐNG', highlight: 'HIỆU SUẤT' },
-        checklist: { theme: 'teal', badge: '✅ GHI NHỚ', label: 'LÀM THEO', highlight: 'CỰC DỄ' },
-        calendar: { theme: 'cream', badge: '📅 THÓI QUEN', label: 'ĐỀU ĐẶN', highlight: 'MỖI NGÀY' },
-        character: { theme: 'sky', badge: '👋 GÓC NHÌN', label: 'THỰC TẾ', highlight: 'ĐỪNG BỎ LỠ' }
-    };
-
-    function pickDistinctTemplate(candidates, prevTemplate, usedCounts, sceneIdx) {
-        const pool = candidates.length > 0 ? candidates : VISUAL_TEMPLATES;
-        // Try matched candidates excluding prevTemplate, preferring lowest usage count
-        const filtered = pool.filter((tpl) => tpl !== prevTemplate);
-        if (filtered.length > 0) {
-            filtered.sort((a, b) => (usedCounts.get(a) || 0) - (usedCounts.get(b) || 0));
-            return filtered[0];
+    function buildLocalItemsFromPhrase(text, mainProp) {
+        const metric = extractMetricBadge(text);
+        const clauses = String(text || '')
+            .split(/[,.;:!?\-]+/)
+            .map((c) => c.trim())
+            .filter(Boolean);
+        if (clauses.length >= 2) {
+            return clauses.slice(0, 3).map((c) => extractShortLabel(c, mainProp.toUpperCase()));
         }
-        // Fallback rotation across all 18 templates, lowest count and != prevTemplate
-        const rotated = [];
-        for (let i = 0; i < VISUAL_TEMPLATES.length; i++) {
-            const t = VISUAL_TEMPLATES[(sceneIdx * 5 + i) % VISUAL_TEMPLATES.length];
-            if (t !== prevTemplate) rotated.push(t);
-        }
-        rotated.sort((a, b) => (usedCounts.get(a) || 0) - (usedCounts.get(b) || 0));
-        return rotated[0] || 'lightbulb';
+        const words = String(text || '')
+            .replace(/[•\-!?,.:;"“”()]/g, ' ')
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+        const first = words.slice(0, 2).join(' ').toUpperCase() || mainProp.toUpperCase();
+        const second = metric || (words.slice(2, 4).join(' ').toUpperCase()) || 'THỰC TẾ';
+        const third = words.slice(4, 6).join(' ').toUpperCase() || 'ÁP DỤNG';
+        return [first, second, third];
     }
 
-    function pickDistinctTheme(preferredTheme, prevTheme, sceneIdx) {
-        if (preferredTheme && THEMES[preferredTheme] && preferredTheme !== prevTheme) {
-            return preferredTheme;
-        }
-        for (let i = 0; i < THEME_NAMES.length; i++) {
-            const candidate = THEME_NAMES[(sceneIdx + i) % THEME_NAMES.length];
-            if (candidate !== prevTheme) return candidate;
-        }
-        return 'cream';
-    }
-
-    function analyzeSceneVisualCue(sceneText, sceneIdx, videoTitle = '', state = {}) {
+    function analyzeSceneVisualCue(sceneText, beatIdx, videoTitle = '', state = {}) {
         const s = String(sceneText || '').toLowerCase();
-        const metric = extractMetricBadge(sceneText) || (sceneIdx === 0 ? extractMetricBadge(videoTitle) : '');
-        const prevTemplate = state.prevTemplate || '';
-        const prevTheme = state.prevTheme || '';
-        const usedCounts = state.usedCounts || new Map();
+        const metric = extractMetricBadge(sceneText) || (beatIdx === 0 ? extractMetricBadge(videoTitle) : '');
+        const prevLayout = state.prevLayout || '';
+        const prevBackdrop = state.prevBackdrop || '';
+        const prevProp = state.prevProp || '';
 
-        const matched = TEMPLATE_MATCHERS.filter((m) => m.regex.test(s)).map((m) => m.template);
-        // Add contextual fallback variety based on beat position
-        if (matched.length === 0) {
-            const rolePools = [
-                ['lightbulb', 'alert', 'character'],
-                ['character', 'phone', 'city'],
-                ['checklist', 'clock', 'water'],
-                ['chart', 'lightbulb', 'jar'],
-                ['heart', 'checklist', 'calendar']
-            ];
-            matched.push(...rolePools[sceneIdx % rolePools.length]);
+        const matched = SEMANTIC_RULES.filter((r) => r.regex.test(s));
+        const rule = matched.length > 0 ? matched[beatIdx % matched.length] : null;
+
+        let layout = rule ? rule.layout : LAYOUT_NAMES[beatIdx % LAYOUT_NAMES.length];
+        if (layout === prevLayout) {
+            const altLayouts = LAYOUT_NAMES.filter((l) => l !== prevLayout);
+            layout = altLayouts[(beatIdx * 3) % altLayouts.length];
         }
 
-        const template = pickDistinctTemplate(matched, prevTemplate, usedCounts, sceneIdx);
-        usedCounts.set(template, (usedCounts.get(template) || 0) + 1);
+        let backdrop = rule ? rule.backdrop : BACKDROP_NAMES[beatIdx % BACKDROP_NAMES.length];
+        if (backdrop === prevBackdrop) {
+            const altBgs = BACKDROP_NAMES.filter((b) => b !== prevBackdrop);
+            backdrop = altBgs[(beatIdx * 2) % altBgs.length];
+        }
 
-        const def = DEFAULT_CUE_META[template] || DEFAULT_CUE_META.character;
-        const theme = pickDistinctTheme(def.theme, prevTheme, sceneIdx);
+        const candidateProps = rule ? [...rule.props] : [PROP_NAMES[(beatIdx * 5) % PROP_NAMES.length], PROP_NAMES[(beatIdx * 5 + 7) % PROP_NAMES.length]];
+        if (candidateProps[0] === prevProp) {
+            if (candidateProps.length > 1) {
+                const first = candidateProps.shift();
+                candidateProps.push(first);
+            } else {
+                const alt = PROP_NAMES[(PROP_NAMES.indexOf(prevProp) + 3 + beatIdx) % PROP_NAMES.length];
+                candidateProps[0] = alt;
+            }
+        }
+
+        const items = buildLocalItemsFromPhrase(sceneText, candidateProps[0]);
+        const characterMood = rule ? rule.mood : beatIdx % 3 === 1 ? 'thinking' : 'happy';
 
         return {
-            template,
-            theme,
-            topBadge: metric ? `${def.badge.split(' ')[0]} ${metric}` : def.badge,
-            cardLabel: extractShortLabel(sceneText, def.label),
-            highlightBadge: metric || def.highlight,
+            layout,
+            backdrop,
+            props: candidateProps,
+            characterMood,
+            topBadge: metric && !rule?.badge?.includes(metric) ? metric : rule?.badge || extractShortLabel(sceneText, `NHỊP ${beatIdx + 1}`),
+            items,
+            accentBadge: metric || (beatIdx === 0 ? 'XEM NGAY' : beatIdx % 2 === 0 ? 'QUAN TRỌNG' : ''),
+            crossOut: Boolean(rule?.crossOut && /đừng|không|sai|tránh|nổ|lừa/.test(s)),
             sceneText: String(sceneText || ''),
             videoTitle: String(videoTitle || '')
         };
     }
 
-    // ---- Shared Vector Primitives ----
-    function drawOutlinedRect(ctx, x, y, w, h, r, fill, stroke = '#1e293b', lw = 3.5, shadow = true) {
+    // ---- Shared Flat-Vector Primitives (crisp 3px dark outline + soft drop shadow) ----
+    function drawOutlinedRect(ctx, x, y, w, h, r, fill, stroke = '#1e293b', lw = 3, shadow = true) {
         ctx.save();
         if (shadow) {
             ctx.fillStyle = 'rgba(15, 23, 42, 0.14)';
@@ -205,20 +222,44 @@
         ctx.restore();
     }
 
-    function drawPillBadge(ctx, text, cx, cy, fill, textColor = '#ffffff', scale = 1, fontSize = 20) {
-        if (!text) return;
+    function drawPillBadge(ctx, text, cx, cy, fill, textColor = '#ffffff', scale = 1, fontSize = 18) {
+        if (!text || scale <= 0.02) return;
         ctx.save();
         ctx.translate(cx, cy);
         ctx.scale(scale, scale);
         ctx.font = `900 ${fontSize}px Inter, sans-serif`;
         const tw = ctx.measureText(text).width;
-        const pw = Math.min(460, Math.max(110, tw + 42));
-        const ph = fontSize + 24;
-        drawOutlinedRect(ctx, -pw / 2, -ph / 2, pw, ph, 12, fill, '#1e293b', 3, true);
+        const pw = Math.min(440, Math.max(92, tw + 36));
+        const ph = fontSize + 20;
+        drawOutlinedRect(ctx, -pw / 2, -ph / 2, pw, ph, 11, fill, '#1e293b', 2.8, true);
         ctx.fillStyle = textColor;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(text, 0, 1, pw - 20);
+        ctx.fillText(text, 0, 1, pw - 16);
+        ctx.restore();
+    }
+
+    function drawPriceTagCallout(ctx, text, tx, ty, targetX, targetY, scale = 1, fill = '#fef2f2', textColor = '#dc2626') {
+        if (!text || scale <= 0.05) return;
+        ctx.save();
+        ctx.globalAlpha = scale;
+        // Pointer line
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(tx, ty);
+        ctx.lineTo(targetX, targetY);
+        ctx.stroke();
+
+        ctx.translate(tx, ty);
+        ctx.scale(scale, scale);
+        ctx.font = '900 15px Inter, sans-serif';
+        const pw = Math.min(170, Math.max(70, ctx.measureText(text).width + 26));
+        drawOutlinedRect(ctx, -pw / 2, -16, pw, 32, 8, fill, '#1e293b', 2.5, true);
+        ctx.fillStyle = textColor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 0, 1, pw - 12);
         ctx.restore();
     }
 
@@ -250,73 +291,201 @@
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(-7, 0);
-        ctx.lineTo(-4, -140);
-        ctx.lineTo(4, -140);
+        ctx.lineTo(-4, -145);
+        ctx.lineTo(4, -145);
         ctx.lineTo(8, 0);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
-        ctx.translate(0, -140);
-        ctx.rotate(sway * 0.04);
+        ctx.translate(0, -145);
+        ctx.rotate(sway * 0.045);
         ctx.fillStyle = '#558b2f';
         [-2.4, -1.7, -0.8, 0.3, 1.0].forEach((ang) => {
             ctx.save();
             ctx.rotate(ang);
             ctx.beginPath();
-            ctx.ellipse(26, 0, 30, 9, 0, 0, Math.PI * 2);
+            ctx.ellipse(28, 0, 32, 9, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
         });
         ctx.restore();
     }
 
-    function drawCuteCharacter(ctx, cx, cy, progress, t, happy = true, shirtColor = '#60a5fa') {
-        const bob = Math.sin(t * 5) * 4;
-        const blink = Math.sin(t * 2.2) > 0.96;
-        const wave = Math.sin(t * 6) * 0.25;
+    // ---- 7 Rich Backdrops ----
+    function drawBackdrop(ctx, backdropId, progress, t) {
+        const b = BACKDROPS[backdropId] || BACKDROPS['cream-room'];
+        const grad = ctx.createLinearGradient(0, 0, 0, H);
+        grad.addColorStop(0, b.top);
+        grad.addColorStop(1, b.bot);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        if (backdropId === 'hills-nature') {
+            // Double curved rolling hills
+            ctx.fillStyle = b.hill;
+            ctx.beginPath();
+            ctx.moveTo(0, FLOOR_Y - 35);
+            ctx.quadraticCurveTo(145, FLOOR_Y - 95, 290, FLOOR_Y - 40);
+            ctx.quadraticCurveTo(420, FLOOR_Y - 10, W, FLOOR_Y - 55);
+            ctx.lineTo(W, H);
+            ctx.lineTo(0, H);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = b.floor;
+            ctx.beginPath();
+            ctx.moveTo(0, FLOOR_Y - 15);
+            ctx.quadraticCurveTo(210, FLOOR_Y - 60, 410, FLOOR_Y - 12);
+            ctx.quadraticCurveTo(485, FLOOR_Y + 5, W, FLOOR_Y - 22);
+            ctx.lineTo(W, H);
+            ctx.lineTo(0, H);
+            ctx.closePath();
+            ctx.fill();
+
+            drawPalmTree(ctx, 56, FLOOR_Y, 0.96, Math.sin(t * 2));
+            drawPalmTree(ctx, W - 56, FLOOR_Y, 0.96, Math.cos(t * 2));
+            return;
+        }
+
+        if (backdropId === 'city-skyline') {
+            const buildings = [
+                { x: 18, w: 78, h: 270, c: '#94a3b8' },
+                { x: 108, w: 88, h: 350, c: '#788ba4' },
+                { x: 208, w: 96, h: 395, c: '#64748b' },
+                { x: 316, w: 86, h: 310, c: '#788ba4' },
+                { x: 414, w: 94, h: 255, c: '#94a3b8' }
+            ];
+            buildings.forEach((bd, idx) => {
+                const rise = easeOutCubic(clamp01(progress * 2.2 - idx * 0.04));
+                const bh = bd.h * Math.max(0.7, rise);
+                const by = FLOOR_Y - bh;
+                drawOutlinedRect(ctx, bd.x, by, bd.w, bh, 6, bd.c, '#334155', 2.5, false);
+                ctx.fillStyle = '#fef08a';
+                for (let wy = by + 20; wy < FLOOR_Y - 28; wy += 34) {
+                    for (let wx = bd.x + 14; wx < bd.x + bd.w - 20; wx += 26) {
+                        ctx.fillRect(wx, wy, 13, 18);
+                    }
+                }
+            });
+        } else if (backdropId === 'night-calm') {
+            // Crescent moon + twinkling stars
+            ctx.save();
+            ctx.fillStyle = '#fef08a';
+            ctx.beginPath();
+            ctx.arc(435, 165, 36, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = b.top;
+            ctx.beginPath();
+            ctx.arc(452, 155, 32, 0, Math.PI * 2);
+            ctx.fill();
+
+            [
+                [78, 170],
+                [145, 220],
+                [295, 140],
+                [355, 235],
+                [465, 290]
+            ].forEach(([sx, sy], i) => {
+                ctx.fillStyle = `rgba(254, 240, 138, ${0.45 + 0.45 * Math.sin(t * 3 + i)})`;
+                ctx.beginPath();
+                ctx.arc(sx, sy, 3.2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.restore();
+        } else if (backdropId === 'sunset-warm' || backdropId === 'mint-fresh') {
+            ctx.save();
+            ctx.fillStyle = 'rgba(255,255,255,0.28)';
+            ctx.beginPath();
+            ctx.arc(270, 390, 195 + Math.sin(t * 2) * 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        } else if (backdropId === 'alert-tint') {
+            const pulseAlpha = 0.08 + Math.abs(Math.sin(t * 5)) * 0.08;
+            ctx.save();
+            ctx.fillStyle = `rgba(225, 29, 72, ${pulseAlpha})`;
+            ctx.beginPath();
+            ctx.arc(270, 410, 220, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Horizon Floor
+        ctx.fillStyle = b.floor;
+        ctx.fillRect(0, FLOOR_Y, W, H - FLOOR_Y);
+        ctx.strokeStyle = b.line;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, FLOOR_Y);
+        ctx.lineTo(W, FLOOR_Y);
+        ctx.stroke();
+    }
+
+    // ---- Expressive Audio-Synced Talking Character ----
+    function drawExpressiveCharacter(ctx, cx, cy, scale, t, mood = 'happy', audioLevel = 0) {
+        if (scale <= 0.02) return;
+        const bob = Math.sin(t * 4.5) * 3;
+        const blink = Math.sin(t * 2.1) > 0.96;
+        const shirtColor = mood === 'shocked' ? '#60a5fa' : mood === 'thinking' ? '#38bdf8' : '#60a5fa';
+        const talkOpen = clamp01(audioLevel * 1.4);
 
         ctx.save();
         ctx.translate(cx, cy + bob);
+        ctx.scale(scale, scale);
 
-        drawOutlinedRect(ctx, -26, 56, 18, 52, 6, '#334155', '#1e293b', 3, false);
-        drawOutlinedRect(ctx, 8, 56, 18, 52, 6, '#334155', '#1e293b', 3, false);
-        drawOutlinedRect(ctx, -30, 102, 24, 12, 6, '#1e293b', '#1e293b', 2, false);
-        drawOutlinedRect(ctx, 6, 102, 24, 12, 6, '#1e293b', '#1e293b', 2, false);
+        // Shadow on floor
+        ctx.fillStyle = 'rgba(15,23,42,0.12)';
+        ctx.beginPath();
+        ctx.ellipse(0, 122, 42, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
 
+        // Legs + shoes
+        drawOutlinedRect(ctx, -24, 58, 17, 56, 5, '#475569', '#1e293b', 2.8, false);
+        drawOutlinedRect(ctx, 7, 58, 17, 56, 5, '#475569', '#1e293b', 2.8, false);
+        drawOutlinedRect(ctx, -28, 108, 22, 11, 5, '#1e293b', '#1e293b', 2, false);
+        drawOutlinedRect(ctx, 6, 108, 22, 11, 5, '#1e293b', '#1e293b', 2, false);
+
+        // Left arm
+        drawOutlinedRect(ctx, -40, -10, 14, 56, 7, shirtColor, '#1e293b', 2.8, false);
+
+        // Right arm gestures dynamically based on mood (pointing up-right or lowered)
         ctx.save();
-        ctx.translate(-36, -6);
-        ctx.rotate(-0.5 + wave);
-        drawOutlinedRect(ctx, -14, -52, 16, 54, 8, shirtColor, '#1e293b', 3, false);
+        ctx.translate(28, -4);
+        const gestureAng = mood === 'happy' ? -0.95 + Math.sin(t * 5) * 0.14 : mood === 'thinking' ? -0.35 : 0.08;
+        ctx.rotate(gestureAng);
+        drawOutlinedRect(ctx, -6, 0, 14, 54, 7, shirtColor, '#1e293b', 2.8, false);
         ctx.fillStyle = '#fde68a';
         ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.arc(-6, -56, 9, 0, Math.PI * 2);
+        ctx.arc(1, 56, 8, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
         ctx.restore();
 
-        drawOutlinedRect(ctx, 26, -6, 15, 52, 7, shirtColor, '#1e293b', 3, false);
-        drawOutlinedRect(ctx, -30, -14, 60, 74, 14, shirtColor, '#1e293b', 3.5, true);
-        drawOutlinedRect(ctx, -12, 14, 24, 28, 4, '#ffffff', '#1e293b', 2, false);
+        // Shirt Torso + ID Lanyard
+        drawOutlinedRect(ctx, -28, -14, 56, 76, 12, shirtColor, '#1e293b', 3, true);
+        drawOutlinedRect(ctx, -10, 14, 20, 26, 4, '#ffffff', '#1e293b', 2, false);
 
+        // Head
         ctx.fillStyle = '#fed7aa';
         ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 3.5;
+        ctx.lineWidth = 3.2;
         ctx.beginPath();
-        ctx.arc(0, -56, 42, 0, Math.PI * 2);
+        ctx.arc(0, -56, 40, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
+        // Hair
         ctx.fillStyle = '#1e293b';
         ctx.beginPath();
-        ctx.arc(0, -64, 42, Math.PI, Math.PI * 2);
-        ctx.lineTo(36, -56);
-        ctx.quadraticCurveTo(0, -78, -36, -56);
+        ctx.arc(0, -64, 40, Math.PI, Math.PI * 2);
+        ctx.lineTo(35, -56);
+        ctx.quadraticCurveTo(0, -76, -35, -56);
         ctx.closePath();
         ctx.fill();
 
+        // Eyes
         ctx.fillStyle = '#1e293b';
         if (blink) {
             ctx.lineWidth = 3;
@@ -326,690 +495,769 @@
             ctx.moveTo(10, -56);
             ctx.lineTo(20, -56);
             ctx.stroke();
+        } else if (mood === 'shocked') {
+            ctx.fillStyle = '#ffffff';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(-14, -56, 8, 0, Math.PI * 2);
+            ctx.arc(14, -56, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(-14, -56, 3.5, 0, Math.PI * 2);
+            ctx.arc(14, -56, 3.5, 0, Math.PI * 2);
+            ctx.fill();
         } else {
             ctx.beginPath();
-            ctx.arc(-15, -56, 4.5, 0, Math.PI * 2);
-            ctx.arc(15, -56, 4.5, 0, Math.PI * 2);
+            ctx.arc(-14, -56, 4.3, 0, Math.PI * 2);
+            ctx.arc(14, -56, 4.3, 0, Math.PI * 2);
             ctx.fill();
         }
 
+        // Eyebrows
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2.5;
+        if (mood === 'thinking') {
+            ctx.beginPath();
+            ctx.moveTo(-22, -67);
+            ctx.lineTo(-8, -69);
+            ctx.moveTo(8, -71);
+            ctx.lineTo(22, -66);
+            ctx.stroke();
+        }
+
+        // Cheeks
         ctx.fillStyle = 'rgba(244, 63, 94, 0.35)';
         ctx.beginPath();
-        ctx.arc(-25, -44, 6, 0, Math.PI * 2);
-        ctx.arc(25, -44, 6, 0, Math.PI * 2);
+        ctx.arc(-24, -44, 5.5, 0, Math.PI * 2);
+        ctx.arc(24, -44, 5.5, 0, Math.PI * 2);
         ctx.fill();
 
+        // Audio-synced Mouth (opens/closes naturally with voice!)
         ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        if (happy) {
-            ctx.arc(0, -40, 10, 0.1 * Math.PI, 0.9 * Math.PI);
+        ctx.lineWidth = 2.8;
+        if (mood === 'shocked') {
+            ctx.fillStyle = '#991b1b';
+            ctx.beginPath();
+            ctx.ellipse(0, -36, 7, 8 + talkOpen * 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        } else if (talkOpen > 0.14) {
+            ctx.fillStyle = '#be123c';
+            ctx.beginPath();
+            ctx.ellipse(0, -39, 9, 4 + talkOpen * 7, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
         } else {
-            ctx.ellipse(0, -36, 7, 9, 0, 0, Math.PI * 2);
+            ctx.beginPath();
+            ctx.arc(0, -40, 9, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.stroke();
         }
-        ctx.stroke();
 
         ctx.restore();
     }
 
-    // ---- 18 Vector Scene Illustrations ----
-    function drawSceneHouse(ctx, cue, pop, t) {
-        drawPalmTree(ctx, 64, FLOOR_Y, 1.0, Math.sin(t * 2));
-        drawPalmTree(ctx, W - 64, FLOOR_Y, 1.0, Math.cos(t * 2));
-
+    // ---- 32 Crisp Flat-Vector Prop Renderers (drawn centered around 0,0) ----
+    function drawProp(ctx, propId, label, cx, cy, scale, progress, t, audioLevel = 0) {
+        if (scale <= 0.02) return;
         ctx.save();
-        ctx.translate(270, 445);
-        ctx.scale(pop, pop);
+        ctx.translate(cx, cy);
+        ctx.scale(scale, scale);
 
-        drawOutlinedRect(ctx, -95, -25, 190, 145, 8, '#fef3c7', '#1e293b', 4, true);
-        drawOutlinedRect(ctx, -22, 42, 44, 78, 6, '#92400e', '#1e293b', 3.5, false);
-        ctx.fillStyle = '#ef4444';
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(-118, -22);
-        ctx.lineTo(0, -116);
-        ctx.lineTo(118, -22);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.restore();
-        drawPillBadge(ctx, cue.cardLabel || 'NHÀ', 270, 585, '#ffffff', '#0f172a', pop, 20);
-    }
-
-    function drawSceneEnvelope(ctx, cue, pop, t) {
-        drawCuteCharacter(ctx, 130, 540, pop, t, true, '#34d399');
-
-        ctx.save();
-        ctx.translate(310, 395);
-        ctx.scale(pop, pop);
-
-        drawOutlinedRect(ctx, -125, -80, 250, 160, 14, '#fffbeb', '#1e293b', 4, true);
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 3.5;
-        ctx.beginPath();
-        ctx.moveTo(-123, -76);
-        ctx.lineTo(0, 12);
-        ctx.lineTo(123, -76);
-        ctx.stroke();
-
-        ctx.restore();
-
-        drawPillBadge(ctx, cue.cardLabel || 'TÀI CHÍNH', 310, 372, '#10b981', '#ffffff', pop, 20);
-        drawPillBadge(ctx, cue.highlightBadge || 'TIỀN MẶT', 310, 434, '#fbbf24', '#0f172a', pop, 21);
-    }
-
-    function drawSceneJar(ctx, cue, pop, progress) {
-        const fillRatio = 0.25 + 0.55 * easeOutCubic(Math.min(1, progress * 1.4));
-
-        ctx.save();
-        ctx.translate(270, 440);
-        ctx.scale(pop, pop);
-
-        drawOutlinedRect(ctx, -78, -145, 156, 30, 10, '#94a3b8', '#1e293b', 4, false);
-        drawOutlinedRect(ctx, -108, -115, 216, 255, 34, 'rgba(255,255,255,0.75)', '#1e293b', 4, true);
-
-        const maxH = 220;
-        const liqH = maxH * fillRatio;
-        ctx.save();
-        ctx.beginPath();
-        ctx.roundRect(-98, -105, 196, 235, 26);
-        ctx.clip();
-        ctx.fillStyle = '#4ade80';
-        ctx.fillRect(-98, 130 - liqH, 196, liqH);
-        ctx.fillStyle = 'rgba(22, 163, 74, 0.25)';
-        ctx.fillRect(-55, 145 - liqH, 46, 24);
-        ctx.fillRect(10, 175 - liqH, 46, 24);
-        ctx.restore();
-
-        drawPillBadge(ctx, cue.cardLabel || 'TIẾT KIỆM', 0, 10, '#facc15', '#0f172a', 1, 18);
-        ctx.restore();
-    }
-
-    function drawSceneCity(ctx, cue, pop, t) {
-        const buildings = [
-            { x: 30, w: 85, h: 250, c: '#94a3b8' },
-            { x: 125, w: 95, h: 330, c: '#64748b' },
-            { x: 230, w: 105, h: 380, c: '#475569' },
-            { x: 345, w: 85, h: 290, c: '#64748b' },
-            { x: 440, w: 72, h: 220, c: '#94a3b8' }
-        ];
-
-        ctx.save();
-        buildings.forEach((b, idx) => {
-            const rise = easeOutCubic(clamp01(pop * 1.15 - idx * 0.05));
-            const bh = b.h * rise;
-            const by = FLOOR_Y - bh;
-            drawOutlinedRect(ctx, b.x, by, b.w, bh, 8, b.c, '#1e293b', 3, false);
-
-            ctx.fillStyle = '#fef08a';
-            for (let wy = by + 22; wy < FLOOR_Y - 30; wy += 36) {
-                for (let wx = b.x + 14; wx < b.x + b.w - 22; wx += 26) {
-                    ctx.fillRect(wx, wy, 14, 18);
-                }
+        switch (propId) {
+            case 'house': {
+                drawOutlinedRect(ctx, -82, -20, 164, 122, 6, '#fef3c7', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -20, 36, 40, 66, 5, '#92400e', '#1e293b', 3, false);
+                ctx.fillStyle = '#ef4444';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.moveTo(-100, -18);
+                ctx.lineTo(0, -100);
+                ctx.lineTo(100, -18);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                if (label) drawPillBadge(ctx, label, 0, 118, '#ffffff', '#0f172a', 1, 17);
+                break;
             }
-        });
-        ctx.restore();
-
-        ctx.save();
-        ctx.translate(270, 390 + Math.sin(t * 2.5) * 4);
-        ctx.scale(pop, pop);
-        drawOutlinedRect(ctx, -130, -75, 260, 150, 18, '#ffffff', '#1e293b', 4, true);
-        drawPillBadge(ctx, cue.cardLabel || 'CÔNG VIỆC', 0, -24, '#2563eb', '#ffffff', 1, 18);
-        drawPillBadge(ctx, cue.highlightBadge || 'MỤC TIÊU', 0, 28, '#fbbf24', '#0f172a', 1, 19);
-        ctx.restore();
-    }
-
-    function drawSceneChecklist(ctx, cue, pop, progress) {
-        const lines = String(cue.sceneText || '')
-            .split(/[,.;]+/)
-            .map((s) => s.trim())
-            .filter(Boolean)
-            .slice(0, 4);
-
-        const items =
-            lines.length >= 2
-                ? lines.map((l) => l.split(/\s+/).slice(0, 3).join(' ').toUpperCase())
-                : [cue.cardLabel || 'BƯỚC 1', 'THỰC HÀNH', 'KIỂM TRA', 'HOÀN TẤT'];
-
-        ctx.save();
-        ctx.translate(270, 430);
-        ctx.scale(pop, pop);
-
-        drawOutlinedRect(ctx, -170, -175, 340, 340, 24, '#ffffff', '#1e293b', 4, true);
-        drawPillBadge(ctx, cue.highlightBadge || 'CẦN NHỚ', 0, -175, '#0d9488', '#ffffff', 1, 20);
-
-        items.forEach((label, idx) => {
-            const rowY = -98 + idx * 74;
-            const checked = progress > 0.12 + idx * 0.18;
-
-            drawOutlinedRect(ctx, -135, rowY - 20, 40, 40, 10, checked ? '#34d399' : '#f1f5f9', '#1e293b', 3, false);
-            if (checked) {
-                ctx.strokeStyle = '#ffffff';
+            case 'door': {
+                drawOutlinedRect(ctx, -64, -105, 128, 210, 12, '#0d9488', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -46, -86, 92, 72, 6, '#14b8a6', '#1e293b', 2.5, false);
+                ctx.fillStyle = '#fbbf24';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(38, 12, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                if (label) drawPillBadge(ctx, label, 0, -48, '#ffffff', '#0f172a', 1, 15);
+                break;
+            }
+            case 'city_building': {
+                drawOutlinedRect(ctx, -84, -95, 62, 195, 6, '#64748b', '#1e293b', 3, true);
+                drawOutlinedRect(ctx, -18, -130, 74, 230, 6, '#475569', '#1e293b', 3, true);
+                drawOutlinedRect(ctx, 56, -75, 48, 175, 6, '#94a3b8', '#1e293b', 3, true);
+                ctx.fillStyle = '#fef08a';
+                for (let ry = -105; ry < 75; ry += 32) {
+                    ctx.fillRect(-4, ry, 16, 18);
+                    ctx.fillRect(24, ry, 16, 18);
+                }
+                if (label) drawPillBadge(ctx, label, 0, 115, '#2563eb', '#ffffff', 1, 16);
+                break;
+            }
+            case 'bus': {
+                const bounce = Math.sin(t * 7) * 2.5;
+                ctx.translate(0, bounce);
+                drawOutlinedRect(ctx, -110, -56, 220, 108, 18, '#facc15', '#1e293b', 3.5, true);
+                [-72, -16, 40].forEach((wx) => drawOutlinedRect(ctx, wx, -38, 42, 34, 6, '#bae6fd', '#1e293b', 2.5, false));
+                [-64, 64].forEach((cxW) => {
+                    ctx.fillStyle = '#1e293b';
+                    ctx.beginPath();
+                    ctx.arc(cxW, 54, 22, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#cbd5e1';
+                    ctx.beginPath();
+                    ctx.arc(cxW, 54, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                if (label) drawPillBadge(ctx, label, 0, 16, '#ffffff', '#0f172a', 1, 15);
+                break;
+            }
+            case 'scooter': {
+                drawOutlinedRect(ctx, -84, -18, 168, 52, 24, '#ef4444', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -38, -28, 86, 18, 8, '#334155', '#1e293b', 2.5, false);
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.moveTo(62, -18);
+                ctx.lineTo(82, -74);
+                ctx.lineTo(100, -78);
+                ctx.stroke();
+                [-56, 56].forEach((wx) => {
+                    ctx.fillStyle = '#1e293b';
+                    ctx.beginPath();
+                    ctx.arc(wx, 44, 24, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#e2e8f0';
+                    ctx.beginPath();
+                    ctx.arc(wx, 44, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                if (label) drawPillBadge(ctx, label, 0, -76, '#ffffff', '#0f172a', 1, 16);
+                break;
+            }
+            case 'envelope': {
+                drawOutlinedRect(ctx, -110, -68, 220, 136, 12, '#fffbeb', '#1e293b', 3.5, true);
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(-108, -64);
+                ctx.lineTo(0, 10);
+                ctx.lineTo(108, -64);
+                ctx.stroke();
+                drawPillBadge(ctx, label || 'LƯƠNG', 0, -10, '#10b981', '#ffffff', 1, 17);
+                break;
+            }
+            case 'cash_stack': {
+                drawOutlinedRect(ctx, -88, -32, 176, 80, 10, '#4ade80', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -88, -50, 176, 80, 10, '#86efac', '#1e293b', 3.5, false);
+                drawOutlinedRect(ctx, -26, -50, 52, 80, 4, '#fef08a', '#1e293b', 2.5, false);
+                if (label) drawPillBadge(ctx, label, 0, -82, '#fbbf24', '#0f172a', 1, 17);
+                break;
+            }
+            case 'jar':
+            case 'locked_jar': {
+                const fillRatio = 0.28 + 0.48 * easeOutCubic(Math.min(1, progress * 1.4));
+                drawOutlinedRect(ctx, -64, -122, 128, 24, 8, '#94a3b8', '#1e293b', 3.5, false);
+                drawOutlinedRect(ctx, -90, -98, 180, 212, 28, 'rgba(255,255,255,0.78)', '#1e293b', 3.5, true);
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(-82, -90, 164, 196, 22);
+                ctx.clip();
+                const liqH = 180 * fillRatio;
+                ctx.fillStyle = '#4ade80';
+                ctx.fillRect(-82, 106 - liqH, 164, liqH);
+                ctx.restore();
+                if (propId === 'locked_jar') {
+                    ctx.strokeStyle = '#1e293b';
+                    ctx.lineWidth = 6;
+                    ctx.beginPath();
+                    ctx.arc(0, -130, 24, Math.PI, Math.PI * 2);
+                    ctx.stroke();
+                }
+                drawPillBadge(ctx, label || 'TIẾT KIỆM', 0, 8, '#facc15', '#0f172a', 1, 16);
+                break;
+            }
+            case 'card_doc': {
+                drawOutlinedRect(ctx, -96, -118, 192, 236, 14, '#ffffff', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -72, -96, 144, 34, 8, '#e2e8f0', '#1e293b', 2, false);
+                [-36, -6, 24, 54].forEach((ly) => {
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillRect(-72, ly, 144, 6);
+                });
+                if (label) drawPillBadge(ctx, label, 0, -79, '#0f172a', '#ffffff', 1, 15);
+                break;
+            }
+            case 'coin': {
+                const bob = Math.sin(t * 4) * 5;
+                ctx.translate(0, bob);
+                ctx.fillStyle = '#fbbf24';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(0, 0, 62, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#f59e0b';
+                ctx.beginPath();
+                ctx.arc(0, 0, 44, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#0f172a';
+                ctx.font = '900 40px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('$', 0, 2);
+                if (label) drawPillBadge(ctx, label, 0, 84, '#ffffff', '#0f172a', 1, 16);
+                break;
+            }
+            case 'red_button': {
+                const press = Math.sin(t * 6) > 0.3 ? 5 : 0;
+                drawOutlinedRect(ctx, -78, -6, 156, 46, 22, '#991b1b', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -78, -28 + press, 156, 46, 22, '#ef4444', '#1e293b', 3.5, false);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '900 22px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(label || 'NHẬN', 0, -5 + press, 130);
+                break;
+            }
+            case 'chart_bars': {
+                const h1 = 100 * easeOutCubic(Math.min(1, progress * 1.4));
+                const h2 = 185 * easeOutCubic(Math.min(1, progress * 1.3));
+                drawOutlinedRect(ctx, -92, 90 - h1, 78, h1, 10, '#93c5fd', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, 14, 90 - h2, 86, h2, 10, '#34d399', '#1e293b', 3.5, true);
+                if (label) drawPillBadge(ctx, label, 0, 118, '#fbbf24', '#0f172a', 1, 16);
+                break;
+            }
+            case 'rice_bowl': {
+                ctx.fillStyle = '#92400e';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.ellipse(0, 14, 115, 48, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                [
+                    { x: -46, y: 6, c: '#ffffff' },
+                    { x: 0, y: -4, c: '#facc15' },
+                    { x: 46, y: 6, c: '#ef4444' },
+                    { x: -20, y: 24, c: '#4ade80' },
+                    { x: 24, y: 24, c: '#fb923c' }
+                ].forEach((d) => {
+                    ctx.fillStyle = d.c;
+                    ctx.beginPath();
+                    ctx.ellipse(d.x, d.y, 20, 12, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                });
+                if (label) drawPillBadge(ctx, label, 0, -64, '#10b981', '#ffffff', 1, 16);
+                break;
+            }
+            case 'coffee_cup': {
+                drawOutlinedRect(ctx, -46, -54, 92, 128, 14, '#fef3c7', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -54, -72, 108, 22, 8, '#78350f', '#1e293b', 3, false);
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 7;
+                ctx.beginPath();
+                ctx.moveTo(14, -72);
+                ctx.lineTo(28, -112);
+                ctx.stroke();
+                if (label) drawPillBadge(ctx, label, 0, 14, '#78350f', '#ffffff', 1, 15);
+                break;
+            }
+            case 'water_glass': {
+                const fillR = 0.35 + 0.5 * easeOutCubic(Math.min(1, progress * 1.4));
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.moveTo(-66, -86);
+                ctx.lineTo(66, -86);
+                ctx.lineTo(50, 88);
+                ctx.lineTo(-50, 88);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(-60, -80);
+                ctx.lineTo(60, -80);
+                ctx.lineTo(46, 82);
+                ctx.lineTo(-46, 82);
+                ctx.closePath();
+                ctx.clip();
+                const wy = 82 - 150 * fillR;
+                ctx.fillStyle = '#38bdf8';
+                ctx.fillRect(-70, wy, 140, 170);
+                ctx.restore();
+                if (label) drawPillBadge(ctx, label, 0, 114, '#0ea5e9', '#ffffff', 1, 16);
+                break;
+            }
+            case 'heart': {
+                const beat = 1 + Math.sin(t * 5.5) * 0.06 + audioLevel * 0.06;
+                ctx.scale(beat, beat);
+                ctx.fillStyle = '#fb7185';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.moveTo(0, 62);
+                ctx.bezierCurveTo(-86, 8, -90, -76, -38, -76);
+                ctx.bezierCurveTo(-12, -76, 0, -48, 0, -48);
+                ctx.bezierCurveTo(0, -48, 12, -76, 38, -76);
+                ctx.bezierCurveTo(90, -76, 86, 8, 0, 62);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                if (label) drawPillBadge(ctx, label, 0, 88, '#ffffff', '#e11d48', 1, 16);
+                break;
+            }
+            case 'cake': {
+                [-32, 0, 32].forEach((cxC, idx) => {
+                    drawOutlinedRect(ctx, cxC - 5, -72, 10, 36, 3, '#fbbf24', '#1e293b', 2, false);
+                    ctx.fillStyle = idx % 2 === 0 ? '#ef4444' : '#f97316';
+                    ctx.beginPath();
+                    ctx.arc(cxC, -82 + Math.sin(t * 8 + idx) * 2, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                drawOutlinedRect(ctx, -78, -36, 156, 76, 12, '#fbcfe8', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -78, -14, 156, 18, 4, '#ffffff', '#1e293b', 2, false);
+                if (label) drawPillBadge(ctx, label, 0, 14, '#db2777', '#ffffff', 1, 16);
+                break;
+            }
+            case 'gift_box': {
+                drawOutlinedRect(ctx, -72, -38, 144, 110, 12, '#ef4444', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -82, -62, 164, 30, 8, '#f87171', '#1e293b', 3.5, false);
+                drawOutlinedRect(ctx, -14, -62, 28, 134, 4, '#fde047', '#1e293b', 2.5, false);
+                if (label) drawPillBadge(ctx, label, 0, 16, '#ffffff', '#0f172a', 1, 16);
+                break;
+            }
+            case 'phone': {
+                drawOutlinedRect(ctx, -82, -130, 164, 260, 24, '#1e293b', '#0f172a', 3.5, true);
+                drawOutlinedRect(ctx, -70, -114, 140, 228, 16, '#f8fafc', '#334155', 2, false);
+                drawOutlinedRect(ctx, -56, -72, 112, 64, 12, '#dbeafe', '#1e293b', 2.5, false);
+                if (label) drawPillBadge(ctx, label, 0, 32, '#2563eb', '#ffffff', 1, 15);
+                break;
+            }
+            case 'scam_link': {
+                drawOutlinedRect(ctx, -112, -58, 224, 116, 16, '#ffffff', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -112, -58, 224, 34, 14, '#ef4444', '#1e293b', 3.5, false);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '900 15px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('HTTP://LINK-LA.XYZ', 0, -35);
+                drawPillBadge(ctx, label || 'LỪA ĐẢO', 0, 18, '#fbbf24', '#0f172a', 1, 16);
+                break;
+            }
+            case 'plug_socket': {
+                drawOutlinedRect(ctx, -76, -76, 152, 152, 22, '#ffffff', '#1e293b', 3.5, true);
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath();
+                ctx.arc(-24, -10, 11, 0, Math.PI * 2);
+                ctx.arc(24, -10, 11, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#f59e0b';
+                ctx.beginPath();
+                ctx.moveTo(8, -56);
+                ctx.lineTo(-14, 2);
+                ctx.lineTo(6, 2);
+                ctx.lineTo(-6, 54);
+                ctx.lineTo(20, -6);
+                ctx.lineTo(0, -6);
+                ctx.closePath();
+                ctx.fill();
+                if (label) drawPillBadge(ctx, label, 0, 96, '#ef4444', '#ffffff', 1, 16);
+                break;
+            }
+            case 'battery': {
+                const charge = 0.25 + 0.65 * easeOutCubic(Math.min(1, progress * 1.4));
+                drawOutlinedRect(ctx, -28, -112, 56, 20, 6, '#94a3b8', '#1e293b', 3, false);
+                drawOutlinedRect(ctx, -68, -92, 136, 190, 18, '#ffffff', '#1e293b', 3.5, true);
+                const barH = Math.max(24, 166 * charge);
+                drawOutlinedRect(ctx, -56, 86 - barH, 112, barH, 10, '#4ade80', '#1e293b', 2.5, false);
+                if (label) drawPillBadge(ctx, label, 0, 0, '#fbbf24', '#0f172a', 1, 16);
+                break;
+            }
+            case 'padlock': {
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 14;
+                ctx.beginPath();
+                ctx.arc(0, -38, 42, Math.PI, Math.PI * 2);
+                ctx.stroke();
+                drawOutlinedRect(ctx, -68, -36, 136, 114, 18, '#fbbf24', '#1e293b', 3.5, true);
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath();
+                ctx.arc(0, 14, 14, 0, Math.PI * 2);
+                ctx.fill();
+                if (label) drawPillBadge(ctx, label, 0, 96, '#10b981', '#ffffff', 1, 16);
+                break;
+            }
+            case 'fire_flame': {
+                const flicker = 1 + Math.sin(t * 10) * 0.06 + audioLevel * 0.08;
+                ctx.scale(flicker, flicker);
+                ctx.fillStyle = '#ef4444';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.moveTo(0, -96);
+                ctx.bezierCurveTo(64, -36, 78, 66, 0, 88);
+                ctx.bezierCurveTo(-78, 66, -64, -36, 0, -96);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#fde047';
+                ctx.beginPath();
+                ctx.moveTo(0, -36);
+                ctx.bezierCurveTo(32, 0, 36, 52, 0, 66);
+                ctx.bezierCurveTo(-36, 52, -32, 0, 0, -36);
+                ctx.fill();
+                if (label) drawPillBadge(ctx, label, 0, 108, '#ffffff', '#dc2626', 1, 16);
+                break;
+            }
+            case 'warning_triangle': {
+                const pulse = 1 + Math.sin(t * 7) * 0.04;
+                ctx.scale(pulse, pulse);
+                ctx.fillStyle = '#ef4444';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(0, -92);
+                ctx.lineTo(94, 72);
+                ctx.lineTo(-94, 72);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '900 72px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('!', 0, 44);
+                if (label) drawPillBadge(ctx, label, 0, 96, '#fbbf24', '#0f172a', 1, 16);
+                break;
+            }
+            case 'suitcase': {
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 8;
+                ctx.strokeRect(-26, -104, 52, 32);
+                drawOutlinedRect(ctx, -64, -74, 128, 164, 18, '#fb7185', '#1e293b', 3.5, true);
+                ctx.fillStyle = '#fda4af';
+                ctx.fillRect(-32, -52, 12, 120);
+                ctx.fillRect(20, -52, 12, 120);
+                if (label) drawPillBadge(ctx, label, 0, 108, '#ffffff', '#0f172a', 1, 16);
+                break;
+            }
+            case 'clock': {
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#1e293b';
                 ctx.lineWidth = 4.5;
                 ctx.beginPath();
-                ctx.moveTo(-123, rowY);
-                ctx.lineTo(-115, rowY + 10);
-                ctx.lineTo(-102, rowY - 8);
+                ctx.arc(0, 0, 88, 0, Math.PI * 2);
+                ctx.fill();
                 ctx.stroke();
+                const mA = -Math.PI / 2 + t * 2.4;
+                const hA = -Math.PI / 2 + t * 0.4;
+                ctx.lineCap = 'round';
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(Math.cos(hA) * 42, Math.sin(hA) * 42);
+                ctx.stroke();
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(Math.cos(mA) * 62, Math.sin(mA) * 62);
+                ctx.stroke();
+                if (label) drawPillBadge(ctx, label, 0, 108, '#fbbf24', '#0f172a', 1, 16);
+                break;
             }
-
-            ctx.fillStyle = '#0f172a';
-            ctx.font = '800 20px Inter, sans-serif';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(label, -80, rowY, 220);
-        });
-
-        ctx.restore();
-    }
-
-    function drawSceneChart(ctx, cue, pop, progress) {
-        const bar1H = 140 * easeOutCubic(Math.min(1, progress * 1.5));
-        const bar2H = 260 * easeOutCubic(Math.min(1, progress * 1.3));
-
-        ctx.save();
-        drawOutlinedRect(ctx, 130, 560 - bar1H, 105, bar1H, 12, '#93c5fd', '#1e293b', 4, true);
-        drawOutlinedRect(ctx, 275, 560 - bar2H, 125, bar2H, 12, '#34d399', '#1e293b', 4, true);
-
-        ctx.fillStyle = '#0f172a';
-        ctx.font = '900 24px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        if (bar1H > 50) ctx.fillText('TRƯỚC', 182, 560 - bar1H + 40);
-        if (bar2H > 50) ctx.fillText('SAU', 337, 560 - bar2H + 40);
-        ctx.restore();
-
-        drawPillBadge(ctx, cue.cardLabel || 'SO SÁNH', 270, 225, '#2563eb', '#ffffff', pop, 20);
-        drawPillBadge(ctx, cue.highlightBadge || 'X2 HIỆU QUẢ', 270, 610, '#fbbf24', '#0f172a', pop, 21);
-    }
-
-    function drawSceneAlert(ctx, cue, pop, t) {
-        const pulse = 1 + Math.sin(t * 7) * 0.03;
-
-        ctx.save();
-        ctx.translate(270, 425);
-        ctx.scale(pop * pulse, pop * pulse);
-
-        drawOutlinedRect(ctx, -160, -145, 320, 290, 28, '#ffffff', '#1e293b', 4.5, true);
-
-        ctx.fillStyle = '#ef4444';
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(0, -105);
-        ctx.lineTo(75, 25);
-        ctx.lineTo(-75, 25);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '900 54px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('!', 0, 8);
-
-        drawPillBadge(ctx, cue.cardLabel || 'CẨN THẬN', 0, 88, '#fbbf24', '#0f172a', 1, 19);
-        ctx.restore();
-    }
-
-    function drawSceneCalendar(ctx, cue, pop, t) {
-        ctx.save();
-        ctx.translate(270, 425 + Math.sin(t * 2.5) * 4);
-        ctx.scale(pop, pop);
-
-        drawOutlinedRect(ctx, -145, -140, 290, 275, 24, '#ffffff', '#1e293b', 4.5, true);
-        drawOutlinedRect(ctx, -145, -140, 290, 72, 24, '#ef4444', '#1e293b', 4.5, false);
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '900 22px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(cue.cardLabel || 'LỊCH HẰNG NGÀY', 0, -96, 250);
-
-        ctx.fillStyle = '#0f172a';
-        ctx.font = '900 42px Inter, sans-serif';
-        ctx.fillText(cue.highlightBadge || 'MỖI NGÀY', 0, 38, 250);
-        ctx.restore();
-    }
-
-    function drawSceneMusic(ctx, cue, pop, t) {
-        ctx.save();
-        ctx.translate(270, 425);
-        ctx.scale(pop, pop);
-
-        drawOutlinedRect(ctx, -165, -145, 330, 290, 28, '#1e1b4b', '#1e293b', 4.5, true);
-
-        const barCount = 9;
-        for (let i = 0; i < barCount; i++) {
-            const h = 38 + Math.abs(Math.sin(t * 5 + i * 0.7)) * 115;
-            const bx = -120 + i * 28;
-            drawOutlinedRect(ctx, bx, 60 - h, 18, h, 8, i % 2 === 0 ? '#a855f7' : '#38bdf8', '#0f172a', 2, false);
+            case 'calendar': {
+                drawOutlinedRect(ctx, -92, -92, 184, 184, 18, '#ffffff', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -92, -92, 184, 52, 18, '#ef4444', '#1e293b', 3.5, false);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '900 18px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(label || 'NHẮC NHỞ', 0, -60, 164);
+                ctx.fillStyle = '#0f172a';
+                ctx.font = '900 46px Inter, sans-serif';
+                const num = (label || '').match(/\d+/)?.[0] || '30';
+                ctx.fillText(num, 0, 42);
+                break;
+            }
+            case 'lightbulb': {
+                const glow = 1 + Math.sin(t * 6) * 0.08 + audioLevel * 0.08;
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 5;
+                for (let i = 0; i < 8; i++) {
+                    const ang = (i * Math.PI) / 4;
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(ang) * 72 * glow, Math.sin(ang) * 72 * glow - 16);
+                    ctx.lineTo(Math.cos(ang) * 94 * glow, Math.sin(ang) * 94 * glow - 16);
+                    ctx.stroke();
+                }
+                ctx.fillStyle = '#fde047';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.arc(0, -16, 56, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                drawOutlinedRect(ctx, -26, 36, 52, 30, 8, '#94a3b8', '#1e293b', 3, false);
+                if (label) drawPillBadge(ctx, label, 0, 92, '#ffffff', '#0f172a', 1, 16);
+                break;
+            }
+            case 'music_bars': {
+                drawOutlinedRect(ctx, -110, -90, 220, 180, 22, '#1e1b4b', '#1e293b', 3.5, true);
+                for (let i = 0; i < 7; i++) {
+                    const boost = 1 + audioLevel * 0.7;
+                    const bh = Math.min(110, (24 + Math.abs(Math.sin(t * 6 + i * 0.8)) * 68) * boost);
+                    drawOutlinedRect(ctx, -84 + i * 25, 48 - bh, 15, bh, 6, i % 2 === 0 ? '#a855f7' : '#38bdf8', '#0f172a', 1.8, false);
+                }
+                if (label) drawPillBadge(ctx, label, 0, 74, '#fde047', '#0f172a', 1, 15);
+                break;
+            }
+            case 'sleep_bed': {
+                drawOutlinedRect(ctx, -95, 10, 190, 44, 10, '#a78bfa', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -86, -16, 52, 28, 10, '#ffffff', '#1e293b', 2.8, false);
+                drawOutlinedRect(ctx, -30, -6, 120, 34, 12, '#818cf8', '#1e293b', 2.8, false);
+                ctx.fillStyle = '#fde047';
+                ctx.font = '900 28px Inter, sans-serif';
+                ctx.fillText('Z', 46, -40 + Math.sin(t * 3) * 5);
+                ctx.font = '900 20px Inter, sans-serif';
+                ctx.fillText('z', 72, -62 + Math.cos(t * 3) * 5);
+                if (label) drawPillBadge(ctx, label, 0, 82, '#ffffff', '#312e81', 1, 16);
+                break;
+            }
+            default: {
+                drawOutlinedRect(ctx, -90, -65, 180, 130, 18, '#ffffff', '#1e293b', 3.5, true);
+                drawPillBadge(ctx, label || 'MẸO HAY', 0, 0, '#fbbf24', '#0f172a', 1, 18);
+                break;
+            }
         }
-
-        drawPillBadge(ctx, cue.cardLabel || 'CHILL MOOD', 0, 108, '#fde047', '#0f172a', 1, 18);
         ctx.restore();
     }
 
-    function drawSceneFood(ctx, cue, pop, t) {
-        ctx.save();
-        ctx.translate(270, 445);
-        ctx.scale(pop, pop);
-
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 4;
-        ctx.lineCap = 'round';
-        [-50, 0, 50].forEach((sx, idx) => {
-            const offset = Math.sin(t * 3 + idx) * 6;
-            ctx.beginPath();
-            ctx.moveTo(sx, -70);
-            ctx.quadraticCurveTo(sx + offset, -110, sx - offset, -145);
-            ctx.stroke();
-        });
-
-        ctx.fillStyle = '#92400e';
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.ellipse(0, 20, 145, 58, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = '#fef3c7';
-        ctx.beginPath();
-        ctx.ellipse(0, 14, 122, 44, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        [
-            { x: -55, y: 12, c: '#ffffff' },
-            { x: 0, y: 4, c: '#facc15' },
-            { x: 55, y: 12, c: '#ef4444' },
-            { x: -24, y: 26, c: '#4ade80' },
-            { x: 26, y: 26, c: '#fb923c' }
-        ].forEach((d) => {
-            ctx.fillStyle = d.c;
-            ctx.beginPath();
-            ctx.ellipse(d.x, d.y, 24, 14, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        });
-
-        ctx.restore();
-        drawPillBadge(ctx, cue.cardLabel || 'BẾP NHÀ', 270, 575, '#ffffff', '#0f172a', pop, 19);
-    }
-
-    function drawScenePhone(ctx, cue, pop, t) {
-        const tilt = Math.sin(t * 2.5) * 0.03;
-        ctx.save();
-        ctx.translate(270, 430);
-        ctx.rotate(tilt);
-        ctx.scale(pop, pop);
-
-        // Phone outer body
-        drawOutlinedRect(ctx, -108, -175, 216, 350, 32, '#1e293b', '#0f172a', 4, true);
-        // Inner screen
-        drawOutlinedRect(ctx, -94, -155, 188, 310, 22, '#f8fafc', '#334155', 2, false);
-        // Notch
-        drawOutlinedRect(ctx, -36, -150, 72, 14, 7, '#0f172a', '#0f172a', 1, false);
-
-        // Notification popup inside phone
-        const notifScale = 0.96 + Math.sin(t * 5) * 0.04;
-        ctx.save();
-        ctx.scale(notifScale, notifScale);
-        drawOutlinedRect(ctx, -80, -95, 160, 88, 16, '#dbeafe', '#1e293b', 3, true);
-        ctx.fillStyle = '#2563eb';
-        ctx.beginPath();
-        ctx.arc(-50, -52, 16, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(-24, -64, 88, 10);
-        ctx.fillStyle = '#64748b';
-        ctx.fillRect(-24, -46, 62, 8);
-        ctx.restore();
-
-        drawPillBadge(ctx, cue.cardLabel || 'ĐIỆN THOẠI', 0, 55, '#fbbf24', '#0f172a', 1, 17);
-        ctx.restore();
-    }
-
-    function drawSceneLightbulb(ctx, cue, pop, t) {
-        const glow = 1 + Math.sin(t * 6) * 0.08;
-        ctx.save();
-        ctx.translate(270, 405);
-        ctx.scale(pop, pop);
-
-        // Light rays
-        ctx.strokeStyle = '#f59e0b';
-        ctx.lineWidth = 6;
-        ctx.lineCap = 'round';
-        for (let i = 0; i < 8; i++) {
-            const ang = (i * Math.PI) / 4 + Math.sin(t * 2) * 0.05;
-            const r1 = 98 * glow;
-            const r2 = 128 * glow;
-            ctx.beginPath();
-            ctx.moveTo(Math.cos(ang) * r1, Math.sin(ang) * r1 - 24);
-            ctx.lineTo(Math.cos(ang) * r2, Math.sin(ang) * r2 - 24);
-            ctx.stroke();
-        }
-
-        // Bulb glass
-        ctx.fillStyle = '#fde047';
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 4.5;
-        ctx.beginPath();
-        ctx.arc(0, -24, 78, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        // Bulb neck & screw base
-        drawOutlinedRect(ctx, -34, 44, 68, 42, 10, '#94a3b8', '#1e293b', 4, false);
-        drawOutlinedRect(ctx, -24, 86, 48, 20, 8, '#475569', '#1e293b', 3.5, false);
-
-        ctx.restore();
-        drawPillBadge(ctx, cue.cardLabel || 'BÍ QUYẾT', 270, 565, '#ffffff', '#0f172a', pop, 20);
-    }
-
-    function drawSceneClock(ctx, cue, pop, t) {
-        ctx.save();
-        ctx.translate(270, 415);
-        ctx.scale(pop, pop);
-
-        // Outer ring
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.arc(0, 0, 128, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = '#fef3c7';
-        ctx.beginPath();
-        ctx.arc(0, 0, 108, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Tick marks
-        for (let i = 0; i < 12; i++) {
-            const a = (i * Math.PI) / 6;
-            ctx.strokeStyle = '#1e293b';
-            ctx.lineWidth = i % 3 === 0 ? 4 : 2;
-            ctx.beginPath();
-            ctx.moveTo(Math.cos(a) * 86, Math.sin(a) * 86);
-            ctx.lineTo(Math.cos(a) * 100, Math.sin(a) * 100);
-            ctx.stroke();
-        }
-
-        // Animated sweeping hands
-        const minAng = -Math.PI / 2 + t * 2.2;
-        const hrAng = -Math.PI / 2 + t * 0.4;
-        ctx.lineCap = 'round';
-        ctx.lineWidth = 7;
-        ctx.strokeStyle = '#1e293b';
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(Math.cos(hrAng) * 56, Math.sin(hrAng) * 56);
-        ctx.stroke();
-
-        ctx.strokeStyle = '#ef4444';
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(Math.cos(minAng) * 82, Math.sin(minAng) * 82);
-        ctx.stroke();
-
-        ctx.fillStyle = '#1e293b';
-        ctx.beginPath();
-        ctx.arc(0, 0, 9, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.restore();
-        drawPillBadge(ctx, cue.highlightBadge || 'ĐÚNG GIỜ', 270, 580, '#fbbf24', '#0f172a', pop, 20);
-    }
-
-    function drawSceneWater(ctx, cue, pop, progress, t) {
-        const fillRatio = 0.3 + 0.55 * easeOutCubic(Math.min(1, progress * 1.4));
-
-        ctx.save();
-        ctx.translate(270, 440);
-        ctx.scale(pop, pop);
-
-        // Glass cup trapezoid
-        ctx.fillStyle = 'rgba(255,255,255,0.75)';
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 4.5;
-        ctx.beginPath();
-        ctx.moveTo(-98, -125);
-        ctx.lineTo(98, -125);
-        ctx.lineTo(74, 130);
-        ctx.lineTo(-74, 130);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        // Clipped animated blue water + wave
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(-90, -118);
-        ctx.lineTo(90, -118);
-        ctx.lineTo(68, 122);
-        ctx.lineTo(-68, 122);
-        ctx.closePath();
-        ctx.clip();
-
-        const topY = 122 - 220 * fillRatio;
-        ctx.fillStyle = '#38bdf8';
-        ctx.beginPath();
-        ctx.moveTo(-100, topY + Math.sin(t * 4) * 6);
-        ctx.quadraticCurveTo(0, topY - Math.sin(t * 4) * 10, 100, topY + Math.cos(t * 4) * 6);
-        ctx.lineTo(100, 130);
-        ctx.lineTo(-100, 130);
-        ctx.closePath();
-        ctx.fill();
-
-        // Bubbles
-        ctx.fillStyle = 'rgba(255,255,255,0.65)';
-        [-28, 12, 34].forEach((bx, idx) => {
-            const by = 95 - ((t * 55 + idx * 45) % 140);
-            ctx.beginPath();
-            ctx.arc(bx, by, 7 + idx * 2, 0, Math.PI * 2);
-            ctx.fill();
-        });
-        ctx.restore();
-
-        ctx.restore();
-        drawPillBadge(ctx, cue.cardLabel || 'UỐNG NƯỚC', 270, 600, '#0ea5e9', '#ffffff', pop, 20);
-    }
-
-    function drawSceneBattery(ctx, cue, pop, progress) {
-        const charge = 0.2 + 0.72 * easeOutCubic(Math.min(1, progress * 1.4));
-
-        ctx.save();
-        ctx.translate(270, 425);
-        ctx.scale(pop, pop);
-
-        // Battery tip
-        drawOutlinedRect(ctx, -38, -155, 76, 26, 8, '#94a3b8', '#1e293b', 4, false);
-        // Battery body
-        drawOutlinedRect(ctx, -95, -130, 190, 265, 24, '#ffffff', '#1e293b', 4.5, true);
-
-        const barH = Math.max(30, 230 * charge);
-        const barColor = charge > 0.5 ? '#4ade80' : '#f59e0b';
-        drawOutlinedRect(ctx, -78, 120 - barH, 156, barH, 14, barColor, '#1e293b', 3, false);
-
-        // Lightning bolt
-        ctx.fillStyle = '#fde047';
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 3.5;
-        ctx.beginPath();
-        ctx.moveTo(10, -72);
-        ctx.lineTo(-32, 8);
-        ctx.lineTo(4, 8);
-        ctx.lineTo(-14, 78);
-        ctx.lineTo(36, -6);
-        ctx.lineTo(-2, -6);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.restore();
-        drawPillBadge(ctx, cue.cardLabel || 'NĂNG LƯỢNG', 270, 595, '#fbbf24', '#0f172a', pop, 20);
-    }
-
-    function drawSceneHeart(ctx, cue, pop, t) {
-        const beat = 1 + Math.sin(t * 5) * 0.05;
-        ctx.save();
-        ctx.translate(270, 415);
-        ctx.scale(pop * beat, pop * beat);
-
-        drawOutlinedRect(ctx, -155, -135, 310, 270, 30, '#ffffff', '#1e293b', 4.5, true);
-
-        ctx.fillStyle = '#fb7185';
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(0, 62);
-        ctx.bezierCurveTo(-92, 6, -96, -86, -40, -86);
-        ctx.bezierCurveTo(-12, -86, 0, -56, 0, -56);
-        ctx.bezierCurveTo(0, -56, 12, -86, 40, -86);
-        ctx.bezierCurveTo(96, -86, 92, 6, 0, 62);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.restore();
-        drawPillBadge(ctx, cue.cardLabel || 'CHỮA LÀNH', 270, 575, '#e11d48', '#ffffff', pop, 20);
-    }
-
-    function drawSceneCart(ctx, cue, pop, t) {
-        const bounce = Math.sin(t * 4) * 5;
-        ctx.save();
-        ctx.translate(270, 435);
-        ctx.scale(pop, pop);
-
-        // Bag Handle
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 8;
-        ctx.beginPath();
-        ctx.arc(0, -102, 54, Math.PI, Math.PI * 2);
-        ctx.stroke();
-
-        // Shopping Bag
-        drawOutlinedRect(ctx, -110, -102, 220, 225, 20, '#fb923c', '#1e293b', 4.5, true);
-        drawPillBadge(ctx, cue.highlightBadge || 'TIẾT KIỆM', 0, -4, '#fef08a', '#0f172a', 1, 20);
-
-        // Floating Coin
-        ctx.save();
-        ctx.translate(105, -110 + bounce);
-        ctx.fillStyle = '#fbbf24';
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 3.5;
-        ctx.beginPath();
-        ctx.arc(0, 0, 30, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = '#0f172a';
-        ctx.font = '900 26px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('$', 0, 2);
-        ctx.restore();
-
-        ctx.restore();
-        drawPillBadge(ctx, cue.cardLabel || 'MUA SẮM', 270, 585, '#ffffff', '#0f172a', pop, 20);
-    }
-
-    function renderSingleMotionScene(ctx, scene, progress, sceneIdx, globalTime) {
+    // ---- 7 Composable Spatial Layouts ----
+    function renderSingleMotionScene(ctx, scene, progress, sceneIdx, t, audioLevel = 0) {
         const cue = scene.motionCue || analyzeSceneVisualCue(scene.text, sceneIdx, '');
-        const th = THEMES[cue.theme] || THEMES.cream;
+        const backdropId = BACKDROPS[cue.backdrop] ? cue.backdrop : 'cream-room';
+        const bd = BACKDROPS[backdropId];
+        const props = Array.isArray(cue.props) && cue.props.length > 0 ? cue.props : ['lightbulb'];
+        const items = Array.isArray(cue.items) ? cue.items : [];
+        const mood = cue.characterMood || 'happy';
 
-        const grad = ctx.createLinearGradient(0, 0, 0, H);
-        grad.addColorStop(0, th.bgTop);
-        grad.addColorStop(1, th.bgBot);
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, H);
+        // 1. Dynamic Backdrop
+        drawBackdrop(ctx, backdropId, progress, t);
 
-        ctx.fillStyle = th.floor;
-        ctx.fillRect(0, FLOOR_Y, W, H - FLOOR_Y);
-        ctx.strokeStyle = th.line;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(0, FLOOR_Y);
-        ctx.lineTo(W, FLOOR_Y);
-        ctx.stroke();
-
+        // Horizontal slide entrance for smooth scene whip
         const slideT = easeOutCubic(Math.min(1, progress / 0.14));
-        const slideX = (1 - slideT) * (sceneIdx === 0 ? 0 : 180);
-        const pop = easeOutBack(Math.min(1, progress / 0.24));
-        const badgePop = easeOutBack(Math.min(1, Math.max(0, (progress - 0.05) / 0.22)));
+        const slideX = (1 - slideT) * (sceneIdx === 0 ? 0 : 120);
+        const pop1 = stagePop(progress, 0.04, 0.22);
+        const pop2 = stagePop(progress, 0.22, 0.22);
+        const pop3 = stagePop(progress, 0.42, 0.2);
 
         ctx.save();
         ctx.translate(slideX, 0);
 
-        drawPillBadge(ctx, cue.topBadge, 270, 118, th.accent, '#ffffff', badgePop, 22);
-        drawSparkle(ctx, 88, 225, 16, '#fbbf24', globalTime * 1.5);
-        drawSparkle(ctx, 456, 265, 14, '#fde047', -globalTime * 1.5);
-
-        switch (cue.template) {
-            case 'house':
-                drawSceneHouse(ctx, cue, pop, globalTime);
-                break;
-            case 'envelope':
-                drawSceneEnvelope(ctx, cue, pop, globalTime);
-                break;
-            case 'jar':
-                drawSceneJar(ctx, cue, pop, progress);
-                break;
-            case 'city':
-                drawSceneCity(ctx, cue, pop, globalTime);
-                break;
-            case 'checklist':
-                drawSceneChecklist(ctx, cue, pop, progress);
-                break;
-            case 'chart':
-                drawSceneChart(ctx, cue, pop, progress);
-                break;
-            case 'alert':
-                drawSceneAlert(ctx, cue, pop, globalTime);
-                break;
-            case 'calendar':
-                drawSceneCalendar(ctx, cue, pop, globalTime);
-                break;
-            case 'music':
-                drawSceneMusic(ctx, cue, pop, globalTime);
-                break;
-            case 'food':
-                drawSceneFood(ctx, cue, pop, globalTime);
-                break;
-            case 'phone':
-                drawScenePhone(ctx, cue, pop, globalTime);
-                break;
-            case 'lightbulb':
-                drawSceneLightbulb(ctx, cue, pop, globalTime);
-                break;
-            case 'clock':
-                drawSceneClock(ctx, cue, pop, globalTime);
-                break;
-            case 'water':
-                drawSceneWater(ctx, cue, pop, progress, globalTime);
-                break;
-            case 'battery':
-                drawSceneBattery(ctx, cue, pop, progress);
-                break;
-            case 'heart':
-                drawSceneHeart(ctx, cue, pop, globalTime);
-                break;
-            case 'cart':
-                drawSceneCart(ctx, cue, pop, globalTime);
-                break;
-            default:
-                drawCuteCharacter(ctx, 270, 445, pop, globalTime, true);
-                drawPillBadge(ctx, cue.highlightBadge, 270, 235, '#fbbf24', '#0f172a', badgePop, 22);
-                break;
+        // Optional Top Pill (alternates clean badge styles or hides when document header suffices)
+        if (cue.topBadge && cue.layout !== 'document-card') {
+            drawPillBadge(ctx, cue.topBadge, 270, 118, bd.accent, '#ffffff', stagePop(progress, 0.08, 0.18), 19);
         }
+
+        // 2. Composable Layout Choreography
+        switch (cue.layout) {
+            case 'character-left': {
+                // Talking character left + framed hero prop on right
+                drawExpressiveCharacter(ctx, 118, 535, pop1, t, mood === 'none' ? 'happy' : mood, audioLevel);
+                drawProp(ctx, props[0], items[0] || '', 345, 390, pop2 * 0.98, progress, t, audioLevel);
+                if (cue.accentBadge) {
+                    drawPillBadge(ctx, cue.accentBadge, 345, 225, '#fbbf24', '#0f172a', pop3, 18);
+                }
+                if (cue.crossOut && pop3 > 0.2) {
+                    drawRedCross(ctx, 345, 390, 95, pop3);
+                }
+                break;
+            }
+
+            case 'split-compare': {
+                // Side-by-side balance / comparison cards with optional X or arrow
+                drawOutlinedRect(ctx, 42, 235, 212, 315, 20, 'rgba(255,255,255,0.65)', '#1e293b', 3, true);
+                drawOutlinedRect(ctx, 286, 235, 212, 315, 20, 'rgba(255,255,255,0.85)', '#1e293b', 3, true);
+
+                drawProp(ctx, props[0], items[0] || 'TRƯỚC', 148, 395, pop1 * 0.72, progress, t, audioLevel);
+                drawProp(ctx, props[1] || props[0], items[1] || 'SAU', 392, 395, pop2 * 0.72, progress, t, audioLevel);
+
+                if (cue.crossOut && pop3 > 0.2) {
+                    drawRedCross(ctx, 270, 395, 165, pop3);
+                } else if (cue.accentBadge) {
+                    drawPillBadge(ctx, cue.accentBadge, 270, 212, '#ef4444', '#ffffff', pop3, 18);
+                }
+                break;
+            }
+
+            case 'multi-trio': {
+                // Three horizontal props + pointed callout tags from top
+                const xs = [105, 270, 435];
+                const pops = [pop1, pop2, pop3];
+                xs.forEach((px, idx) => {
+                    const pr = props[idx] || props[idx % props.length];
+                    drawProp(ctx, pr, '', px, 455, pops[idx] * 0.56, progress, t, audioLevel);
+                    if (items[idx]) {
+                        drawPriceTagCallout(ctx, items[idx], px, 275, px, 355, pops[idx], idx === 0 ? '#fef2f2' : '#ffffff', idx === 0 ? '#dc2626' : '#0f172a');
+                    }
+                });
+                break;
+            }
+
+            case 'thought-bubble': {
+                drawExpressiveCharacter(ctx, 118, 555, pop1, t, 'thinking', audioLevel);
+                // Thought cloud dots + main cloud
+                if (pop2 > 0.1) {
+                    ctx.save();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.strokeStyle = '#1e293b';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(178, 462, 10 * pop2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(204, 428, 16 * pop2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.translate(316, 325);
+                    ctx.scale(pop2, pop2);
+                    drawOutlinedRect(ctx, -165, -110, 330, 220, 48, '#ffffff', '#1e293b', 3.5, true);
+                    ctx.restore();
+
+                    drawProp(ctx, props[0], items[0] || '', 316, 325, pop2 * 0.72, progress, t, audioLevel);
+                }
+                if (cue.accentBadge) {
+                    drawPillBadge(ctx, cue.accentBadge, 316, 468, '#fbbf24', '#0f172a', pop3, 17);
+                }
+                break;
+            }
+
+            case 'document-card': {
+                // Big structured itemized list / bill / contract popping row by row
+                ctx.save();
+                ctx.translate(270, 395);
+                ctx.scale(pop1, pop1);
+                drawOutlinedRect(ctx, -172, -195, 344, 370, 22, '#ffffff', '#1e293b', 4, true);
+                drawPillBadge(ctx, cue.topBadge || 'DANH SÁCH', 0, -195, '#0f172a', '#ffffff', 1, 18);
+
+                const rowLabels = items.length >= 2 ? items.slice(0, 3) : [extractShortLabel(cue.sceneText, 'MỤC 1'), 'CHI TIẾT', 'KẾT QUẢ'];
+                rowLabels.forEach((lbl, idx) => {
+                    const rowP = stagePop(progress, 0.18 + idx * 0.16, 0.16);
+                    if (rowP <= 0.05) return;
+                    const ry = -112 + idx * 78;
+                    ctx.save();
+                    ctx.globalAlpha = rowP;
+                    drawOutlinedRect(ctx, -140, ry - 22, 38, 38, 9, '#34d399', '#1e293b', 2.8, false);
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(-129, ry - 2);
+                    ctx.lineTo(-121, ry + 6);
+                    ctx.lineTo(-110, ry - 10);
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = '800 19px Inter, sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(lbl, -88, ry - 2, 224);
+                    ctx.restore();
+                });
+
+                drawPillBadge(ctx, cue.accentBadge || 'GHI NHỚ', 0, 134, '#ef4444', '#ffffff', pop3, 19);
+                ctx.restore();
+                break;
+            }
+
+            case 'action-flow': {
+                // Step 1 -> Animated Arrow -> Step 2
+                drawProp(ctx, props[0], items[0] || '', 136, 415, pop1 * 0.68, progress, t, audioLevel);
+
+                if (pop2 > 0.1) {
+                    ctx.save();
+                    ctx.translate(270, 410);
+                    ctx.scale(pop2, pop2);
+                    ctx.fillStyle = '#22c55e';
+                    ctx.strokeStyle = '#1e293b';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(-34, -14);
+                    ctx.lineTo(8, -14);
+                    ctx.lineTo(8, -30);
+                    ctx.lineTo(40, 0);
+                    ctx.lineTo(8, 30);
+                    ctx.lineTo(8, 14);
+                    ctx.lineTo(-34, 14);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                drawProp(ctx, props[1] || 'lightbulb', items[1] || '', 404, 415, pop2 * 0.68, progress, t, audioLevel);
+                if (cue.accentBadge) {
+                    drawPillBadge(ctx, cue.accentBadge, 410, 225, '#fbbf24', '#0f172a', pop3, 19);
+                }
+                break;
+            }
+
+            case 'center-hero':
+            default: {
+                drawProp(ctx, props[0], items[0] || '', 270, 415, pop1, progress, t, audioLevel);
+                if (props[1] && pop2 > 0.1) {
+                    drawProp(ctx, props[1], '', 420, 265, pop2 * 0.42, progress, t, audioLevel);
+                }
+                if (cue.accentBadge) {
+                    drawPillBadge(ctx, cue.accentBadge, 415, 215, '#ef4444', '#ffffff', pop3, 17);
+                }
+                if (cue.crossOut && pop3 > 0.2) {
+                    drawRedCross(ctx, 270, 415, 130, pop3);
+                }
+                break;
+            }
+        }
+
+        // Dynamic audio-reactive sparkle accents
+        const spSize = 11 + audioLevel * 7;
+        drawSparkle(ctx, 76, 195, spSize, '#fbbf24', t * 1.4);
+        drawSparkle(ctx, 464, 240, spSize * 0.9, '#fde047', -t * 1.4);
 
         ctx.restore();
     }
 
-    function drawMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, prevScene = null) {
+    function drawRedCross(ctx, cx, cy, size, scale = 1) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(scale, scale);
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = 14;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-size, -size);
+        ctx.lineTo(size, size);
+        ctx.moveTo(size, -size);
+        ctx.lineTo(-size, size);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, prevScene = null, audioLevel = 0) {
         if (sceneIdx > 0 && prevScene && sceneProgress < 0.14) {
             const t = easeOutCubic(sceneProgress / 0.14);
             const prevOffset = -W * t;
@@ -1017,22 +1265,23 @@
 
             ctx.save();
             ctx.translate(prevOffset, 0);
-            renderSingleMotionScene(ctx, prevScene, 1, sceneIdx - 1, globalTime);
+            renderSingleMotionScene(ctx, prevScene, 1, sceneIdx - 1, globalTime, 0);
             ctx.restore();
 
             ctx.save();
             ctx.translate(currOffset, 0);
-            renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime);
+            renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel);
             ctx.restore();
             return;
         }
 
-        renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime);
+        renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel);
     }
 
     App.motionGraphics = {
-        VISUAL_TEMPLATES,
-        THEME_NAMES,
+        LAYOUT_NAMES,
+        BACKDROP_NAMES,
+        PROP_NAMES,
         analyzeSceneVisualCue,
         drawMotionScene
     };

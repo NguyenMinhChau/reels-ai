@@ -241,25 +241,29 @@
     }
 
     function buildSyncedCueSequence(flatBeats, aiStoryboard, videoTitle) {
-        const templates = App.motionGraphics?.VISUAL_TEMPLATES || [];
-        const themes = App.motionGraphics?.THEME_NAMES || [];
-        const usedCounts = new Map();
-        let prevTemplate = '';
-        let prevTheme = '';
+        const layouts = App.motionGraphics?.LAYOUT_NAMES || [];
+        const backdrops = App.motionGraphics?.BACKDROP_NAMES || [];
+        const propNames = App.motionGraphics?.PROP_NAMES || [];
+        let prevLayout = '';
+        let prevBackdrop = '';
+        let prevProp = '';
 
         return flatBeats.map((beat, idx) => {
             const localCue = App.motionGraphics
                 ? App.motionGraphics.analyzeSceneVisualCue(beat.text, idx, videoTitle, {
-                      prevTemplate,
-                      prevTheme,
-                      usedCounts
+                      prevLayout,
+                      prevBackdrop,
+                      prevProp
                   })
                 : {
-                      template: 'character',
-                      theme: 'cream',
+                      layout: 'center-hero',
+                      backdrop: 'cream-room',
+                      props: ['lightbulb'],
+                      characterMood: 'happy',
                       topBadge: `NHỊP ${idx + 1}`,
-                      cardLabel: beat.text.slice(0, 20).toUpperCase(),
-                      highlightBadge: 'REELS',
+                      items: [beat.text.slice(0, 20).toUpperCase()],
+                      accentBadge: 'REELS',
+                      crossOut: false,
                       sceneText: beat.text,
                       videoTitle
                   };
@@ -267,30 +271,39 @@
             const aiItem = Array.isArray(aiStoryboard) ? aiStoryboard[idx] : null;
             let finalCue = localCue;
 
-            if (aiItem && templates.includes(aiItem.template)) {
-                let tpl = aiItem.template;
-                // Strictly forbid consecutive duplicate templates even if AI slipped
-                if (tpl === prevTemplate) {
-                    tpl = localCue.template;
+            if (aiItem && layouts.includes(aiItem.layout)) {
+                let lay = aiItem.layout;
+                if (lay === prevLayout) lay = localCue.layout;
+
+                let bd = backdrops.includes(aiItem.backdrop) ? aiItem.backdrop : localCue.backdrop;
+                if (bd === prevBackdrop) bd = localCue.backdrop;
+
+                let chosenProps = Array.isArray(aiItem.props) && aiItem.props.length > 0 ? aiItem.props : localCue.props;
+                if (chosenProps[0] === prevProp) {
+                    if (chosenProps.length > 1) {
+                        chosenProps = [...chosenProps.slice(1), chosenProps[0]];
+                    } else if (propNames.length > 0) {
+                        chosenProps = [localCue.props[0]];
+                    }
                 }
-                let thm = themes.includes(aiItem.theme) ? aiItem.theme : localCue.theme;
-                if (thm === prevTheme) {
-                    thm = localCue.theme;
-                }
-                usedCounts.set(tpl, (usedCounts.get(tpl) || 0) + 1);
+
                 finalCue = {
-                    template: tpl,
-                    theme: thm,
-                    topBadge: aiItem.topBadge || localCue.topBadge,
-                    cardLabel: aiItem.cardLabel || localCue.cardLabel,
-                    highlightBadge: aiItem.highlightBadge || localCue.highlightBadge,
+                    layout: lay,
+                    backdrop: bd,
+                    props: chosenProps,
+                    characterMood: aiItem.characterMood || localCue.characterMood,
+                    topBadge: aiItem.topBadge !== undefined ? aiItem.topBadge : localCue.topBadge,
+                    items: aiItem.items && aiItem.items.length > 0 ? aiItem.items : localCue.items,
+                    accentBadge: aiItem.accentBadge !== undefined ? aiItem.accentBadge : localCue.accentBadge,
+                    crossOut: Boolean(aiItem.crossOut),
                     sceneText: beat.text,
                     videoTitle
                 };
             }
 
-            prevTemplate = finalCue.template;
-            prevTheme = finalCue.theme;
+            prevLayout = finalCue.layout;
+            prevBackdrop = finalCue.backdrop;
+            prevProp = (finalCue.props && finalCue.props[0]) || '';
             return finalCue;
         });
     }
@@ -352,8 +365,9 @@
                 ? App.geminiApi.generateMultiBeatStoryboard({
                       title: videoTitle,
                       beatTexts: flatBeats.map((b) => b.text),
-                      templates: App.motionGraphics?.VISUAL_TEMPLATES,
-                      themes: App.motionGraphics?.THEME_NAMES,
+                      layouts: App.motionGraphics?.LAYOUT_NAMES,
+                      backdrops: App.motionGraphics?.BACKDROP_NAMES,
+                      props: App.motionGraphics?.PROP_NAMES,
                       signal
                   })
                 : Promise.resolve(null);
