@@ -39,6 +39,7 @@
     let bgTimerId = null;
     let activeRecorder = null;
     let lastFormattedSecond = '';
+    let playbackRunId = 0;
 
     const bgmBufferCache = new Map();
 
@@ -140,7 +141,7 @@
         return audioBuffer;
     }
 
-    function trimAudioSilence(audioBuffer, targetCtx, threshold = 0.012, keepPadSec = 0.05) {
+    function trimAudioSilence(audioBuffer, targetCtx, threshold = 0.01, keepPadSec = 0.11) {
         if (!audioBuffer || audioBuffer.length === 0) return audioBuffer;
         const sr = audioBuffer.sampleRate;
         const data = audioBuffer.getChannelData(0);
@@ -463,6 +464,7 @@
     }
 
     function setScenes(scenes, videoTitle = '') {
+        stopPlayback({ resetToZero: false });
         currentVideoTitle = String(videoTitle || '').trim();
         const measureCtx = ctx || document.createElement('canvas').getContext('2d');
         measureCtx.font = '800 22px Inter, sans-serif';
@@ -474,13 +476,15 @@
             ...scene,
             precomputedChunks: precomputeSceneSubtitles(scene.text)
         }));
-        totalDuration = studioScenes.reduce((sum, s) => sum + s.duration, 0);
+        totalDuration = studioScenes.reduce((sum, s) => sum + (Number.isFinite(s.duration) ? s.duration : 2.0), 0);
         pausedAt = 0;
+        playbackOffset = 0;
         lastFormattedSecond = '';
         updateTimerText(0);
         if (studioScenes.length > 0) {
             renderFrameAtTime(0);
         }
+        if (callbacks.onStateChange) callbacks.onStateChange(getPlaybackState());
     }
 
     function getScenes() {
@@ -502,10 +506,15 @@
 
     function getCurrentTime() {
         if (!isPlaying) return pausedAt;
-        const elapsed =
-            audioCtx && audioCtx.state === 'running'
-                ? Math.max(0, audioCtx.currentTime - audioStartTime)
-                : Math.max(0, (performance.now() - perfStartTime) / 1000);
+        const wallElapsed = Math.max(0, (performance.now() - perfStartTime) / 1000);
+        let elapsed = wallElapsed;
+        if (audioCtx && audioCtx.state === 'running') {
+            const audioElapsed = Math.max(0, audioCtx.currentTime - audioStartTime);
+            // Guard against frozen OS/mobile AudioContext clock stuck at 0 while claiming state==='running'
+            if (audioElapsed > 0.02 || wallElapsed < 0.25) {
+                elapsed = Math.abs(wallElapsed - audioElapsed) > 0.45 && audioElapsed <= 0.05 ? wallElapsed : audioElapsed;
+            }
+        }
         return Math.min(totalDuration, Math.max(0, playbackOffset + elapsed));
     }
 
@@ -712,11 +721,12 @@
             ctx.restore();
         }
 
-        // 4. Precomputed dynamic subtitles (Crisp outline in Motion mode, Backdrop pill in Photo mode)
+        // 4. Precomputed dynamic subtitles aligned to actual speech span (finishes slightly before 0.18s scene breath gap)
         const chunks = currentScene.precomputedChunks;
         if (chunks && chunks.length > 0) {
-            const chunkIdx = Math.min(chunks.length - 1, Math.floor(sceneProgress * chunks.length));
-            const chunkLocalProgress = sceneProgress * chunks.length - chunkIdx;
+            const speechNorm = Math.min(0.9999, sceneProgress / 0.92);
+            const chunkIdx = Math.min(chunks.length - 1, Math.floor(speechNorm * chunks.length));
+            const chunkLocalProgress = speechNorm * chunks.length - chunkIdx;
             const chunk = chunks[chunkIdx];
             const popScale = chunkLocalProgress < 0.16 ? 0.9 + (chunkLocalProgress / 0.16) * 0.1 : 1.0;
 
@@ -889,6 +899,7 @@
     }
 
     function pausePlayback() {
+        playbackRunId++;
         if (!isPlaying || isRecording) return;
         pausedAt = getCurrentTime();
         isPlaying = false;
@@ -898,6 +909,7 @@
     }
 
     function stopPlayback({ resetToZero = true } = {}) {
+        playbackRunId++;
         isPlaying = false;
         stopTimers();
         clearScheduledAudio();
@@ -1050,7 +1062,7 @@
                 if (scene.audioBuffer) {
                     const src = offlineCtx.createBufferSource();
                     src.buffer = scene.audioBuffer;
-                    src.playbackRate.value = scene.playbackRate || 1.18;
+                    src.playbackRate.value = scene.playbackRate || 1.0;
                     src.connect(offlineCtx.destination);
                     src.start(sceneStart);
                 }
@@ -1195,21 +1207,34 @@
     }
 
     async function startPlayback({ startAt = null, bgmStyle = 'upbeat', recordMode = false, onRecordComplete = null, onRecordProgress = null, onRecordError = null } = {}) {
-        if (studioScenes.length === 0) return;
+        if (studioScenes.length === 0 || totalDuration <= 0) return;
 
         stopPlayback({ resetToZero: false });
+        const runId = ++playbackRunId;
         currentBgmStyle = bgmStyle;
 
         const targetStart = startAt !== null ? startAt : pausedAt >= totalDuration - 0.05 ? 0 : pausedAt;
         playbackOffset = Math.max(0, Math.min(totalDuration, targetStart));
         pausedAt = playbackOffset;
 
-        const ctxAudio = ensureAudioContext();
+        let ctxAudio = ensureAudioContext();
         if (ctxAudio.state === 'suspended' || ctxAudio.state === 'interrupted') {
+            // Race resume with 120ms cap so playback NEVER freezes indefinitely on hung mobile/OS audio resume
             try {
-                await ctxAudio.resume();
+                await Promise.race([ctxAudio.resume(), new Promise((r) => setTimeout(r, 120))]);
             } catch (_) {}
+            if (runId !== playbackRunId) return;
+
+            // If interrupted audio context refused to resume, cleanly recreate a fresh one
+            if (ctxAudio.state === 'interrupted' || ctxAudio.state === 'closed') {
+                try {
+                    ctxAudio.close().catch(() => {});
+                } catch (_) {}
+                audioCtx = null;
+                ctxAudio = ensureAudioContext();
+            }
         }
+        if (runId !== playbackRunId) return;
 
         const audioBlocked = ctxAudio.state !== 'running' && !recordMode;
         if (callbacks.onAudioBlocked) {
@@ -1233,7 +1258,7 @@
             if (scene.audioBuffer && sceneEnd > playbackOffset) {
                 const src = ctxAudio.createBufferSource();
                 src.buffer = scene.audioBuffer;
-                const rate = scene.playbackRate || 1.18;
+                const rate = scene.playbackRate || 1.0;
                 src.playbackRate.value = rate;
                 if (!recordMode) src.connect(ctxAudio.destination);
                 if (destNode) src.connect(destNode);

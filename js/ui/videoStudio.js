@@ -15,6 +15,7 @@
     let customImages = [null, null, null, null, null];
     let lastChapterAudioMeta = [null, null, null, null, null];
     let cachedChapterAudios = [null, null, null, null, null];
+    const beatAudioCache = new Map();
     let generationAbortController = null;
     let rewriteAbortController = null;
     let exportAbortController = null;
@@ -94,6 +95,7 @@
         customImages = [null, null, null, null, null];
         lastChapterAudioMeta = [null, null, null, null, null];
         cachedChapterAudios = [null, null, null, null, null];
+        isSeeking = false;
         updateImageStatusLabel();
 
         const titleInput = document.getElementById('vs-title');
@@ -312,18 +314,19 @@
         const texts = getSceneInputs().map((el) => (el ? el.value.trim() : '') || 'Chia sẻ khoảnh khắc đời sống hằng ngày gần gũi.');
         const voiceName = document.getElementById('vs-voice')?.value || 'Aoede';
         const ttsEngine = document.getElementById('vs-tts-engine')?.value || 'live-3.8';
-        const speedRate = parseFloat(document.getElementById('vs-speed')?.value || '1.18') || 1.18;
+        const speedRate = parseFloat(document.getElementById('vs-speed')?.value || '1.0') || 1.0;
         const bgmStyle = document.getElementById('vs-bgm')?.value || 'upbeat';
         const visualStyle = document.getElementById('vs-visual-style')?.value || 'motion';
-        const scenePacing = document.getElementById('vs-scene-pacing')?.value || 'dynamic';
+        const scenePacing = document.getElementById('vs-scene-pacing')?.value || 'balanced';
         const imageSourceMode = document.getElementById('vs-image-source')?.value || 'stock';
         const hasApiKey = Boolean((App.store.getState().apiKey || '').trim());
 
         const audioCtx = App.mediaEngine.unlockAudioSync();
+        isSeeking = false;
 
         try {
-            // 1. Expand 5 narration chapters into 10-15 audio-aligned visual beats
-            const maxBeatsPerChapter = scenePacing === 'dynamic' ? 3 : 1;
+            // 1. Expand 5 narration chapters into balanced audio-locked scenes
+            const maxBeatsPerChapter = scenePacing === 'dynamic' ? 3 : scenePacing === 'balanced' ? 2 : 1;
             const chapterBeatTexts = texts.map((t) => splitTextIntoVisualBeats(t, maxBeatsPerChapter));
             const flatBeats = [];
             chapterBeatTexts.forEach((beatList, chapterIdx) => {
@@ -377,60 +380,82 @@
 
             let fallbackTtsCount = 0;
             let lastTtsError = '';
-            const chapterAudios = new Array(5);
-            const chapterHasRealTts = new Array(5).fill(false);
+            const totalBeats = flatBeats.length;
+            const flatAudioSlices = new Array(totalBeats).fill(null);
+            const beatHasRealTts = new Array(totalBeats).fill(false);
 
-            const uncachedChapters = [];
-            for (let i = 0; i < 5; i++) {
-                const textVoiceSig = hashString(`${texts[i]}|${voiceName}|${ttsEngine}`);
-                const prevMeta = lastChapterAudioMeta[i];
-                if (prevMeta && prevMeta.hasRealTts && prevMeta.textVoiceSig === textVoiceSig && cachedChapterAudios[i]) {
-                    chapterAudios[i] = cachedChapterAudios[i];
-                    chapterHasRealTts[i] = true;
+            // Check per-beat cache first (1-to-1 voice-to-scene lock when using Live API)
+            const uncachedBeatIndices = [];
+            for (let b = 0; b < totalBeats; b++) {
+                const beatSig = hashString(`${flatBeats[b].text}|${voiceName}|${ttsEngine}`);
+                if (beatAudioCache.has(beatSig)) {
+                    flatAudioSlices[b] = beatAudioCache.get(beatSig);
+                    beatHasRealTts[b] = true;
                 } else {
-                    uncachedChapters.push(i);
+                    uncachedBeatIndices.push(b);
                 }
             }
 
-            if (isLiveEngine && uncachedChapters.length > 0 && hasApiKey) {
+            // Generate 1 dedicated Live API TTS clip PER scene/beat over a single WebSocket so scene switches
+            // wait strictly until that scene's exact phrase finishes speaking!
+            if (isLiveEngine && uncachedBeatIndices.length > 0 && hasApiKey) {
                 try {
-                    let liveDoneCount = 5 - uncachedChapters.length;
+                    let liveDoneCount = totalBeats - uncachedBeatIndices.length;
+                    const missingBeatTexts = uncachedBeatIndices.map((idx) => flatBeats[idx].text);
                     const liveRes = await App.geminiApi.fetchBatchLiveTtsPcm({
-                        texts,
+                        texts: missingBeatTexts,
                         voiceName,
                         model: liveModelId,
                         signal,
                         onSceneDone: () => {
                             liveDoneCount++;
-                            const pct = 22 + Math.round((liveDoneCount / 5) * 38);
-                            updateStudioProgress(pct, `Đã đọc xong giọng AI phần ${liveDoneCount}/5 (Live API)...`);
+                            const pct = 22 + Math.round((liveDoneCount / totalBeats) * 38);
+                            updateStudioProgress(pct, `Đang thu giọng từng cảnh ${liveDoneCount}/${totalBeats} (khớp 100% khung hình)...`);
                         }
                     });
 
-                    for (let i = 0; i < 5; i++) {
-                        if (!chapterHasRealTts[i] && liveRes.buffers[i]) {
-                            const decoded = await App.mediaEngine.decodeTtsToAudioBuffer(liveRes.buffers[i], audioCtx, 24000);
+                    for (let m = 0; m < uncachedBeatIndices.length; m++) {
+                        const targetIdx = uncachedBeatIndices[m];
+                        if (liveRes.buffers[m]) {
+                            const decoded = await App.mediaEngine.decodeTtsToAudioBuffer(liveRes.buffers[m], audioCtx, 24000);
                             if (decoded) {
-                                chapterAudios[i] = decoded;
-                                chapterHasRealTts[i] = true;
+                                flatAudioSlices[targetIdx] = decoded;
+                                beatHasRealTts[targetIdx] = true;
+                                const beatSig = hashString(`${flatBeats[targetIdx].text}|${voiceName}|${ttsEngine}`);
+                                beatAudioCache.set(beatSig, decoded);
                             }
                         }
                     }
                 } catch (liveErr) {
                     if (liveErr.name === 'AbortError') throw liveErr;
                     lastTtsError = liveErr.message || 'Live API không phản hồi';
-                    console.warn('Live API fallback to REST TTS:', lastTtsError);
+                    console.warn('Live API per-beat fallback to REST chapters:', lastTtsError);
                 }
             }
 
-            if (!hasApiKey || !isLiveEngine || chapterHasRealTts.some((v) => !v)) {
+            // Fallback to REST chapter TTS (or offline silence when no key) ONLY for chapters missing real beat audio
+            const missingChapters = new Set();
+            flatBeats.forEach((beat, bIdx) => {
+                if (!beatHasRealTts[bIdx]) missingChapters.add(beat.chapterIdx);
+            });
+
+            if (missingChapters.size > 0) {
+                const chapterAudios = new Array(5);
+                const chapterHasRealTts = new Array(5).fill(false);
+
                 await Promise.all(
-                    [0, 1, 2, 3, 4].map(async (i) => {
-                        if (chapterHasRealTts[i]) return;
-                        const sceneText = texts[i];
+                    Array.from(missingChapters).map(async (cIdx) => {
+                        const chapterText = texts[cIdx];
+                        const textVoiceSig = hashString(`${chapterText}|${voiceName}|${ttsEngine}`);
+                        const prevMeta = lastChapterAudioMeta[cIdx];
+                        if (prevMeta && prevMeta.hasRealTts && prevMeta.textVoiceSig === textVoiceSig && cachedChapterAudios[cIdx]) {
+                            chapterAudios[cIdx] = cachedChapterAudios[cIdx];
+                            chapterHasRealTts[cIdx] = true;
+                            return;
+                        }
                         if (hasApiKey) {
                             const ttsRes = await App.geminiApi.fetchSceneTtsPcm({
-                                text: sceneText,
+                                text: chapterText,
                                 voiceName,
                                 ttsModel: restTtsModelId,
                                 signal
@@ -440,8 +465,10 @@
                                 const parsedRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
                                 const decoded = await App.mediaEngine.decodeTtsToAudioBuffer(ttsRes.buffer, audioCtx, parsedRate || 24000);
                                 if (decoded) {
-                                    chapterAudios[i] = decoded;
-                                    chapterHasRealTts[i] = true;
+                                    chapterAudios[cIdx] = decoded;
+                                    chapterHasRealTts[cIdx] = true;
+                                    lastChapterAudioMeta[cIdx] = { textVoiceSig, hasRealTts: true };
+                                    cachedChapterAudios[cIdx] = decoded;
                                     return;
                                 }
                             }
@@ -450,25 +477,27 @@
                             lastTtsError = 'Chưa nhập Gemini API Key';
                         }
                         fallbackTtsCount++;
-                        chapterAudios[i] = App.mediaEngine.createSilentBuffer(audioCtx, sceneText);
+                        chapterAudios[cIdx] = App.mediaEngine.createSilentBuffer(audioCtx, chapterText);
                     })
                 );
-            }
 
-            for (let i = 0; i < 5; i++) {
-                lastChapterAudioMeta[i] = {
-                    textVoiceSig: hashString(`${texts[i]}|${voiceName}|${ttsEngine}`),
-                    hasRealTts: chapterHasRealTts[i]
-                };
-                cachedChapterAudios[i] = chapterAudios[i];
-            }
-
-            // 2. Slice each chapter audio right at breath/silence valleys so EVERY beat aligns tightly to voice
-            const flatAudioSlices = [];
-            for (let c = 0; c < 5; c++) {
-                const sliced = App.mediaEngine.splitAudioBufferIntoBeats(chapterAudios[c], chapterBeatTexts[c], audioCtx);
-                for (let b = 0; b < chapterBeatTexts[c].length; b++) {
-                    flatAudioSlices.push(sliced[b] || App.mediaEngine.createSilentBuffer(audioCtx, chapterBeatTexts[c][b]));
+                // Assign sliced buffers for missing chapters
+                const chapterOffsets = {};
+                let cursor = 0;
+                for (let c = 0; c < 5; c++) {
+                    chapterOffsets[c] = cursor;
+                    cursor += chapterBeatTexts[c].length;
+                }
+                for (const cIdx of missingChapters) {
+                    const sliced = App.mediaEngine.splitAudioBufferIntoBeats(chapterAudios[cIdx], chapterBeatTexts[cIdx], audioCtx);
+                    const startBeat = chapterOffsets[cIdx];
+                    for (let b = 0; b < chapterBeatTexts[cIdx].length; b++) {
+                        const targetIdx = startBeat + b;
+                        if (!beatHasRealTts[targetIdx]) {
+                            flatAudioSlices[targetIdx] = sliced[b] || App.mediaEngine.createSilentBuffer(audioCtx, flatBeats[targetIdx].text);
+                            beatHasRealTts[targetIdx] = chapterHasRealTts[cIdx];
+                        }
+                    }
                 }
             }
 
@@ -522,7 +551,8 @@
                     updateStudioProgress(pct, `Đã dựng ${completedCount}/${flatBeats.length} phân cảnh khớp âm thanh...`);
 
                     const audioBuffer = flatAudioSlices[beatIdx];
-                    const effectiveAudioDur = audioBuffer.duration / speedRate;
+                    const rawAudioDur = audioBuffer && Number.isFinite(audioBuffer.duration) ? audioBuffer.duration : 2.5;
+                    const effectiveAudioDur = rawAudioDur / speedRate;
 
                     builtScenes[beatIdx] = {
                         text: beat.text,
@@ -532,7 +562,7 @@
                         imageObj: imgObj,
                         audioBuffer,
                         playbackRate: speedRate,
-                        duration: Math.max(0.85, effectiveAudioDur + 0.02),
+                        duration: Math.max(1.2, effectiveAudioDur + 0.18),
                         motionType: MOTION_TYPES[beatIdx % MOTION_TYPES.length]
                     };
                 })
@@ -541,8 +571,9 @@
             App.mediaEngine.setScenes(builtScenes, videoTitle);
             const totalSec = Math.round(App.mediaEngine.getTotalDuration());
             const beatCount = builtScenes.length;
+            const missingBeatCount = beatHasRealTts.filter((v) => !v).length;
 
-            if (fallbackTtsCount === 5) {
+            if (missingBeatCount === beatCount) {
                 const detailMsg = !hasApiKey
                     ? 'Trình duyệt này chưa nhập Gemini API Key → mới có nhạc nền, chưa có giọng đọc AI.'
                     : lastTtsError || 'Không nhận được giọng đọc AI (kiểm tra API Key hoặc quota 429).';
@@ -552,13 +583,13 @@
                     onAction: () => App.modals.openSettingsModal(),
                     duration: 8000
                 });
-            } else if (fallbackTtsCount > 0) {
+            } else if (missingBeatCount > 0) {
                 const detailMsg = lastTtsError ? ` (${lastTtsError})` : '';
-                updateStudioProgress(100, `Đã dựng ${beatCount} cảnh (${totalSec}s); có ${fallbackTtsCount}/5 đoạn thiếu giọng${detailMsg}.`, 'done');
-                App.toast.show(`Đã tạo video ${beatCount} cảnh (${totalSec}s, ${5 - fallbackTtsCount}/5 đoạn có giọng AI)!`, 'warning');
+                updateStudioProgress(100, `Đã dựng ${beatCount} cảnh (${totalSec}s); có ${missingBeatCount}/${beatCount} cảnh thiếu giọng${detailMsg}.`, 'done');
+                App.toast.show(`Đã tạo video ${beatCount} cảnh (${totalSec}s, ${beatCount - missingBeatCount}/${beatCount} cảnh có giọng AI)!`, 'warning');
             } else {
                 updateStudioProgress(100, `Hoàn tất! Video ${beatCount} cảnh khớp từng nhịp âm thanh (${totalSec}s) đã sẵn sàng.`, 'done');
-                App.toast.show(`Đã tạo xong video ${beatCount} phân cảnh (${totalSec}s) khớp giọng đọc!`);
+                App.toast.show(`Đã tạo xong video ${beatCount} phân cảnh (${totalSec}s) khớp 100% âm thanh!`);
             }
 
             if (btnExport) btnExport.disabled = false;
@@ -807,9 +838,21 @@
                 isSeeking = true;
                 App.mediaEngine.renderFrameAtTime(parseFloat(e.target.value) || 0);
             });
-            scrubber.addEventListener('change', (e) => {
+            const commitSeek = (e) => {
+                if (!isSeeking) return;
                 isSeeking = false;
                 App.mediaEngine.seekTo(parseFloat(e.target.value) || 0);
+            };
+            scrubber.addEventListener('change', commitSeek);
+            scrubber.addEventListener('pointerup', () => {
+                setTimeout(() => {
+                    isSeeking = false;
+                }, 0);
+            });
+            scrubber.addEventListener('touchend', () => {
+                setTimeout(() => {
+                    isSeeking = false;
+                }, 0);
             });
         }
 

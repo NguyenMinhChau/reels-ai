@@ -792,7 +792,7 @@ Hãy thiết kế storyboard đúng ${cleanBeats.length} phần tử khớp 1-1 
                             systemInstruction: {
                                 parts: [
                                     {
-                                        text: 'Bạn là diễn viên lồng tiếng Việt chuyên nghiệp cho Facebook Reels. Khi nhận được bất kỳ câu văn bản nào từ người dùng, bạn PHẢI đọc nguyên văn đúng từng chữ câu đó bằng tiếng Việt với giọng tự nhiên, năng lượng cao, truyền cảm, nhịp độ nhanh. TUYỆT ĐỐI KHÔNG chào hỏi, KHÔNG giải thích, KHÔNG bình luận, KHÔNG nói thêm bất kỳ từ nào ngoài văn bản được gửi.'
+                                        text: 'Bạn là diễn viên lồng tiếng Việt chuyên nghiệp cho Facebook Reels. Khi nhận được bất kỳ câu văn bản nào từ người dùng, bạn PHẢI đọc nguyên văn đúng từng chữ câu đó bằng tiếng Việt với giọng tự nhiên, truyền cảm, rõ chữ, nhịp độ vừa phải dễ nghe (không đọc quá nhanh hay nuốt chữ, ngắt nghỉ tự nhiên theo dấu câu). TUYỆT ĐỐI KHÔNG chào hỏi, KHÔNG trả lời, KHÔNG giải thích, KHÔNG nói thêm bất kỳ từ nào ngoài văn bản được gửi.'
                                     }
                                 ]
                             }
