@@ -608,7 +608,7 @@
             ...scene,
             precomputedChunks: precomputeSceneSubtitles(
                 scene.text,
-                scene.visualStyle === 'motion' || scene.visualStyle === 'ai-svg'
+                scene.visualStyle === 'motion' || scene.visualStyle === 'ui-motion' || scene.visualStyle === 'ai-svg'
             ),
             audioEnvelope: computeAudioEnvelope(scene.audioBuffer)
         }));
@@ -814,7 +814,10 @@
         const count = studioScenes.length;
         const barGap = count > 8 ? 4 : 6;
         const barWidth = (CANVAS_W - 48 - (count - 1) * barGap) / count;
-        const useLightBar = isPhotoVisual || (isMotionStyle && currentScene.motionCue?.backdrop === 'night-calm');
+        const bdName = currentScene.motionCue?.backdrop;
+        const useLightBar =
+            isPhotoVisual ||
+            (isMotionStyle && (bdName === 'night-calm' || bdName === 'bedroom-night' || bdName === 'server-tech' || bdName === 'blueprint-dark'));
         const isCleanSubtitle = isMotionStyle || isSvgVisual;
         for (let i = 0; i < count; i++) {
             const bx = 24 + i * (barWidth + barGap);
@@ -1149,6 +1152,53 @@
     }
 
     let cachedMediabunny = undefined;
+    const cachedSfxSamples = new Map();
+
+    function getCachedSfxBuffer(targetCtx, sfxType) {
+        if (!targetCtx || !sfxType || sfxType === 'none') return null;
+        const type = String(sfxType).toLowerCase();
+        if (!['pop', 'click', 'whoosh', 'ding'].includes(type)) return null;
+
+        const sr = targetCtx.sampleRate || 44100;
+        const cacheKey = `${type}:${sr}`;
+        let samples = cachedSfxSamples.get(cacheKey);
+
+        if (!samples) {
+            let dur = 0.08;
+            if (type === 'click') dur = 0.04;
+            else if (type === 'whoosh') dur = 0.16;
+            else if (type === 'ding') dur = 0.24;
+
+            const len = Math.max(1, Math.floor(sr * dur));
+            samples = new Float32Array(len);
+            for (let i = 0; i < len; i++) {
+                const t = i / sr;
+                const progress = i / len;
+                let v = 0;
+                if (type === 'pop') {
+                    const freq = 340 + 420 * progress;
+                    const env = Math.sin(Math.min(1, progress / 0.15) * Math.PI * 0.5) * Math.exp(-progress * 6.5);
+                    v = Math.sin(2 * Math.PI * freq * t) * env * 0.11;
+                } else if (type === 'click') {
+                    const env = Math.exp(-progress * 14);
+                    v = (Math.sin(2 * Math.PI * 1650 * t) * 0.65 + Math.sin(2 * Math.PI * 2450 * t) * 0.35) * env * 0.095;
+                } else if (type === 'whoosh') {
+                    const env = Math.sin(Math.PI * progress);
+                    const pseudoNoise = Math.sin(i * 12.9898) * 0.3 + Math.sin(t * 220 * Math.PI * 2) * 0.7;
+                    v = pseudoNoise * env * 0.065;
+                } else if (type === 'ding') {
+                    const env = Math.sin(Math.min(1, progress / 0.06) * Math.PI * 0.5) * Math.exp(-progress * 5.2);
+                    v = (Math.sin(2 * Math.PI * 880 * t) * 0.72 + Math.sin(2 * Math.PI * 1320 * t) * 0.28) * env * 0.085;
+                }
+                samples[i] = Math.max(-0.25, Math.min(0.25, v));
+            }
+            cachedSfxSamples.set(cacheKey, samples);
+        }
+
+        const buf = targetCtx.createBuffer(1, samples.length, sr);
+        buf.getChannelData(0).set(samples);
+        return buf;
+    }
 
     async function renderMixedOfflineAudioBuffer(bgmStyle, targetSampleRate = 44100, numChannels = 1) {
         const OfflineCtx = global.OfflineAudioContext || global.webkitOfflineAudioContext;
@@ -1160,14 +1210,40 @@
         const totalSamples = Math.max(1, Math.ceil(totalDuration * sr));
         const offlineCtx = new OfflineCtx(channels, totalSamples, sr);
 
+        let masterDest = offlineCtx.destination;
+        if (typeof offlineCtx.createDynamicsCompressor === 'function') {
+            try {
+                const comp = offlineCtx.createDynamicsCompressor();
+                if (comp.threshold) comp.threshold.value = -6;
+                if (comp.knee) comp.knee.value = 12;
+                if (comp.ratio) comp.ratio.value = 4;
+                if (comp.attack) comp.attack.value = 0.003;
+                if (comp.release) comp.release.value = 0.12;
+                comp.connect(offlineCtx.destination);
+                masterDest = comp;
+            } catch (_) {
+                masterDest = offlineCtx.destination;
+            }
+        }
+
         let sceneStart = 0;
-        studioScenes.forEach((scene) => {
+        studioScenes.forEach((scene, idx) => {
             if (scene.audioBuffer) {
                 const src = offlineCtx.createBufferSource();
                 src.buffer = scene.audioBuffer;
                 src.playbackRate.value = scene.playbackRate || 1.0;
-                src.connect(offlineCtx.destination);
+                src.connect(masterDest);
                 src.start(sceneStart);
+            }
+            const sfxName = scene.motionCue?.sfx;
+            if (sfxName && sfxName !== 'none' && sceneStart < totalDuration - 0.05) {
+                const sfxBuf = getCachedSfxBuffer(offlineCtx, sfxName);
+                if (sfxBuf) {
+                    const sfxNode = offlineCtx.createBufferSource();
+                    sfxNode.buffer = sfxBuf;
+                    sfxNode.connect(masterDest);
+                    sfxNode.start(Math.max(0, idx > 0 ? sceneStart : 0.02));
+                }
             }
             sceneStart += scene.duration;
         });
@@ -1176,7 +1252,7 @@
         if (bgmBuffer) {
             const bgmNode = offlineCtx.createBufferSource();
             bgmNode.buffer = bgmBuffer;
-            bgmNode.connect(offlineCtx.destination);
+            bgmNode.connect(masterDest);
             bgmNode.start(0);
         }
 
@@ -1216,7 +1292,19 @@
         }
 
         try {
-            const canAvc = await mb.canEncodeVideo('avc');
+            let canAvc = false;
+            try {
+                canAvc = await mb.canEncodeVideo('avc', {
+                    width: CANVAS_W,
+                    height: CANVAS_H,
+                    bitrate: 1_800_000
+                });
+            } catch (_) {
+                canAvc = false;
+            }
+            if (!canAvc) {
+                canAvc = await mb.canEncodeVideo('avc').catch(() => false);
+            }
             if (!canAvc) {
                 cachedMediabunny = null;
                 return null;
@@ -1314,8 +1402,13 @@
             await output.finalize();
             renderFrameAtTime(0);
 
+            const outBuffer = output.target?.buffer;
+            if (!outBuffer || outBuffer.byteLength < 1024) {
+                throw new Error('File MP4 xuất ra quá nhỏ hoặc bị hỏng, đang chuyển bộ xuất dự phòng...');
+            }
+
             return {
-                blob: new Blob([output.target.buffer], { type: 'video/mp4' }),
+                blob: new Blob([outBuffer], { type: 'video/mp4' }),
                 mimeType: 'video/mp4',
                 hasAudio: hasAudioSignal,
                 engineLabel: usedWasmAac ? 'MP4 H.264 + AAC WASM' : 'MP4 H.264 + AAC'
@@ -2027,7 +2120,7 @@
         perfStartTime = performance.now() + 50;
 
         let sceneStart = 0;
-        studioScenes.forEach((scene) => {
+        studioScenes.forEach((scene, idx) => {
             const sceneEnd = sceneStart + scene.duration;
             if (scene.audioBuffer && sceneEnd > playbackOffset) {
                 const src = ctxAudio.createBufferSource();
@@ -2046,6 +2139,18 @@
                     }
                 }
                 activeAudioSources.push(src);
+            }
+            const sfxName = scene.motionCue?.sfx;
+            if (sfxName && sfxName !== 'none' && sceneStart >= playbackOffset && sceneStart < totalDuration - 0.05) {
+                const sfxBuf = getCachedSfxBuffer(ctxAudio, sfxName);
+                if (sfxBuf) {
+                    const sfxNode = ctxAudio.createBufferSource();
+                    sfxNode.buffer = sfxBuf;
+                    sfxNode.connect(ctxAudio.destination);
+                    const sfxDelay = Math.max(0, (idx > 0 ? sceneStart : 0.02) - playbackOffset);
+                    sfxNode.start(audioStartTime + sfxDelay);
+                    activeAudioSources.push(sfxNode);
+                }
             }
             sceneStart = sceneEnd;
         });

@@ -703,35 +703,67 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
         return results;
     }
 
-    async function generateMultiBeatStoryboard({ title, beatTexts, layouts, backdrops, props, actions, effects, signal }) {
+    async function generateMultiBeatStoryboard({ title, beatTexts, layouts, backdrops, props, actions, effects, casts, sfxList, visualStyle = 'motion', signal }) {
         const cleanBeats = (beatTexts || []).map((b) => String(b || '').trim()).filter(Boolean);
         if (cleanBeats.length === 0) return null;
 
-        const cacheKey = `storyboard-v3:${hashString(title + '|' + cleanBeats.join('|'))}`;
+        const cacheKey = `storyboard-v4:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
         if (caches.prompts.has(cacheKey)) {
             return caches.prompts.get(cacheKey);
         }
 
-        const layoutList = Array.isArray(layouts) && layouts.length > 0 ? layouts : ['character-action', 'character-left', 'split-compare', 'multi-trio', 'thought-bubble', 'document-card', 'action-flow', 'center-hero'];
-        const backdropList = Array.isArray(backdrops) && backdrops.length > 0 ? backdrops : ['office-desk', 'bedroom-night', 'kitchen-cozy', 'cafe-chill', 'server-tech', 'cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint'];
-        const propList = Array.isArray(props) && props.length > 0 ? props : ['house', 'envelope', 'jar', 'phone', 'lightbulb', 'clock', 'water_glass', 'plug_socket', 'laptop'];
-        const actionList = Array.isArray(actions) && actions.length > 0 ? actions : ['pointing', 'typing', 'phone-scroll', 'shocked-phone', 'cooking', 'counting-money', 'sleeping', 'running', 'drinking', 'celebrating'];
-        const effectList = Array.isArray(effects) && effects.length > 0 ? effects : ['sparkles', 'sparks', 'sweat', 'steam', 'hearts', 'confetti', 'money', 'notes'];
+        const layoutList = Array.isArray(layouts) && layouts.length > 0
+            ? layouts
+            : ['wide-team', 'desk-closeup', 'hand-pov', 'laptop-popup', 'character-action', 'character-left', 'split-compare', 'multi-trio', 'thought-bubble', 'document-card', 'action-flow', 'center-hero', 'ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
+        const backdropList = Array.isArray(backdrops) && backdrops.length > 0
+            ? backdrops
+            : ['office-shelf', 'office-desk', 'bedroom-night', 'kitchen-cozy', 'cafe-chill', 'server-tech', 'cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint', 'grid-light', 'blueprint-dark'];
+        const propList = Array.isArray(props) && props.length > 0
+            ? props
+            : ['house', 'envelope', 'jar', 'phone', 'lightbulb', 'clock', 'water_glass', 'plug_socket', 'laptop', 'folder', 'checklist', 'stamp', 'cursor'];
+        const actionList = Array.isArray(actions) && actions.length > 0
+            ? actions
+            : ['pointing', 'typing', 'phone-scroll', 'shocked-phone', 'calling', 'cooking', 'counting-money', 'sleeping', 'running', 'drinking', 'celebrating'];
+        const effectList = Array.isArray(effects) && effects.length > 0
+            ? effects
+            : ['sparkles', 'sparks', 'sweat', 'steam', 'hearts', 'confetti', 'money', 'notes'];
+        const castList = Array.isArray(casts) && casts.length > 0
+            ? casts
+            : ['narrator', 'girl-purple', 'boy-spiky', 'girl-bun', 'manager-red'];
+        const sfxOptions = Array.isArray(sfxList) && sfxList.length > 0
+            ? sfxList
+            : ['pop', 'click', 'whoosh', 'ding', 'none'];
 
         return dedupedCall(cacheKey, async () => {
             try {
                 const numberedBeats = cleanBeats.map((b, i) => `${i + 1}. "${b}"`).join('\n');
-                const prompt = `Bạn là Đạo diễn Hoạt Hình 2D chuyên dựng phim ngắn hành động khớp từng câu nói (KHÔNG ghi chữ lên hình, kể chuyện 100% bằng hành động nhân vật, bối cảnh và đạo cụ).
+                const isUiMode = visualStyle === 'ui-motion';
+                const styleDirective = isUiMode
+                    ? `PHONG CÁCH HIỆN ĐẠI DOT-GRID UI MOTION:
+- Ưu tiên các bố cục UI sạch tối giản [ui-window, ui-checklist, ui-flow, ui-grid-hero] và xen kẽ 1-2 cảnh action-flow hoặc center-hero.
+- backdrop: Ưu tiên [grid-light, blueprint-dark, cream-room, mint-fresh], chuyển đổi sáng/tối theo cảm xúc câu nói (KHÔNG trùng 2 cảnh kề nhau).
+- sfx: Gán tiếng động micro UI crisp khớp nhịp (click = bấm nút/con trỏ; pop = bật thẻ/thông báo; whoosh = chuyển bước/quy trình; ding = hoàn tất/thành công).`
+                    : `PHONG CÁCH HOẠT HÌNH 2D KỂ CHUYỆN GÓC MÁY ĐIỆN ẢNH:
+- Kết hợp đa dạng góc máy kể chuyện [wide-team (toàn cảnh phòng team làm việc), desk-closeup (cận mặt nhân vật tại bàn), hand-pov (góc nhìn tay cầm/ký giấy/điện thoại), laptop-popup (màn hình bật hộp thoại), character-action, split-compare, thought-bubble]. TUYỆT ĐỐI không trùng layout 2 cảnh liền kề.
+- cast: Đổi vai nhân vật hợp lý theo hội thoại/câu chuyện từ [${castList.join(', ')}] (narrator = người dẫn chuyện áo cam/xanh; manager-red = sếp/quản lý vest đỏ; girl-purple / boy-spiky / girl-bun = đồng nghiệp/nhân vật đời sống).
+- backdrop: Chọn đúng bối cảnh từ [${backdropList.join(', ')}] (office-shelf = phòng có kệ hồ sơ; office-desk = bàn làm việc; bedroom-night = phòng ngủ; kitchen-cozy = nhà bếp; cafe-chill = quán cafe; server-tech = phòng máy; hills-nature = thiên nhiên; city-skyline = thành phố; alert-tint = cảnh báo; mint-fresh = tiền/sức khỏe). KHÔNG trùng backdrop 2 cảnh kề nhau!
+- sfx: Tiếng động nhẹ tự nhiên [pop, click, whoosh, ding, none] khi có sự kiện bật ra hoặc chuyển cảnh.`;
+
+                const prompt = `Bạn là Đạo diễn Hoạt Hình 2D chuyên dựng phim ngắn hành động khớp từng câu nói (KHÔNG vẽ phụ đề lên hình, kể chuyện bằng góc máy, nhân vật, chuyển động UI và đạo cụ).
 Tiêu đề: "${title}"
 Danh sách ${cleanBeats.length} nhịp lời thoại theo thứ tự:
 ${numberedBeats}
 
-Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 cảnh hoạt hình riêng biệt) sao cho HÀNH ĐỘNG NHÂN VẬT, BỐI CẢNH VÀ ĐẠO CỤ khớp sát 100% ngữ cảnh câu nói và TUYỆT ĐỐI KHÔNG lặp lại:
-- layout: Chọn từ [${layoutList.join(', ')}] (đổi liên tục giữa các cảnh liền kề; ưu tiên character-action cho cảnh nhân vật đang làm hành động cụ thể!).
-- backdrop: Chọn đúng bối cảnh từ [${backdropList.join(', ')}] (office-desk = bàn làm việc; bedroom-night = phòng ngủ đêm; kitchen-cozy = nhà bếp; cafe-chill = quán cafe/thư giãn; server-tech = phòng máy/code; hills-nature = quê/thiên nhiên; city-skyline = thành phố/đi làm; alert-tint = cảnh báo/nguy hiểm; mint-fresh = tiền bạc/sức khỏe). KHÔNG trùng backdrop ở 2 cảnh kề nhau!
-- action: Chọn đúng động tác nhân vật đang thực hiện từ [${actionList.join(', ')}] (VD: typing = gõ laptop; shocked-phone = giật mình xem điện thoại; sleeping = nằm ngủ trên giường; cooking = nấu bếp; counting-money = đếm tiền/tiết kiệm; drinking = uống nước/cafe; running = chạy vội; celebrating = ăn mừng; pointing = chỉ tay/thuyết minh).
+${styleDirective}
+
+Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 cảnh riêng biệt) sao cho HÀNH ĐỘNG, GÓC MÁY, BỐI CẢNH VÀ ĐẠO CỤ khớp sát 100% ngữ cảnh:
+- layout: Chọn từ [${layoutList.join(', ')}].
+- backdrop: Chọn từ [${backdropList.join(', ')}].
+- cast: Chọn nhân vật chính từ [${castList.join(', ')}].
+- action: Chọn đúng động tác từ [${actionList.join(', ')}] (calling = đang gọi điện thoại; typing = gõ laptop; shocked-phone = giật mình xem điện thoại; sleeping = nằm ngủ; cooking = nấu bếp; counting-money = đếm tiền; drinking = uống nước/cafe; running = chạy vội; celebrating = ăn mừng; pointing = chỉ tay/thuyết minh).
 - characterMood: "happy", "shocked", "thinking", hoặc "sleepy".
-- effect: Hiệu ứng chuyển động khớp nhịp nói từ [${effectList.join(', ')}] (sparks = tia lửa/lỗi; sweat = mồ hôi áp lực; steam = hơi nóng/cà phê; hearts = trái tim; confetti = ăn mừng; money = tiền vàng; notes = nốt nhạc; sparkles = lấp lánh).
+- effect: Hiệu ứng chuyển động từ [${effectList.join(', ')}] (sparks, sweat, steam, hearts, confetti, money, notes, sparkles).
+- sfx: Âm thanh điểm nhấn từ [${sfxOptions.join(', ')}].
 - props: Mảng 1 đến 3 đạo cụ chọn từ [${propList.join(', ')}] khớp chính xác câu nói.
 - crossOut: true nếu câu nói mang ý cấm làm / sai lầm / sập / lừa đảo, ngược lại false.`;
 
@@ -746,13 +778,15 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 cảnh h
                                 properties: {
                                     layout: { type: 'STRING', enum: layoutList },
                                     backdrop: { type: 'STRING', enum: backdropList },
+                                    cast: { type: 'STRING', enum: castList },
                                     action: { type: 'STRING', enum: actionList },
                                     effect: { type: 'STRING', enum: effectList },
+                                    sfx: { type: 'STRING', enum: sfxOptions },
                                     props: { type: 'ARRAY', items: { type: 'STRING', enum: propList } },
                                     characterMood: { type: 'STRING', enum: ['happy', 'shocked', 'thinking', 'sleepy'] },
                                     crossOut: { type: 'BOOLEAN' }
                                 },
-                                required: ['layout', 'backdrop', 'action', 'effect', 'props', 'characterMood', 'crossOut']
+                                required: ['layout', 'backdrop', 'cast', 'action', 'effect', 'sfx', 'props', 'characterMood', 'crossOut']
                             }
                         }
                     }
@@ -765,8 +799,10 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 cảnh h
                     const normalized = parsed.slice(0, cleanBeats.length).map((item) => ({
                         layout: layoutList.includes(item.layout) ? item.layout : '',
                         backdrop: backdropList.includes(item.backdrop) ? item.backdrop : '',
+                        cast: castList.includes(item.cast) ? item.cast : '',
                         action: actionList.includes(item.action) ? item.action : '',
                         effect: effectList.includes(item.effect) ? item.effect : 'sparkles',
+                        sfx: sfxOptions.includes(item.sfx) ? item.sfx : 'none',
                         props: Array.isArray(item.props) ? item.props.filter((p) => propList.includes(p)).slice(0, 3) : [],
                         characterMood: ['happy', 'shocked', 'thinking', 'sleepy'].includes(item.characterMood) ? item.characterMood : 'happy',
                         crossOut: Boolean(item.crossOut)

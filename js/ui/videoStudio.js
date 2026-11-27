@@ -339,26 +339,37 @@
         }
     }
 
-    function buildSyncedCueSequence(flatBeats, aiStoryboard, videoTitle) {
+    function buildSyncedCueSequence(flatBeats, aiStoryboard, videoTitle, visualStyle = 'motion') {
         const layouts = App.motionGraphics?.LAYOUT_NAMES || [];
         const backdrops = App.motionGraphics?.BACKDROP_NAMES || [];
         const propNames = App.motionGraphics?.PROP_NAMES || [];
+        const casts = App.motionGraphics?.CAST_NAMES || [];
+        const sfxNames = App.motionGraphics?.SFX_NAMES || [];
         let prevLayout = '';
         let prevBackdrop = '';
         let prevProp = '';
+        let prevCast = '';
 
         return flatBeats.map((beat, idx) => {
             const localCue = App.motionGraphics
-                ? App.motionGraphics.analyzeSceneVisualCue(beat.text, idx, videoTitle, {
-                      prevLayout,
-                      prevBackdrop,
-                      prevProp
-                  })
+                ? App.motionGraphics.analyzeSceneVisualCue(
+                      beat.text,
+                      idx,
+                      videoTitle,
+                      {
+                          prevLayout,
+                          prevBackdrop,
+                          prevProp
+                      },
+                      visualStyle
+                  )
                 : {
                       layout: 'character-action',
                       backdrop: 'cream-room',
+                      cast: 'narrator',
                       action: 'pointing',
                       effect: 'sparkles',
+                      sfx: 'none',
                       props: ['lightbulb'],
                       characterMood: 'happy',
                       crossOut: false,
@@ -376,6 +387,11 @@
                 let bd = backdrops.includes(aiItem.backdrop) ? aiItem.backdrop : localCue.backdrop;
                 if (bd === prevBackdrop) bd = localCue.backdrop;
 
+                let cast = casts.includes(aiItem.cast) ? aiItem.cast : (localCue.cast || 'narrator');
+                if (lay === 'desk-closeup' && cast === prevCast && localCue.cast && localCue.cast !== prevCast) {
+                    cast = localCue.cast;
+                }
+
                 let chosenProps = Array.isArray(aiItem.props) && aiItem.props.length > 0 ? aiItem.props : localCue.props;
                 if (chosenProps[0] === prevProp) {
                     if (chosenProps.length > 1) {
@@ -385,11 +401,15 @@
                     }
                 }
 
+                const sfx = sfxNames.includes(aiItem.sfx) ? aiItem.sfx : (localCue.sfx || 'none');
+
                 finalCue = {
                     layout: lay,
                     backdrop: bd,
+                    cast,
                     action: aiItem.action || localCue.action,
                     effect: aiItem.effect || localCue.effect,
+                    sfx,
                     props: chosenProps,
                     characterMood: aiItem.characterMood || localCue.characterMood,
                     crossOut: Boolean(aiItem.crossOut),
@@ -401,6 +421,7 @@
             prevLayout = finalCue.layout;
             prevBackdrop = finalCue.backdrop;
             prevProp = (finalCue.props && finalCue.props[0]) || '';
+            prevCast = finalCue.cast || '';
             return finalCue;
         });
     }
@@ -471,9 +492,9 @@
                     : `Đang chuẩn bị ${flatBeats.length} nhịp chuyển cảnh đa dạng...`
             );
 
-            // Launch 1 Free Gemini AI Storyboard call in parallel with TTS for motion/photo/offline-fallback metadata
+            // Launch 1 Free Gemini AI Storyboard call in parallel with TTS for motion/ui-motion/photo metadata
             const storyboardPromise =
-                hasApiKey && (visualStyle === 'motion' || visualStyle === 'photo')
+                hasApiKey && (visualStyle === 'motion' || visualStyle === 'ui-motion' || visualStyle === 'photo')
                     ? App.geminiApi.generateMultiBeatStoryboard({
                           title: videoTitle,
                           beatTexts: flatBeats.map((b) => b.text),
@@ -482,6 +503,9 @@
                           props: App.motionGraphics?.PROP_NAMES,
                           actions: App.motionGraphics?.ACTION_NAMES,
                           effects: App.motionGraphics?.EFFECT_NAMES,
+                          casts: App.motionGraphics?.CAST_NAMES,
+                          sfxList: App.motionGraphics?.SFX_NAMES,
+                          visualStyle,
                           signal
                       })
                     : Promise.resolve(null);
@@ -672,7 +696,7 @@
                   );
 
             const [aiStoryboard, visualPrompts] = await Promise.all([storyboardPromise, visualPromptsPromise]);
-            const motionCues = buildSyncedCueSequence(flatBeats, aiStoryboard, videoTitle);
+            const motionCues = buildSyncedCueSequence(flatBeats, aiStoryboard, videoTitle, visualStyle);
 
             const sceneImageObjs = new Array(flatBeats.length).fill(null);
             const sceneStyleOverrides = new Array(flatBeats.length).fill(visualStyle);
