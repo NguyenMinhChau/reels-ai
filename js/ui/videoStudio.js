@@ -637,7 +637,10 @@
                         for (let m = 0; m < pendingIndices.length; m++) {
                             const targetIdx = pendingIndices[m];
                             if (liveRes.buffers[m]) {
-                                const decoded = await App.mediaEngine.decodeTtsToAudioBuffer(liveRes.buffers[m], audioCtx, 24000);
+                                const mime = liveRes.mimeTypes?.[m] || 'audio/pcm;rate=24000';
+                                const rateMatch = String(mime).match(/rate=(\d+)/i);
+                                const parsedRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+                                const decoded = await App.mediaEngine.decodeTtsToAudioBuffer(liveRes.buffers[m], audioCtx, parsedRate || 24000);
                                 if (decoded && decoded.duration >= 0.25) {
                                     flatAudioSlices[targetIdx] = decoded;
                                     beatHasRealTts[targetIdx] = true;

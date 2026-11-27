@@ -224,6 +224,19 @@
         return ctxAudio;
     }
 
+    function applyEdgeFades(samples, sr, fadeInMs = 20, fadeOutMs = 28) {
+        if (!samples || samples.length < 16) return;
+        const len = samples.length;
+        const inLen = Math.min(Math.floor((sr * fadeInMs) / 1000), Math.floor(len / 4));
+        const outLen = Math.min(Math.floor((sr * fadeOutMs) / 1000), Math.floor(len / 4));
+        for (let i = 0; i < inLen; i++) {
+            samples[i] *= i / inLen;
+        }
+        for (let i = 0; i < outLen; i++) {
+            samples[len - 1 - i] *= i / outLen;
+        }
+    }
+
     function normalizeVoiceBuffer(audioBuffer) {
         if (!audioBuffer || audioBuffer.length === 0) return audioBuffer;
         const data = audioBuffer.getChannelData(0);
@@ -236,20 +249,20 @@
             if (abs > peak) peak = abs;
         }
         const rms = Math.sqrt(sumSq / data.length);
-        // Consistent RMS loudness across all scenes prevents sudden quiet/loud jumps or perceived voice shifts
-        if (rms > 0.008 && peak > 0.02) {
-            const desiredGain = Math.max(0.85, Math.min(1.75, 0.14 / rms));
-            const safePeakGain = Math.min(desiredGain, 0.94 / peak);
-            if (Math.abs(safePeakGain - 1.0) > 0.06) {
+        // Gentle RMS match across scenes prevents abrupt quiet/loud jumps without boosting breath noise
+        if (rms > 0.01 && peak > 0.03) {
+            const desiredGain = Math.max(0.90, Math.min(1.35, 0.13 / rms));
+            const safePeakGain = Math.min(desiredGain, 0.92 / peak);
+            if (Math.abs(safePeakGain - 1.0) > 0.05) {
                 for (let i = 0; i < data.length; i++) {
-                    data[i] = Math.max(-0.96, Math.min(0.96, data[i] * safePeakGain));
+                    data[i] = Math.max(-0.94, Math.min(0.94, data[i] * safePeakGain));
                 }
             }
         }
         return audioBuffer;
     }
 
-    function trimAudioSilence(audioBuffer, targetCtx, threshold = 0.01, keepPadSec = 0.11) {
+    function trimAudioSilence(audioBuffer, targetCtx, threshold = 0.0028, keepPadSec = 0.14) {
         if (!audioBuffer || audioBuffer.length === 0) return audioBuffer;
         const sr = audioBuffer.sampleRate;
         const data = audioBuffer.getChannelData(0);
@@ -261,26 +274,25 @@
         let end = len - 1;
         while (end > start && Math.abs(data[end]) < threshold) end--;
 
-        if (start >= end) return normalizeVoiceBuffer(audioBuffer);
+        if (start >= end) {
+            applyEdgeFades(data, sr, 20, 28);
+            return normalizeVoiceBuffer(audioBuffer);
+        }
 
         const padSamples = Math.floor(sr * keepPadSec);
         const trimStart = Math.max(0, start - padSamples);
         const trimEnd = Math.min(len, end + padSamples + 1);
         const outLen = trimEnd - trimStart;
 
-        if (outLen <= 0 || outLen >= len * 0.96) return normalizeVoiceBuffer(audioBuffer);
+        if (outLen <= 0 || outLen >= len * 0.96) {
+            applyEdgeFades(data, sr, 20, 28);
+            return normalizeVoiceBuffer(audioBuffer);
+        }
 
         const outBuf = targetCtx.createBuffer(1, outLen, sr);
         const outData = outBuf.getChannelData(0);
         outData.set(data.subarray(trimStart, trimEnd));
-
-        // 8ms micro fade-in/fade-out prevents clicks at scene boundaries
-        const fadeSamples = Math.min(Math.floor(sr * 0.008), Math.floor(outLen / 4));
-        for (let i = 0; i < fadeSamples; i++) {
-            const g = i / fadeSamples;
-            outData[i] *= g;
-            outData[outLen - 1 - i] *= g;
-        }
+        applyEdgeFades(outData, sr, 22, 32);
         return normalizeVoiceBuffer(outBuf);
     }
 
@@ -353,7 +365,9 @@
                 const start = cuts[idx];
                 const len = Math.max(1, cuts[idx + 1] - start);
                 const chunkBuf = targetCtx.createBuffer(1, len, sr);
-                chunkBuf.getChannelData(0).set(data.subarray(start, start + len));
+                const out = chunkBuf.getChannelData(0);
+                out.set(data.subarray(start, start + len));
+                applyEdgeFades(out, sr, 20, 26);
                 return chunkBuf;
             });
         }
@@ -397,7 +411,9 @@
             const end = Math.max(start + Math.floor(sr * 0.25), cutSamples[idx + 1]);
             const len = Math.min(totalSamples - start, end - start);
             const chunkBuf = targetCtx.createBuffer(1, Math.max(1, len), sr);
-            chunkBuf.getChannelData(0).set(data.subarray(start, start + len));
+            const out = chunkBuf.getChannelData(0);
+            out.set(data.subarray(start, start + len));
+            applyEdgeFades(out, sr, 20, 26);
             return chunkBuf;
         });
     }
@@ -1232,19 +1248,19 @@
                 if (type === 'pop') {
                     const freq = 340 + 420 * progress;
                     const env = Math.sin(Math.min(1, progress / 0.15) * Math.PI * 0.5) * Math.exp(-progress * 6.5);
-                    v = Math.sin(2 * Math.PI * freq * t) * env * 0.11;
+                    v = Math.sin(2 * Math.PI * freq * t) * env * 0.065;
                 } else if (type === 'click') {
                     const env = Math.exp(-progress * 14);
-                    v = (Math.sin(2 * Math.PI * 1650 * t) * 0.65 + Math.sin(2 * Math.PI * 2450 * t) * 0.35) * env * 0.095;
+                    v = (Math.sin(2 * Math.PI * 1650 * t) * 0.65 + Math.sin(2 * Math.PI * 2450 * t) * 0.35) * env * 0.055;
                 } else if (type === 'whoosh') {
                     const env = Math.sin(Math.PI * progress);
                     const pseudoNoise = Math.sin(i * 12.9898) * 0.3 + Math.sin(t * 220 * Math.PI * 2) * 0.7;
-                    v = pseudoNoise * env * 0.065;
+                    v = pseudoNoise * env * 0.042;
                 } else if (type === 'ding') {
                     const env = Math.sin(Math.min(1, progress / 0.06) * Math.PI * 0.5) * Math.exp(-progress * 5.2);
-                    v = (Math.sin(2 * Math.PI * 880 * t) * 0.72 + Math.sin(2 * Math.PI * 1320 * t) * 0.28) * env * 0.085;
+                    v = (Math.sin(2 * Math.PI * 880 * t) * 0.72 + Math.sin(2 * Math.PI * 1320 * t) * 0.28) * env * 0.055;
                 }
-                samples[i] = Math.max(-0.25, Math.min(0.25, v));
+                samples[i] = Math.max(-0.2, Math.min(0.2, v));
             }
             cachedSfxSamples.set(cacheKey, samples);
         }
@@ -1265,14 +1281,15 @@
         const offlineCtx = new OfflineCtx(channels, totalSamples, sr);
 
         let masterDest = offlineCtx.destination;
+        // Transparent protective peak limiter (prevents volume pumping/stuttering while avoiding clipping)
         if (typeof offlineCtx.createDynamicsCompressor === 'function') {
             try {
                 const comp = offlineCtx.createDynamicsCompressor();
-                if (comp.threshold) comp.threshold.value = -6;
-                if (comp.knee) comp.knee.value = 12;
-                if (comp.ratio) comp.ratio.value = 4;
-                if (comp.attack) comp.attack.value = 0.003;
-                if (comp.release) comp.release.value = 0.12;
+                if (comp.threshold) comp.threshold.value = -1.5;
+                if (comp.knee) comp.knee.value = 4;
+                if (comp.ratio) comp.ratio.value = 2.0;
+                if (comp.attack) comp.attack.value = 0.005;
+                if (comp.release) comp.release.value = 0.25;
                 comp.connect(offlineCtx.destination);
                 masterDest = comp;
             } catch (_) {

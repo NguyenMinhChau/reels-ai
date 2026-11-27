@@ -1076,30 +1076,12 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
         return out.buffer;
     }
 
-    async function fetchBatchLiveTtsPcm({ texts, voiceName, model, onSceneDone, signal }) {
-        const cleanTexts = (texts || []).map((t) => String(t || '').trim() || 'Khoảnh khắc đời sống hằng ngày.');
-        const voice = voiceName || 'Aoede';
-        const liveModel = model || MODELS.LIVE_38;
-
-        const results = new Array(cleanTexts.length).fill(null);
-        const missingIndices = [];
-
-        cleanTexts.forEach((text, i) => {
-            const cacheKey = `live:${liveModel}:${voice}:${hashString(text)}`;
-            if (caches.ttsPcm.has(cacheKey)) {
-                results[i] = caches.ttsPcm.get(cacheKey);
-                if (onSceneDone) onSceneDone(i, results[i], true);
-            } else {
-                missingIndices.push(i);
-            }
-        });
-
-        if (missingIndices.length === 0) {
-            return { buffers: results, errorReason: '' };
-        }
-
+    async function fetchLiveSessionChunk({ texts, voiceName, model, onChunkDone, signal }) {
         const apiKey = getApiKey();
         const wsUrl = `${GEMINI_LIVE_WS_URL}?key=${encodeURIComponent(apiKey)}`;
+        const count = texts.length;
+        const buffers = new Array(count).fill(null);
+        const mimeTypes = new Array(count).fill('audio/pcm;rate=24000');
 
         return new Promise((resolve, reject) => {
             if (signal && signal.aborted) {
@@ -1113,6 +1095,7 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
             let awaitingTurn = false;
             let queuePos = 0;
             let turnChunks = [];
+            let turnMimeType = 'audio/pcm;rate=24000';
             let turnTimer = null;
 
             const cleanup = () => {
@@ -1139,7 +1122,7 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                 if (settled) return;
                 settled = true;
                 cleanup();
-                resolve({ buffers: results, errorReason: '' });
+                resolve({ buffers, mimeTypes, errorReason: '' });
             };
 
             const onAbort = () => {
@@ -1149,25 +1132,26 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
 
             const sendNextScene = () => {
                 if (settled) return;
-                if (queuePos >= missingIndices.length) {
+                if (queuePos >= count) {
                     finishSuccess();
                     return;
                 }
 
-                const sceneIdx = missingIndices[queuePos];
+                const idx = queuePos;
                 turnChunks = [];
+                turnMimeType = 'audio/pcm;rate=24000';
                 awaitingTurn = true;
 
                 if (turnTimer) clearTimeout(turnTimer);
                 turnTimer = setTimeout(() => {
                     awaitingTurn = false;
-                    if (results.some(Boolean)) {
+                    if (buffers.some(Boolean)) {
                         settled = true;
                         cleanup();
-                        resolve({ buffers: results, errorReason: `Cảnh ${sceneIdx + 1} quá thời gian chờ.` });
+                        resolve({ buffers, mimeTypes, errorReason: `Cảnh ${idx + 1} quá thời gian chờ.` });
                         return;
                     }
-                    finishWithError(new ApiError('TIMEOUT', `Gemini Live phản hồi quá lâu ở cảnh ${sceneIdx + 1}.`));
+                    finishWithError(new ApiError('TIMEOUT', `Gemini Live phản hồi quá lâu ở cảnh ${idx + 1}.`));
                 }, 25000);
 
                 ws.send(
@@ -1178,7 +1162,7 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                                     role: 'user',
                                     parts: [
                                         {
-                                            text: `[Cảnh ${sceneIdx + 1}] Chỉ đọc nguyên văn đúng 1 lần câu sau:\n${cleanTexts[sceneIdx]}`
+                                            text: `Đọc to nguyên văn đúng 1 lần, giữ tốc độ 1.0x đều đặn:\n${texts[idx]}`
                                         }
                                     ]
                                 }
@@ -1206,13 +1190,13 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                 ws.send(
                     JSON.stringify({
                         setup: {
-                            model: `models/${liveModel}`,
+                            model: `models/${model}`,
                             generationConfig: {
                                 responseModalities: ['AUDIO'],
                                 speechConfig: {
                                     voiceConfig: {
                                         prebuiltVoiceConfig: {
-                                            voiceName: voice
+                                            voiceName
                                         }
                                     }
                                 }
@@ -1220,7 +1204,7 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                             systemInstruction: {
                                 parts: [
                                     {
-                                        text: `Bạn là MỘT diễn viên lồng tiếng Việt duy nhất xuyên suốt toàn bộ video (mã giọng: ${voice}). BẮT BUỘC giữ NGUYÊN MỘT CHẤT GIỌNG, CAO ĐỘ VÀ ÂM LƯỢNG ĐỒNG NHẤT từ cảnh đầu đến cảnh cuối — TUYỆT ĐỐI KHÔNG đổi giọng sang người khác hay thêm lời thoại thừa. Khi nhận được câu nào, chỉ đọc chính xác nguyên văn đúng 1 lần, không lặp lại câu cũ, không chào hỏi, không bình luận.`
+                                        text: `Bạn là MỘT phát thanh viên tiếng Việt chuyên nghiệp (mã giọng: ${voiceName}). BẮT BUỘC giữ CÙNG MỘT NHỊP ĐỘ ĐỀU ĐẶN (1.0x), CAO ĐỘ VÀ ÂM LƯỢNG ỔN ĐỊNH qua từng câu — TUYỆT ĐỐI KHÔNG đọc lúc nhanh lúc chậm, không nuốt chữ, không đổi giọng, không thêm lời bình luận. Nhận câu nào chỉ đọc chính xác nguyên văn đúng 1 lần.`
                                     }
                                 ]
                             }
@@ -1264,6 +1248,9 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                 if (sc?.modelTurn?.parts) {
                     for (const part of sc.modelTurn.parts) {
                         if (part.inlineData?.data) {
+                            if (part.inlineData.mimeType) {
+                                turnMimeType = part.inlineData.mimeType;
+                            }
                             const buf = base64ToArrayBuffer(part.inlineData.data);
                             turnChunks.push(new Uint8Array(buf));
                         }
@@ -1277,15 +1264,14 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                         clearTimeout(turnTimer);
                         turnTimer = null;
                     }
-                    const sceneIdx = missingIndices[queuePos];
+                    const idx = queuePos;
                     if (turnChunks.length > 0) {
                         const combined = concatUint8Arrays(turnChunks);
                         turnChunks = [];
                         if (combined.byteLength >= 2400) {
-                            const cacheKey = `live:${liveModel}:${voice}:${hashString(cleanTexts[sceneIdx])}`;
-                            caches.ttsPcm.set(cacheKey, combined);
-                            results[sceneIdx] = combined;
-                            if (onSceneDone) onSceneDone(sceneIdx, combined, false);
+                            buffers[idx] = combined;
+                            mimeTypes[idx] = turnMimeType;
+                            if (onChunkDone) onChunkDone(idx, combined, turnMimeType);
                         }
                     }
                     queuePos++;
@@ -1295,28 +1281,28 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
 
             ws.onerror = () => {
                 clearTimeout(setupTimer);
-                if (results.some(Boolean)) {
+                if (buffers.some(Boolean)) {
                     if (!settled) {
                         settled = true;
                         cleanup();
-                        resolve({ buffers: results, errorReason: `Kết nối Live API bị gián đoạn (${liveModel}).` });
+                        resolve({ buffers, mimeTypes, errorReason: `Kết nối Live API bị gián đoạn (${model}).` });
                     }
                     return;
                 }
-                finishWithError(new ApiError('WS_ERROR', `Lỗi kết nối Live API (${liveModel}).`));
+                finishWithError(new ApiError('WS_ERROR', `Lỗi kết nối Live API (${model}).`));
             };
 
             ws.onclose = (ev) => {
                 clearTimeout(setupTimer);
                 if (!settled) {
-                    if (results.some(Boolean) && queuePos < missingIndices.length) {
+                    if (buffers.some(Boolean) && queuePos < count) {
                         settled = true;
                         cleanup();
-                        resolve({ buffers: results, errorReason: ev.reason || 'Kết nối Live API bị ngắt giữa chừng.' });
+                        resolve({ buffers, mimeTypes, errorReason: ev.reason || 'Kết nối Live API bị ngắt giữa chừng.' });
                     } else if (!setupDone) {
                         const reason = ev.reason || `WebSocket đóng (mã ${ev.code}) — có thể do thiếu API Key hoặc model không hỗ trợ.`;
                         finishWithError(new ApiError('WS_CLOSED', reason));
-                    } else if (queuePos < missingIndices.length) {
+                    } else if (queuePos < count) {
                         finishWithError(new ApiError('WS_CLOSED', ev.reason || 'Kết nối Live API bị ngắt giữa chừng.'));
                     } else {
                         finishSuccess();
@@ -1324,6 +1310,62 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                 }
             };
         });
+    }
+
+    async function fetchBatchLiveTtsPcm({ texts, voiceName, model, onSceneDone, signal }) {
+        const cleanTexts = (texts || []).map((t) => String(t || '').trim() || 'Khoảnh khắc đời sống hằng ngày.');
+        const voice = voiceName || 'Aoede';
+        const liveModel = model || MODELS.LIVE_38;
+
+        const results = new Array(cleanTexts.length).fill(null);
+        const resultMimeTypes = new Array(cleanTexts.length).fill('audio/pcm;rate=24000');
+        const missingIndices = [];
+
+        cleanTexts.forEach((text, i) => {
+            const cacheKey = `live-v2:${liveModel}:${voice}:${hashString(text)}`;
+            if (caches.ttsPcm.has(cacheKey)) {
+                const cached = caches.ttsPcm.get(cacheKey);
+                results[i] = cached?.buffer || cached;
+                resultMimeTypes[i] = cached?.mimeType || 'audio/pcm;rate=24000';
+                if (onSceneDone) onSceneDone(i, results[i], true);
+            } else {
+                missingIndices.push(i);
+            }
+        });
+
+        if (missingIndices.length === 0) {
+            return { buffers: results, mimeTypes: resultMimeTypes, errorReason: '' };
+        }
+
+        // Keep WebSocket sessions short (max 3 scenes each) to prevent conversational speed/pitch drift
+        const MAX_TURNS_PER_SESSION = 3;
+        let lastError = '';
+        for (let offset = 0; offset < missingIndices.length; offset += MAX_TURNS_PER_SESSION) {
+            if (signal && signal.aborted) {
+                throw new DOMException('Aborted', 'AbortError');
+            }
+            const chunkIdxList = missingIndices.slice(offset, offset + MAX_TURNS_PER_SESSION);
+            const chunkTexts = chunkIdxList.map((idx) => cleanTexts[idx]);
+            const sessionRes = await fetchLiveSessionChunk({
+                texts: chunkTexts,
+                voiceName: voice,
+                model: liveModel,
+                signal,
+                onChunkDone: (localIdx, buf, mimeType) => {
+                    const globalIdx = chunkIdxList[localIdx];
+                    results[globalIdx] = buf;
+                    resultMimeTypes[globalIdx] = mimeType || 'audio/pcm;rate=24000';
+                    const cacheKey = `live-v2:${liveModel}:${voice}:${hashString(cleanTexts[globalIdx])}`;
+                    caches.ttsPcm.set(cacheKey, { buffer: buf, mimeType: resultMimeTypes[globalIdx] });
+                    if (onSceneDone) onSceneDone(globalIdx, buf, false);
+                }
+            });
+            if (sessionRes.errorReason) {
+                lastError = sessionRes.errorReason;
+            }
+        }
+
+        return { buffers: results, mimeTypes: resultMimeTypes, errorReason: lastError };
     }
 
     function buildLocalSocialCaption({ title = '', scenes = [], existingHashtags = '' } = {}) {
