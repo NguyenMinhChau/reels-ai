@@ -571,22 +571,34 @@
         });
     }
 
-    function computeAudioEnvelope(audioBuffer, bins = 48) {
+    function computeAudioEnvelope(audioBuffer, bins = 96) {
         if (!audioBuffer || typeof audioBuffer.getChannelData !== 'function' || audioBuffer.length === 0) {
             return new Float32Array(bins);
         }
         const data = audioBuffer.getChannelData(0);
-        const env = new Float32Array(bins);
+        const raw = new Float32Array(bins);
         const step = Math.max(1, Math.floor(data.length / bins));
         for (let b = 0; b < bins; b++) {
             const start = b * step;
             const end = Math.min(data.length, start + step);
-            let sum = 0;
+            let sumSq = 0;
             for (let i = start; i < end; i++) {
-                sum += Math.abs(data[i]);
+                const s = data[i];
+                sumSq += s * s;
             }
-            const avg = end > start ? sum / (end - start) : 0;
-            env[b] = Math.min(1, avg * 3.4);
+            raw[b] = end > start ? Math.sqrt(sumSq / (end - start)) : 0;
+        }
+        const sorted = Array.from(raw).sort((a, b) => a - b);
+        const floor = sorted[Math.floor(sorted.length * 0.15)] || 0;
+        const peak = sorted[Math.floor(sorted.length * 0.92)] || 0;
+        const span = Math.max(0.035, peak - floor);
+
+        const env = new Float32Array(bins);
+        for (let b = 0; b < bins; b++) {
+            const norm = Math.max(0, Math.min(1, (raw[b] - floor * 1.1) / span));
+            // Smooth lightly across neighbor bin to prevent mouth jitter while preserving syllable edges
+            const prev = b > 0 ? env[b - 1] : norm;
+            env[b] = prev * 0.25 + norm * 0.75;
         }
         return env;
     }

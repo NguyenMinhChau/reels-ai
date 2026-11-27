@@ -1,9 +1,11 @@
 /* ==========================================================================
-   Composable 2D Storytelling & UI Motion Animation Engine
-   - Inspired by Vietnamese 2D Cartoon Storyboards (wide/closeup/POV cuts)
-     AND Modern Minimalist UI Motion Explainers (dot-grid cards, cursors, flows)
-   - Multi-character cast with audio-envelope lip sync & blinking eyes
-   - Zero noisy cropped text clutter over artwork
+   Studio-Grade 2D Storytelling & UI Motion Animation Engine
+   - Multi-layer cel-shaded 2D characters (articulated Bezier limbs, fingers,
+     2-layer hair + highlights, eye catchlights, 4-stage audio lip-sync)
+   - Deep illustrated environments (window light beams, bookshelves, plants,
+     monitors, night moonlight, cafe ambiance, dot-grid spotlights)
+   - Real-time speech-envelope & phase choreography (setup -> action -> payoff)
+   - Zero script/subtitle text clutter over artwork
    ========================================================================== */
 (function (global) {
     'use strict';
@@ -11,24 +13,24 @@
     const App = (global.ReelsStudio = global.ReelsStudio || {});
     const W = 540;
     const H = 960;
-    const FLOOR_Y = 782;
+    const FLOOR_Y = 784;
 
     const BACKDROPS = {
-        'office-shelf': { top: '#ede3d2', bot: '#dfd1ba', floor: '#c5a47e', line: '#9c7d5b', accent: '#2563eb', dark: false },
-        'office-desk': { top: '#eef2ff', bot: '#dbeafe', floor: '#c7d2fe', line: '#6366f1', accent: '#2563eb', dark: false },
-        'cream-room': { top: '#fdf6e4', bot: '#eeddb9', floor: '#d6c398', line: '#9c8b68', accent: '#10b981', dark: false },
-        'grid-light': { top: '#f4f8ff', bot: '#e2eeff', floor: '#dbeafe', line: '#93c5fd', accent: '#2563eb', dark: false },
-        'blueprint-dark': { top: '#0b1528', bot: '#13233f', floor: '#0f172a', line: '#1e3a5f', accent: '#38bdf8', dark: true },
-        'bedroom-night': { top: '#0f172a', bot: '#1e1b4b', floor: '#17153b', line: '#4f46e5', accent: '#fbbf24', dark: true },
-        'kitchen-cozy': { top: '#fff7ed', bot: '#ffedd5', floor: '#fed7aa', line: '#c2410c', accent: '#ea580c', dark: false },
-        'cafe-chill': { top: '#fef3c7', bot: '#fde68a', floor: '#d97706', line: '#78350f', accent: '#b45309', dark: false },
-        'server-tech': { top: '#090d16', bot: '#172554', floor: '#0f172a', line: '#38bdf8', accent: '#ef4444', dark: true },
-        'hills-nature': { top: '#e2f1dc', bot: '#cde5c4', floor: '#8cb369', hill: '#a2c97d', line: '#6c914d', accent: '#059669', dark: false },
-        'city-skyline': { top: '#dce9f6', bot: '#c5d9ef', floor: '#b8cce2', line: '#6e8bad', accent: '#2563eb', dark: false },
-        'sunset-warm': { top: '#fde8d7', bot: '#f9ceb7', floor: '#ecc1aa', line: '#b57b61', accent: '#ea580c', dark: false },
-        'mint-fresh': { top: '#dff7ec', bot: '#c3eedb', floor: '#a2dcc2', line: '#4d9b7b', accent: '#0d9488', dark: false },
-        'night-calm': { top: '#1e1b4b', bot: '#312e81', floor: '#17153b', line: '#6366f1', accent: '#f59e0b', dark: true },
-        'alert-tint': { top: '#fee2e2', bot: '#fecdd3', floor: '#fca5a5', line: '#be123c', accent: '#e11d48', dark: false }
+        'office-shelf': { top: '#f5ede0', bot: '#e2d2ba', floor: '#c8a680', line: '#9c7d5b', accent: '#2563eb', wallTrim: '#d4bfa2', dark: false },
+        'office-desk': { top: '#eef4ff', bot: '#dbe8fe', floor: '#cbd5f5', line: '#6366f1', accent: '#2563eb', wallTrim: '#c7d9fc', dark: false },
+        'cream-room': { top: '#fef8e8', bot: '#f2e2be', floor: '#d6c194', line: '#9c8b68', accent: '#10b981', wallTrim: '#e8d4a8', dark: false },
+        'grid-light': { top: '#f6f9ff', bot: '#e5efff', floor: '#dbeafe', line: '#93c5fd', accent: '#2563eb', wallTrim: '#dbeafe', dark: false },
+        'blueprint-dark': { top: '#091224', bot: '#122443', floor: '#0d172a', line: '#1e3a5f', accent: '#38bdf8', wallTrim: '#172e4f', dark: true },
+        'bedroom-night': { top: '#0d142b', bot: '#1e1b4b', floor: '#151336', line: '#4338ca', accent: '#fbbf24', wallTrim: '#272361', dark: true },
+        'kitchen-cozy': { top: '#fff8ef', bot: '#ffecd6', floor: '#fed7aa', line: '#c2410c', accent: '#ea580c', wallTrim: '#fde0c2', dark: false },
+        'cafe-chill': { top: '#fef5d8', bot: '#fde4a6', floor: '#d9913b', line: '#78350f', accent: '#b45309', wallTrim: '#f5cf7f', dark: false },
+        'server-tech': { top: '#070b14', bot: '#122048', floor: '#0d1528', line: '#38bdf8', accent: '#ef4444', wallTrim: '#1b2e5e', dark: true },
+        'hills-nature': { top: '#e2f3de', bot: '#cce7c4', floor: '#8cb369', hill: '#a2c97d', line: '#6c914d', accent: '#059669', wallTrim: '#b4d692', dark: false },
+        'city-skyline': { top: '#ddeaf8', bot: '#c3d9f0', floor: '#b6cce2', line: '#6e8bad', accent: '#2563eb', wallTrim: '#d0e2f4', dark: false },
+        'sunset-warm': { top: '#feeadb', bot: '#fbd0b9', floor: '#ecc1aa', line: '#b57b61', accent: '#ea580c', wallTrim: '#f8be9f', dark: false },
+        'mint-fresh': { top: '#e2f9ef', bot: '#c5f0dc', floor: '#a0dbc0', line: '#4d9b7b', accent: '#0d9488', wallTrim: '#b5e7cf', dark: false },
+        'night-calm': { top: '#181642', bot: '#2b2870', floor: '#131133', line: '#6366f1', accent: '#f59e0b', wallTrim: '#353288', dark: true },
+        'alert-tint': { top: '#fee5e7', bot: '#fecdd3', floor: '#fca5a5', line: '#be123c', accent: '#e11d48', dark: false }
     };
 
     const BACKDROP_NAMES = Object.keys(BACKDROPS);
@@ -53,15 +55,85 @@
     ];
 
     const UI_LAYOUTS = ['ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
-    const STORY_LAYOUTS = ['wide-team', 'desk-closeup', 'hand-pov', 'laptop-popup', 'character-action', 'character-left', 'split-compare', 'action-flow', 'thought-bubble'];
+    const STORY_LAYOUTS = [
+        'wide-team',
+        'desk-closeup',
+        'hand-pov',
+        'laptop-popup',
+        'character-action',
+        'character-left',
+        'split-compare',
+        'action-flow',
+        'thought-bubble'
+    ];
 
     const CAST_NAMES = ['narrator', 'girl-purple', 'boy-spiky', 'girl-bun', 'manager-red'];
     const CAST_PROFILES = {
-        narrator: { shirt: '#1e293b', inner: '#f8fafc', hair: '#1e293b', style: 'parted', laptopDot: false },
-        'girl-purple': { shirt: '#f472b6', inner: '#93c5fd', hair: '#9333ea', style: 'top-bun', laptopDot: true },
-        'boy-spiky': { shirt: '#64748b', inner: '#0f172a', hair: '#27272a', style: 'spiky', laptopDot: false },
-        'girl-bun': { shirt: '#fb923c', inner: '#f8fafc', hair: '#292524', style: 'high-bun', laptopDot: true },
-        'manager-red': { shirt: '#ef4444', inner: '#ffffff', hair: '#1e293b', style: 'short', laptopDot: true }
+        narrator: {
+            shirt: '#1e3a5f',
+            shirtShade: '#142742',
+            inner: '#f8fafc',
+            hair: '#1e293b',
+            hairHi: '#475569',
+            skin: '#fbd3b4',
+            skinShade: '#eab08a',
+            style: 'parted',
+            glasses: false,
+            tie: '#38bdf8',
+            laptopDot: false
+        },
+        'girl-purple': {
+            shirt: '#ec4899',
+            shirtShade: '#be185d',
+            inner: '#fce7f3',
+            hair: '#6b21a8',
+            hairHi: '#a855f7',
+            skin: '#fde0c8',
+            skinShade: '#f0b892',
+            style: 'top-bun',
+            glasses: false,
+            tie: null,
+            laptopDot: true
+        },
+        'boy-spiky': {
+            shirt: '#475569',
+            shirtShade: '#334155',
+            inner: '#e2e8f0',
+            hair: '#18181b',
+            hairHi: '#3f3f46',
+            skin: '#fbd3b4',
+            skinShade: '#e8ad86',
+            style: 'spiky',
+            glasses: true,
+            tie: null,
+            laptopDot: false
+        },
+        'girl-bun': {
+            shirt: '#f97316',
+            shirtShade: '#c2410c',
+            inner: '#fff7ed',
+            hair: '#292524',
+            hairHi: '#57534e',
+            skin: '#fde0c8',
+            skinShade: '#efb890',
+            style: 'high-bun',
+            glasses: false,
+            tie: null,
+            laptopDot: true
+        },
+        'manager-red': {
+            shirt: '#dc2626',
+            shirtShade: '#991b1b',
+            inner: '#ffffff',
+            hair: '#1e293b',
+            hairHi: '#64748b',
+            skin: '#f7c8a5',
+            skinShade: '#df9f74',
+            style: 'short',
+            glasses: true,
+            tie: '#1e293b',
+            laptopDot: true
+        }
     };
 
     const ACTION_NAMES = [
@@ -78,18 +150,22 @@
         'celebrating'
     ];
 
-    const EFFECT_NAMES = [
-        'sparkles',
-        'sparks',
-        'sweat',
-        'steam',
-        'hearts',
-        'confetti',
-        'money',
-        'notes'
-    ];
-
+    const EFFECT_NAMES = ['sparkles', 'sparks', 'sweat', 'steam', 'hearts', 'confetti', 'money', 'notes'];
     const SFX_NAMES = ['pop', 'click', 'whoosh', 'ding', 'none'];
+    const SCREEN_TYPES = [
+        'chat_msg',
+        'excel_err',
+        'revenue_up',
+        'revenue_down',
+        'checklist_done',
+        'calendar_due',
+        'notification_bell',
+        'wallet_cash',
+        'code_bug',
+        'contract_sign',
+        'tea_break',
+        'night_scroll'
+    ];
 
     const PROP_NAMES = [
         'house',
@@ -139,6 +215,11 @@
         return 1 - Math.pow(1 - x, 3);
     }
 
+    function easeInOutCubic(t) {
+        const x = clamp01(t);
+        return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
     function easeOutBack(t) {
         const x = clamp01(t);
         const c1 = 1.70158;
@@ -146,73 +227,188 @@
         return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
     }
 
-    function stagePop(progress, startP, span = 0.18) {
+    function stagePop(progress, startP, span = 0.16) {
         if (progress < startP) return 0;
         return easeOutBack(clamp01((progress - startP) / span));
     }
 
-    // ---- Semantic Story & Action Cue Rules ----
+    // ---- Weighted Context-Rich Story & Domain Resolver ----
     const SEMANTIC_RULES = [
-        { regex: /phòng kinh doanh|công ty|văn phòng|mọi người|đội ngũ|nhân viên|đồng nghiệp|họp/, backdrop: 'office-shelf', layout: 'wide-team', cast: 'narrator', action: 'pointing', props: ['laptop', 'chart_bars'], mood: 'happy', effect: 'sparkles', sfx: 'whoosh' },
-        { regex: /gọi điện|nghe máy|alo|nhắn tin cho khách|điện thoại lên|nói chuyện điện thoại/, backdrop: 'office-shelf', layout: 'desk-closeup', cast: 'manager-red', action: 'calling', props: ['phone', 'coffee_cup'], mood: 'happy', effect: 'sparkles', sfx: 'pop' },
-        { regex: /chụp lại|giấy tờ|chữ ký|ký tên|hợp đồng|bảng giá|hóa đơn|tài liệu|hồ sơ/, backdrop: 'office-shelf', layout: 'hand-pov', cast: 'girl-bun', action: 'pointing', props: ['card_doc', 'phone'], mood: 'thinking', effect: 'sparkles', sfx: 'click' },
-        { regex: /mở file|file|excel|bảng tính|màn hình|hệ thống|giao diện|cửa sổ|app/, backdrop: 'office-desk', layout: 'laptop-popup', cast: 'girl-purple', action: 'typing', props: ['laptop', 'card_doc'], mood: 'shocked', effect: 'sweat', sfx: 'pop' },
-        { regex: /sập server|lỗi|bug|code|it|dev|deploy|lập trình|service/, backdrop: 'server-tech', layout: 'character-action', cast: 'boy-spiky', action: 'typing', props: ['laptop', 'fire_flame', 'warning_triangle'], mood: 'shocked', effect: 'sparks', sfx: 'pop' },
-        { regex: /10 giờ|22 giờ|2 giờ|1 giờ|khuya|nửa đêm|ngủ|nằm|chăn|giấc ngủ|mất ngủ/, backdrop: 'bedroom-night', layout: 'character-action', cast: 'girl-purple', action: 'sleeping', props: ['sleep_bed', 'phone', 'clock'], mood: 'sleepy', effect: 'sparkles', sfx: 'none' },
-        { regex: /lướt điện thoại|mở mắt|tin nhắn|sếp nhắn|check tin|điện thoại|reels|mạng xã hội|thông báo/, backdrop: 'bedroom-night', layout: 'character-action', cast: 'boy-spiky', action: 'shocked-phone', props: ['phone', 'speech_drama', 'clock'], mood: 'shocked', effect: 'sweat', sfx: 'pop' },
-        { regex: /sếp|trưởng phòng|kế toán|sales|tăng lương|phỏng vấn|hr|deadline|chạy số/, backdrop: 'office-shelf', layout: 'desk-closeup', cast: 'girl-purple', action: 'typing', props: ['laptop', 'speech_drama', 'clock'], mood: 'shocked', effect: 'sweat', sfx: 'pop' },
-        { regex: /bước \d|cách làm|hướng dẫn|quy trình|skill|công cụ|tính năng|chọn|bấm nút/, backdrop: 'grid-light', layout: 'ui-window', cast: 'narrator', action: 'pointing', props: ['laptop', 'lightbulb'], mood: 'happy', effect: 'sparkles', sfx: 'click' },
-        { regex: /so sánh|gấp đôi|chênh lệch|ít hơn|hơn hẳn|tăng|giảm|hiệu quả|kết quả|trước|sau/, backdrop: 'mint-fresh', layout: 'split-compare', cast: 'narrator', action: 'celebrating', props: ['chart_bars', 'jar', 'lightbulb'], mood: 'happy', effect: 'confetti', sfx: 'ding' },
-        { regex: /lừa đảo|link lạ|otp|giả mạo|tin nhắn lạ|bẫy/, backdrop: 'alert-tint', layout: 'character-action', cast: 'girl-bun', action: 'shocked-phone', props: ['scam_link', 'warning_triangle', 'padlock'], mood: 'shocked', effect: 'sparks', sfx: 'pop', crossOut: true },
-        { regex: /ổ điện|cháy|nổ|quá tải|giật điện|nóng máy|cắm sạc/, backdrop: 'alert-tint', layout: 'split-compare', cast: 'boy-spiky', action: 'shocked-phone', props: ['plug_socket', 'fire_flame', 'battery'], mood: 'shocked', effect: 'sparks', sfx: 'pop', crossOut: true },
-        { regex: /uống nước|ly nước|cốc nước|nước ấm|nước lọc|cà phê|trà sữa|thải độc/, backdrop: 'cafe-chill', layout: 'character-action', cast: 'girl-purple', action: 'drinking', props: ['water_glass', 'coffee_cup', 'heart'], mood: 'happy', effect: 'steam', sfx: 'pop' },
-        { regex: /cơm|ăn|nấu|bếp|chảo|hành|tỏi|bữa|tủ lạnh|ngăn đá|chợ/, backdrop: 'kitchen-cozy', layout: 'character-action', cast: 'girl-bun', action: 'cooking', props: ['rice_bowl', 'coffee_cup', 'jar'], mood: 'happy', effect: 'steam', sfx: 'pop' },
-        { regex: /nhạc|lofi|lo-fi|giai điệu|âm thanh|piano|chill|thư giãn/, backdrop: 'cafe-chill', layout: 'center-hero', cast: 'girl-purple', action: 'drinking', props: ['music_bars', 'coffee_cup', 'heart'], mood: 'happy', effect: 'notes', sfx: 'none' },
-        { regex: /lương|thu nhập|tiền|phong bì|triệu|nghìn|50k|100k|tiết kiệm|hũ|ví|trả góp|chi tiêu|tài chính/, backdrop: 'mint-fresh', layout: 'character-action', cast: 'narrator', action: 'counting-money', props: ['cash_stack', 'jar', 'coin'], mood: 'happy', effect: 'money', sfx: 'ding' },
-        { regex: /chạy|vội|muộn|trễ|tắc đường|xe|đi làm|xăng|chuyến/, backdrop: 'city-skyline', layout: 'character-action', cast: 'boy-spiky', action: 'running', props: ['scooter', 'bus', 'clock'], mood: 'shocked', effect: 'sweat', sfx: 'whoosh' },
-        { regex: /thành công|chúc mừng|tuyệt vời|nhẹ nhàng|dư thời gian|bí quyết|thay đổi|follow|đăng ký/, backdrop: 'sunset-warm', layout: 'character-left', cast: 'narrator', action: 'celebrating', props: ['lightbulb', 'heart', 'gift_box'], mood: 'happy', effect: 'confetti', sfx: 'ding' },
-        { regex: /quê|nhà|gia đình|bố mẹ|tình cảm|yêu/, backdrop: 'hills-nature', layout: 'character-left', cast: 'girl-purple', action: 'celebrating', props: ['house', 'heart', 'gift_box'], mood: 'happy', effect: 'hearts', sfx: 'pop' }
+        {
+            regex: /phòng kinh doanh|công ty|văn phòng|đội ngũ|cả team|họp team|họp sáng|nhân viên|đồng nghiệp|họp/,
+            backdrop: 'office-shelf', layout: 'wide-team', cast: 'narrator', action: 'pointing',
+            props: ['laptop', 'chart_bars'], mood: 'happy', effect: 'sparkles', sfx: 'whoosh', screenType: 'revenue_up'
+        },
+        {
+            regex: /gọi điện|nghe máy|alo|tư vấn khách|chốt sale|điện thoại lên|gọi khách/,
+            backdrop: 'office-shelf', layout: 'desk-closeup', cast: 'manager-red', action: 'calling',
+            props: ['phone', 'coffee_cup'], mood: 'happy', effect: 'sparkles', sfx: 'pop', screenType: 'notification_bell'
+        },
+        {
+            regex: /hợp đồng|chữ ký|ký tên|giấy tờ|hóa đơn|bảng giá|báo giá|tài liệu|hồ sơ|duyệt đơn/,
+            backdrop: 'office-shelf', layout: 'hand-pov', cast: 'girl-bun', action: 'pointing',
+            props: ['card_doc', 'envelope'], mood: 'thinking', effect: 'sparkles', sfx: 'click', screenType: 'contract_sign'
+        },
+        {
+            regex: /excel|bảng tính|lỗi công thức|nhập liệu|file báo cáo|mở file|phần mềm|erp|crm|hệ thống/,
+            backdrop: 'office-desk', layout: 'laptop-popup', cast: 'girl-purple', action: 'typing',
+            props: ['laptop', 'card_doc'], mood: 'shocked', effect: 'sweat', sfx: 'pop', screenType: 'excel_err'
+        },
+        {
+            regex: /deadline|trễ hạn|chạy số|kpi|áp lực|ot|tăng ca|sếp mắng|gấp rút|trưởng phòng/,
+            backdrop: 'office-desk', layout: 'desk-closeup', cast: 'boy-spiky', action: 'typing',
+            props: ['clock', 'target_kpi', 'laptop'], mood: 'shocked', effect: 'sweat', sfx: 'pop', screenType: 'calendar_due'
+        },
+        {
+            regex: /sập server|lỗi|bug|code|it|dev|deploy|lập trình|api|crash|sự cố/,
+            backdrop: 'server-tech', layout: 'character-action', cast: 'boy-spiky', action: 'typing',
+            props: ['laptop', 'fire_flame', 'warning_triangle'], mood: 'shocked', effect: 'sparks', sfx: 'pop', screenType: 'code_bug'
+        },
+        {
+            regex: /10 giờ|11 giờ|22 giờ|23 giờ|2 giờ|1 giờ|khuya|nửa đêm|ngủ|mất ngủ|nằm trên giường|giấc ngủ/,
+            backdrop: 'bedroom-night', layout: 'character-action', cast: 'girl-purple', action: 'sleeping',
+            props: ['sleep_bed', 'phone', 'clock'], mood: 'sleepy', effect: 'sparkles', sfx: 'none', screenType: 'night_scroll'
+        },
+        {
+            regex: /lướt điện thoại|tin nhắn|sếp nhắn|check tin|nhắn tin|chat|zalo|thông báo|notification|seen|im lặng/,
+            backdrop: 'office-desk', layout: 'hand-pov', cast: 'girl-purple', action: 'shocked-phone',
+            props: ['phone', 'speech_drama'], mood: 'shocked', effect: 'sweat', sfx: 'pop', screenType: 'chat_msg'
+        },
+        {
+            regex: /bước \d|cách làm|hướng dẫn|quy trình|từng bước|kiểm tra|danh sách|checklist|tối ưu|cài đặt/,
+            backdrop: 'grid-light', layout: 'ui-checklist', cast: 'narrator', action: 'pointing',
+            props: ['card_doc', 'lightbulb', 'laptop'], mood: 'happy', effect: 'sparkles', sfx: 'click', screenType: 'checklist_done'
+        },
+        {
+            regex: /marketing|quảng cáo|ads|content|nội dung|viral|kênh|thu hút|tăng trưởng|tỷ lệ|chuyển đổi/,
+            backdrop: 'office-desk', layout: 'action-flow', cast: 'girl-bun', action: 'pointing',
+            props: ['megaphone', 'chart_bars', 'target_kpi'], mood: 'happy', effect: 'sparkles', sfx: 'whoosh', screenType: 'revenue_up'
+        },
+        {
+            regex: /so sánh|gấp đôi|chênh lệch|ít hơn|hơn hẳn|tăng|giảm|hiệu quả|kết quả|trước|sau/,
+            backdrop: 'mint-fresh', layout: 'split-compare', cast: 'narrator', action: 'celebrating',
+            props: ['chart_bars', 'lightbulb'], mood: 'happy', effect: 'confetti', sfx: 'ding', screenType: 'revenue_up'
+        },
+        {
+            regex: /lừa đảo|link lạ|otp|giả mạo|tin nhắn lạ|mất tiền|cảnh báo|bẫy|rủi ro|nguy hiểm/,
+            backdrop: 'alert-tint', layout: 'character-action', cast: 'girl-bun', action: 'shocked-phone',
+            props: ['scam_link', 'warning_triangle', 'padlock'], mood: 'shocked', effect: 'sparks', sfx: 'pop', screenType: 'code_bug', crossOut: true
+        },
+        {
+            regex: /ổ điện|cháy|nổ|quá tải|giật điện|nóng máy|cắm sạc|pin/,
+            backdrop: 'alert-tint', layout: 'split-compare', cast: 'boy-spiky', action: 'shocked-phone',
+            props: ['plug_socket', 'fire_flame', 'battery'], mood: 'shocked', effect: 'sparks', sfx: 'pop', screenType: 'code_bug', crossOut: true
+        },
+        {
+            regex: /uống nước|ly nước|cốc nước|nước ấm|nước lọc|cà phê|trà sữa|nghỉ giải lao|thải độc/,
+            backdrop: 'cafe-chill', layout: 'character-action', cast: 'girl-purple', action: 'drinking',
+            props: ['coffee_cup', 'water_glass', 'heart'], mood: 'happy', effect: 'steam', sfx: 'pop', screenType: 'tea_break'
+        },
+        {
+            regex: /cơm|ăn|nấu|bếp|chảo|hành|tỏi|bữa|tủ lạnh|ngăn đá|chợ/,
+            backdrop: 'kitchen-cozy', layout: 'character-action', cast: 'girl-bun', action: 'cooking',
+            props: ['rice_bowl', 'coffee_cup', 'jar'], mood: 'happy', effect: 'steam', sfx: 'pop', screenType: 'tea_break'
+        },
+        {
+            regex: /nhạc|lofi|lo-fi|giai điệu|âm thanh|piano|chill|thư giãn/,
+            backdrop: 'cafe-chill', layout: 'center-hero', cast: 'girl-purple', action: 'drinking',
+            props: ['music_bars', 'coffee_cup', 'heart'], mood: 'happy', effect: 'notes', sfx: 'none', screenType: 'tea_break'
+        },
+        {
+            regex: /lương|thu nhập|tiền|phong bì|triệu|nghìn|50k|100k|tiết kiệm|hũ|ví|trả góp|chi tiêu|tài chính|ngân sách|đầu tư|lãi/,
+            backdrop: 'mint-fresh', layout: 'character-action', cast: 'narrator', action: 'counting-money',
+            props: ['cash_stack', 'jar', 'coin'], mood: 'happy', effect: 'money', sfx: 'ding', screenType: 'wallet_cash'
+        },
+        {
+            regex: /chạy|vội|muộn|trễ|tắc đường|xe|đi làm|xăng|chuyến|tan tầm/,
+            backdrop: 'city-skyline', layout: 'character-action', cast: 'boy-spiky', action: 'running',
+            props: ['scooter', 'clock', 'city_building'], mood: 'shocked', effect: 'sweat', sfx: 'whoosh', screenType: 'calendar_due'
+        },
+        {
+            regex: /thành công|chúc mừng|tuyệt vời|nhẹ nhàng|dư thời gian|bí quyết|thay đổi|follow|đăng ký|chốt đơn/,
+            backdrop: 'sunset-warm', layout: 'character-left', cast: 'narrator', action: 'celebrating',
+            props: ['lightbulb', 'heart', 'gift_box'], mood: 'happy', effect: 'confetti', sfx: 'ding', screenType: 'revenue_up'
+        },
+        {
+            regex: /quê|nhà|gia đình|bố mẹ|tình cảm|yêu/,
+            backdrop: 'hills-nature', layout: 'character-left', cast: 'girl-purple', action: 'celebrating',
+            props: ['house', 'heart', 'gift_box'], mood: 'happy', effect: 'hearts', sfx: 'pop', screenType: 'tea_break'
+        }
     ];
 
+    function inferDomainContext(fullText) {
+        const lower = String(fullText || '').toLowerCase();
+        if (/it|dev|code|bug|server|phần mềm|hệ thống|erp|ai|công nghệ|máy tính|dữ liệu/.test(lower)) {
+            return { backdrop: 'office-desk', props: ['laptop', 'chart_bars'], action: 'typing', screenType: 'code_bug', cast: 'boy-spiky' };
+        }
+        if (/tiền|lương|tài chính|tiết kiệm|đầu tư|ngân sách|nợ|chi tiêu|bán hàng|sale|doanh thu|khách/.test(lower)) {
+            return { backdrop: 'mint-fresh', props: ['chart_bars', 'cash_stack'], action: 'counting-money', screenType: 'wallet_cash', cast: 'narrator' };
+        }
+        if (/công sở|văn phòng|sếp|nhân viên|đồng nghiệp|marketing|hr|phỏng vấn|kpi|deadline|họp/.test(lower)) {
+            return { backdrop: 'office-shelf', props: ['laptop', 'card_doc'], action: 'pointing', screenType: 'checklist_done', cast: 'narrator' };
+        }
+        if (/nấu|bếp|ăn|sức khỏe|uống nước|ngủ|mẹo/.test(lower)) {
+            return { backdrop: 'cream-room', props: ['lightbulb', 'water_glass'], action: 'pointing', screenType: 'checklist_done', cast: 'girl-bun' };
+        }
+        return { backdrop: 'cream-room', props: ['lightbulb', 'speech_drama'], action: 'pointing', screenType: 'chat_msg', cast: 'narrator' };
+    }
+
     function analyzeSceneVisualCue(sceneText, beatIdx, videoTitle = '', state = {}, visualStyle = 'motion') {
-        const s = `${sceneText || ''} ${beatIdx === 0 ? videoTitle || '' : ''}`.toLowerCase();
+        const beatLower = String(sceneText || '').toLowerCase();
+        const combinedLower = `${beatLower} ${String(videoTitle || '').toLowerCase()}`;
         const isUiMode = visualStyle === 'ui-motion';
         const prevLayout = state.prevLayout || '';
         const prevBackdrop = state.prevBackdrop || '';
         const prevProp = state.prevProp || '';
 
-        const matched = SEMANTIC_RULES.filter((r) => r.regex.test(s));
-        const rule = matched.length > 0 ? matched[beatIdx % matched.length] : null;
+        // Score rules: hits inside current sentence count 3x, title context counts 1x
+        let bestRule = null;
+        let bestScore = 0;
+        for (const r of SEMANTIC_RULES) {
+            const globalRx = new RegExp(r.regex.source, 'gi');
+            const beatHits = (beatLower.match(globalRx) || []).length;
+            const titleHits = (String(videoTitle || '').toLowerCase().match(globalRx) || []).length;
+            const score = beatHits * 3 + titleHits;
+            if (score > bestScore) {
+                bestScore = score;
+                bestRule = r;
+            }
+        }
 
+        const domain = inferDomainContext(combinedLower);
         const poolLayouts = isUiMode ? UI_LAYOUTS : STORY_LAYOUTS;
+
         let layout = isUiMode
             ? UI_LAYOUTS[beatIdx % UI_LAYOUTS.length]
-            : (rule ? rule.layout : STORY_LAYOUTS[beatIdx % STORY_LAYOUTS.length]);
+            : (bestRule ? bestRule.layout : STORY_LAYOUTS[(beatIdx * 2) % STORY_LAYOUTS.length]);
+
         if (layout === prevLayout && poolLayouts.length > 1) {
             const alt = poolLayouts.filter((l) => l !== prevLayout);
             layout = alt[(beatIdx * 3) % alt.length];
         }
 
+        // Preserve logical space continuity when consecutive beats happen in office/domain!
         let backdrop = isUiMode
             ? (beatIdx % 3 === 1 ? 'blueprint-dark' : 'grid-light')
-            : (rule ? rule.backdrop : BACKDROP_NAMES[beatIdx % BACKDROP_NAMES.length]);
-        if (!isUiMode && backdrop === prevBackdrop && BACKDROP_NAMES.length > 1) {
-            const altBgs = BACKDROP_NAMES.filter((b) => b !== prevBackdrop && b !== 'grid-light' && b !== 'blueprint-dark');
-            backdrop = altBgs[(beatIdx * 2) % altBgs.length];
+            : (bestRule ? bestRule.backdrop : domain.backdrop);
+
+        if (!isUiMode && backdrop === prevBackdrop && (layout === 'wide-team' || layout === 'desk-closeup')) {
+            // Same room, different camera angle looks intentional and cinematic!
+        } else if (!isUiMode && backdrop === prevBackdrop && !bestRule) {
+            backdrop = prevBackdrop === 'office-shelf' ? 'office-desk' : domain.backdrop;
         }
 
-        const candidateProps = rule
-            ? [...rule.props]
-            : [PROP_NAMES[(beatIdx * 5) % PROP_NAMES.length], PROP_NAMES[(beatIdx * 5 + 7) % PROP_NAMES.length]];
+        const candidateProps = bestRule ? [...bestRule.props] : [...domain.props];
         if (candidateProps[0] === prevProp && candidateProps.length > 1) {
             candidateProps.push(candidateProps.shift());
         }
 
-        const cast = rule?.cast || CAST_NAMES[beatIdx % CAST_NAMES.length];
-        const action = rule ? rule.action : ACTION_NAMES[beatIdx % ACTION_NAMES.length];
-        const characterMood = rule ? rule.mood : beatIdx % 3 === 1 ? 'thinking' : 'happy';
-        const effect = rule ? rule.effect : 'sparkles';
-        const sfx = rule?.sfx || (beatIdx === 0 ? 'whoosh' : beatIdx % 2 === 0 ? 'pop' : 'click');
+        const cast = bestRule?.cast || domain.cast || CAST_NAMES[beatIdx % CAST_NAMES.length];
+        const action = bestRule ? bestRule.action : domain.action;
+        const characterMood = bestRule ? bestRule.mood : (/hỏi|sao|tại sao|gì|\?/.test(beatLower) ? 'thinking' : 'happy');
+        const effect = bestRule ? bestRule.effect : 'sparkles';
+        const sfx = bestRule?.sfx || (beatIdx === 0 ? 'whoosh' : beatIdx % 2 === 0 ? 'pop' : 'click');
+        const screenType = bestRule?.screenType || domain.screenType || 'chat_msg';
 
         return {
             layout,
@@ -221,21 +417,22 @@
             action,
             effect,
             sfx,
+            screenType,
             props: candidateProps,
             characterMood,
-            crossOut: Boolean(rule?.crossOut && /đừng|không|sai|tránh|nổ|lừa|sập/.test(s)),
+            crossOut: Boolean(bestRule?.crossOut || (/sai lầm|đừng bao giờ|tuyệt đối không|cảnh báo|tránh ngay|sập bẫy/.test(beatLower))),
             sceneText: String(sceneText || ''),
             videoTitle: String(videoTitle || '')
         };
     }
 
-    // ---- Shared Vector Primitives ----
-    function drawOutlinedRect(ctx, x, y, w, h, r, fill, stroke = '#1e293b', lw = 3, shadow = true) {
+    // ---- Shared Vector & Cel-Shaded Primitives ----
+    function drawOutlinedRect(ctx, x, y, w, h, r, fill, stroke = '#1e293b', lw = 2.8, shadow = true) {
         ctx.save();
         if (shadow) {
             ctx.fillStyle = 'rgba(15, 23, 42, 0.14)';
             ctx.beginPath();
-            ctx.roundRect(x + 3, y + 6, w, h, r);
+            ctx.roundRect(x + 4, y + 7, w, h, r);
             ctx.fill();
         }
         ctx.fillStyle = fill;
@@ -245,7 +442,57 @@
         if (stroke && lw > 0) {
             ctx.strokeStyle = stroke;
             ctx.lineWidth = lw;
+            ctx.lineJoin = 'round';
             ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function drawArticulatedLimb(ctx, x1, y1, mx, my, x2, y2, thickness, color, outline = '#1e293b', handColor = null, pointFinger = false) {
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        // Dark outer outline pass
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = thickness + 5;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.quadraticCurveTo(mx, my, x2, y2);
+        ctx.stroke();
+
+        // Inner sleeve/pant fill pass
+        ctx.strokeStyle = color;
+        ctx.lineWidth = thickness;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.quadraticCurveTo(mx, my, x2, y2);
+        ctx.stroke();
+
+        if (handColor) {
+            ctx.fillStyle = handColor;
+            ctx.strokeStyle = outline;
+            ctx.lineWidth = 2.4;
+            ctx.beginPath();
+            ctx.arc(x2, y2, thickness * 0.62, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            if (pointFinger) {
+                const ang = Math.atan2(y2 - my, x2 - mx);
+                ctx.beginPath();
+                ctx.moveTo(x2, y2);
+                ctx.lineTo(x2 + Math.cos(ang) * 15, y2 + Math.sin(ang) * 15);
+                ctx.lineWidth = 5;
+                ctx.strokeStyle = handColor;
+                ctx.stroke();
+                ctx.lineWidth = 2.2;
+                ctx.strokeStyle = outline;
+                ctx.beginPath();
+                ctx.arc(x2 + Math.cos(ang) * 13, y2 + Math.sin(ang) * 13, 3.2, 0, Math.PI * 2);
+                ctx.fillStyle = handColor;
+                ctx.fill();
+                ctx.stroke();
+            }
         }
         ctx.restore();
     }
@@ -254,25 +501,39 @@
         ctx.save();
         if (ripple > 0.02 && ripple < 0.98) {
             ctx.strokeStyle = `rgba(37, 99, 235, ${1 - ripple})`;
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 3.2;
             ctx.beginPath();
-            ctx.arc(x, y, 10 + ripple * 28, 0, Math.PI * 2);
+            ctx.arc(x, y, 10 + ripple * 32, 0, Math.PI * 2);
             ctx.stroke();
         }
-        ctx.translate(x, y);
+        // Soft drop shadow
+        ctx.translate(x + 2, y + 4);
         ctx.scale(clickScale, clickScale);
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.22)';
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, 30);
+        ctx.lineTo(8, 22);
+        ctx.lineTo(14, 34);
+        ctx.lineTo(20, 31);
+        ctx.lineTo(14, 19);
+        ctx.lineTo(24, 18);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.translate(-2, -4);
         ctx.fillStyle = '#ffffff';
         ctx.strokeStyle = '#0f172a';
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2.6;
         ctx.lineJoin = 'round';
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        ctx.lineTo(0, 28);
-        ctx.lineTo(8, 21);
-        ctx.lineTo(14, 32);
-        ctx.lineTo(19, 29);
-        ctx.lineTo(13, 18);
-        ctx.lineTo(23, 17);
+        ctx.lineTo(0, 30);
+        ctx.lineTo(8, 22);
+        ctx.lineTo(14, 34);
+        ctx.lineTo(20, 31);
+        ctx.lineTo(14, 19);
+        ctx.lineTo(24, 18);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
@@ -285,7 +546,7 @@
         ctx.rotate(rot);
         ctx.fillStyle = color;
         ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1.8;
         ctx.beginPath();
         for (let i = 0; i < 4; i++) {
             const angle = (i * Math.PI) / 2;
@@ -298,63 +559,139 @@
         ctx.restore();
     }
 
+    function drawPottedPlant(ctx, x, y, scale = 1, sway = 0) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+        // Leaves
+        [
+            [-18, -58, -0.5, '#15803d'],
+            [18, -56, 0.5, '#16a34a'],
+            [0, -76, 0.05, '#22c55e'],
+            [-26, -42, -0.85, '#166534'],
+            [26, -40, 0.85, '#15803d']
+        ].forEach(([lx, ly, ang, col], i) => {
+            ctx.save();
+            ctx.translate(0, -26);
+            ctx.rotate(ang + sway * 0.03 * (i % 2 === 0 ? 1 : -1));
+            ctx.fillStyle = col;
+            ctx.strokeStyle = '#14532d';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.ellipse(lx * 0.35, ly * 0.55, 11, 24, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        });
+        // Ceramic pot
+        ctx.fillStyle = '#f8fafc';
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(-22, -32);
+        ctx.lineTo(22, -32);
+        ctx.lineTo(17, 0);
+        ctx.lineTo(-17, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        drawOutlinedRect(ctx, -25, -38, 50, 9, 4, '#e2e8f0', '#1e293b', 2.2, false);
+        ctx.restore();
+    }
+
     function drawPalmTree(ctx, x, y, scale = 1, sway = 0) {
         ctx.save();
         ctx.translate(x, y);
         ctx.scale(scale, scale);
         ctx.fillStyle = '#8b5e3c';
         ctx.strokeStyle = '#3e2723';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.2;
         ctx.beginPath();
-        ctx.moveTo(-7, 0);
-        ctx.lineTo(-4, -145);
+        ctx.moveTo(-8, 0);
+        ctx.quadraticCurveTo(-2, -70, -4, -145);
         ctx.lineTo(4, -145);
-        ctx.lineTo(8, 0);
+        ctx.quadraticCurveTo(6, -70, 9, 0);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
         ctx.translate(0, -145);
         ctx.rotate(sway * 0.045);
-        ctx.fillStyle = '#558b2f';
-        [-2.4, -1.7, -0.8, 0.3, 1.0].forEach((ang) => {
+        [-2.4, -1.7, -0.8, 0.3, 1.0].forEach((ang, idx) => {
             ctx.save();
             ctx.rotate(ang);
+            ctx.fillStyle = idx % 2 === 0 ? '#4d7c0f' : '#65a30d';
+            ctx.strokeStyle = '#365314';
+            ctx.lineWidth = 1.8;
             ctx.beginPath();
-            ctx.ellipse(28, 0, 32, 9, 0, 0, Math.PI * 2);
+            ctx.ellipse(28, 0, 32, 9.5, 0, 0, Math.PI * 2);
             ctx.fill();
+            ctx.stroke();
             ctx.restore();
         });
         ctx.restore();
     }
 
-    // ---- Rich Illustrated Backdrops (Cartoon Office Shelves + Studio Grids) ----
-    function drawOfficeBookshelfAndChart(ctx, xShelf = 28, yShelf = 165, chartX = 335, chartY = 175) {
-        // Wooden bookshelf frame with 3 rows of colorful upright folders (just like Video 1!)
-        drawOutlinedRect(ctx, xShelf, yShelf, 286, 260, 8, '#c5996b', '#8c6642', 3, false);
-        const binderCols = ['#38bdf8', '#fb923c', '#facc15', '#34d399', '#ef4444', '#60a5fa'];
-        for (let row = 0; row < 3; row++) {
-            const ry = yShelf + 12 + row * 82;
-            drawOutlinedRect(ctx, xShelf + 10, ry, 266, 70, 4, '#a67f58', '#78583a', 2, false);
-            for (let b = 0; b < 7; b++) {
-                const bx = xShelf + 18 + b * 36;
-                const col = binderCols[(row * 3 + b) % binderCols.length];
-                drawOutlinedRect(ctx, bx, ry + 8, 28, 58, 4, col, '#1e293b', 1.8, false);
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(bx + 7, ry + 18, 14, 10);
-            }
+    // ---- Detailed Room Backdrops with Lighting & Depth ----
+    function drawOfficeBookshelfAndWindow(ctx, t, audioLevel = 0) {
+        // Upper-right window with diagonal warm sunlight beam
+        drawOutlinedRect(ctx, 328, 108, 174, 198, 10, '#dbeafe', '#64748b', 3.2, true);
+        drawOutlinedRect(ctx, 336, 116, 158, 182, 6, '#e0f2fe', '#94a3b8', 1.8, false);
+        // Sun rays diagonal soft beam
+        ctx.save();
+        ctx.fillStyle = 'rgba(254, 249, 195, 0.24)';
+        ctx.beginPath();
+        ctx.moveTo(336, 116);
+        ctx.lineTo(494, 116);
+        ctx.lineTo(395, FLOOR_Y);
+        ctx.lineTo(155, FLOOR_Y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        // Window blinds slats
+        ctx.fillStyle = 'rgba(255,255,255,0.62)';
+        for (let wy = 128; wy < 280; wy += 24) {
+            ctx.fillRect(340, wy, 150, 7);
         }
-        // Framed Bar Chart Poster on wall
-        drawOutlinedRect(ctx, chartX, chartY, 175, 195, 8, '#ffffff', '#cbd5e1', 3, true);
-        ctx.fillStyle = '#f1f5f9';
-        ctx.fillRect(chartX + 16, chartY + 18, 143, 24);
-        const heights = [62, 108, 48, 86];
-        const barCols = ['#3b82f6', '#2563eb', '#60a5fa', '#1d4ed8'];
-        heights.forEach((bh, i) => {
-            const bx = chartX + 24 + i * 34;
-            ctx.fillStyle = barCols[i];
-            ctx.fillRect(bx, chartY + 165 - bh, 22, bh);
+
+        // Tall Wooden Bookshelf left side with 3D side edge
+        drawOutlinedRect(ctx, 26, 154, 256, 264, 8, '#b08457', '#6f4e32', 3, true);
+        drawOutlinedRect(ctx, 36, 164, 236, 72, 4, '#8d6640', '#5c4026', 2, false);
+        drawOutlinedRect(ctx, 36, 248, 236, 72, 4, '#8d6640', '#5c4026', 2, false);
+        drawOutlinedRect(ctx, 36, 332, 236, 74, 4, '#8d6640', '#5c4026', 2, false);
+
+        const binderCols = ['#38bdf8', '#fb923c', '#facc15', '#34d399', '#ef4444', '#60a5fa', '#a855f7'];
+        [164, 248, 332].forEach((ry, row) => {
+            for (let b = 0; b < 6; b++) {
+                const bx = 44 + b * 36;
+                const bh = 54 + ((b + row) % 2) * 6;
+                const col = binderCols[(row * 3 + b) % binderCols.length];
+                drawOutlinedRect(ctx, bx, ry + (68 - bh), 28, bh, 4, col, '#1e293b', 1.8, false);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(bx + 7, ry + (68 - bh) + 10, 14, 10);
+            }
         });
+
+        // Framed Analytics Whiteboard / Poster
+        drawOutlinedRect(ctx, 326, 326, 178, 128, 10, '#ffffff', '#64748b', 3, true);
+        const barH = [38, 66, 52, 84];
+        const barCols = ['#93c5fd', '#60a5fa', '#3b82f6', '#10b981'];
+        barH.forEach((h, i) => {
+            const bx = 348 + i * 36;
+            const pulse = i === 3 ? audioLevel * 8 : 0;
+            drawOutlinedRect(ctx, bx, 434 - h - pulse, 24, h + pulse, 4, barCols[i], '#1e293b', 1.8, false);
+        });
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(356, 392);
+        ctx.lineTo(394, 364);
+        ctx.lineTo(432, 378);
+        ctx.lineTo(472, 344);
+        ctx.stroke();
+
+        // Cozy potted Monstera plant on floor left
+        drawPottedPlant(ctx, 56, FLOOR_Y, 1.05, Math.sin(t * 1.8));
     }
 
     function drawBackdrop(ctx, backdropId, progress, t, audioLevel = 0) {
@@ -367,64 +704,72 @@
 
         if (backdropId === 'grid-light' || backdropId === 'blueprint-dark') {
             const isDark = backdropId === 'blueprint-dark';
-            // Modern SaaS Dot Grid / Blueprint Lines (Video 2 aesthetic)
-            ctx.fillStyle = isDark ? 'rgba(56, 189, 248, 0.16)' : 'rgba(59, 130, 246, 0.14)';
+            // Modern dot-matrix + soft glowing radial studio backdrop
+            ctx.fillStyle = isDark ? 'rgba(56, 189, 248, 0.18)' : 'rgba(37, 99, 235, 0.15)';
             for (let gx = 20; gx < W; gx += 28) {
-                for (let gy = 40; gy < H - 40; gy += 28) {
+                for (let gy = 48; gy < H - 48; gy += 28) {
                     ctx.beginPath();
                     ctx.arc(gx, gy, 1.8, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
-            const aura = ctx.createRadialGradient(270, 380, 40, 270, 380, 340);
-            aura.addColorStop(0, isDark ? 'rgba(37, 99, 235, 0.24)' : 'rgba(255, 255, 255, 0.72)');
+            const aura = ctx.createRadialGradient(270, 410, 30, 270, 410, 350);
+            aura.addColorStop(0, isDark ? `rgba(37, 99, 235, ${0.26 + audioLevel * 0.08})` : 'rgba(255, 255, 255, 0.78)');
             aura.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = aura;
             ctx.fillRect(0, 0, W, H);
             return;
         }
 
+        // Baseboard wall molding for interior rooms
+        if (!['hills-nature', 'city-skyline', 'server-tech'].includes(backdropId)) {
+            ctx.fillStyle = b.wallTrim || b.bot;
+            ctx.fillRect(0, FLOOR_Y - 22, W, 22);
+        }
+
         if (backdropId === 'office-shelf') {
-            drawOfficeBookshelfAndChart(ctx, 26, 160, 336, 175);
+            drawOfficeBookshelfAndWindow(ctx, t, audioLevel);
         } else if (backdropId === 'office-desk') {
-            drawOutlinedRect(ctx, 48, 120, 170, 190, 12, '#e0f2fe', '#64748b', 3, false);
-            for (let by = 142; by < 290; by += 28) {
-                ctx.fillStyle = 'rgba(255,255,255,0.65)';
-                ctx.fillRect(54, by, 158, 8);
-            }
-            drawOfficeBookshelfAndChart(ctx, 255, 130, 44, 340);
+            drawOfficeBookshelfAndWindow(ctx, t, audioLevel);
         } else if (backdropId === 'bedroom-night' || backdropId === 'night-calm') {
-            if (backdropId === 'bedroom-night') {
-                drawOutlinedRect(ctx, 325, 115, 160, 195, 14, '#020617', '#4f46e5', 3.5, false);
-                ctx.strokeStyle = '#4f46e5';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(405, 115);
-                ctx.lineTo(405, 310);
-                ctx.moveTo(325, 212);
-                ctx.lineTo(485, 212);
-                ctx.stroke();
-            }
+            drawOutlinedRect(ctx, 318, 118, 174, 210, 12, '#020617', '#4f46e5', 3.5, true);
             ctx.save();
+            ctx.fillStyle = 'rgba(129, 140, 248, 0.14)';
+            ctx.beginPath();
+            ctx.moveTo(318, 328);
+            ctx.lineTo(492, 328);
+            ctx.lineTo(360, FLOOR_Y);
+            ctx.lineTo(90, FLOOR_Y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+            ctx.strokeStyle = '#4f46e5';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(405, 118);
+            ctx.lineTo(405, 328);
+            ctx.moveTo(318, 223);
+            ctx.lineTo(492, 223);
+            ctx.stroke();
+
             ctx.fillStyle = '#fef08a';
             ctx.beginPath();
-            ctx.arc(432, 168, 30, 0, Math.PI * 2);
+            ctx.arc(442, 168, 28, 0, Math.PI * 2);
             ctx.fill();
-            ctx.fillStyle = backdropId === 'bedroom-night' ? '#020617' : b.top;
+            ctx.fillStyle = '#020617';
             ctx.beginPath();
-            ctx.arc(446, 158, 26, 0, Math.PI * 2);
+            ctx.arc(455, 159, 24, 0, Math.PI * 2);
             ctx.fill();
-            [[78, 170], [145, 220], [265, 145], [355, 165], [462, 260]].forEach(([sx, sy], i) => {
-                ctx.fillStyle = `rgba(254, 240, 138, ${0.45 + 0.45 * Math.sin(t * 3 + i)})`;
+            [[72, 165], [150, 210], [248, 145], [358, 165], [462, 268]].forEach(([sx, sy], i) => {
+                ctx.fillStyle = `rgba(254, 240, 138, ${0.4 + 0.5 * Math.sin(t * 3 + i)})`;
                 ctx.beginPath();
                 ctx.arc(sx, sy, 3.2, 0, Math.PI * 2);
                 ctx.fill();
             });
-            ctx.restore();
         } else if (backdropId === 'kitchen-cozy') {
-            ctx.strokeStyle = 'rgba(194, 65, 12, 0.14)';
+            ctx.strokeStyle = 'rgba(194, 65, 12, 0.13)';
             ctx.lineWidth = 2;
-            for (let ty = 160; ty < FLOOR_Y; ty += 52) {
+            for (let ty = 150; ty < FLOOR_Y; ty += 52) {
                 ctx.beginPath();
                 ctx.moveTo(0, ty);
                 ctx.lineTo(W, ty);
@@ -432,45 +777,49 @@
             }
             for (let tx = 40; tx < W; tx += 76) {
                 ctx.beginPath();
-                ctx.moveTo(tx, 160);
+                ctx.moveTo(tx, 150);
                 ctx.lineTo(tx, FLOOR_Y);
                 ctx.stroke();
             }
-            drawOutlinedRect(ctx, 48, 210, 180, 14, 6, '#b45309', '#1e293b', 2.5, false);
-            drawOutlinedRect(ctx, 72, 172, 32, 38, 6, '#34d399', '#1e293b', 2, false);
-            drawOutlinedRect(ctx, 118, 166, 36, 44, 6, '#fbbf24', '#1e293b', 2, false);
+            drawOutlinedRect(ctx, 48, 212, 210, 14, 6, '#b45309', '#1e293b', 2.5, true);
+            drawOutlinedRect(ctx, 74, 168, 36, 44, 8, '#34d399', '#1e293b', 2, false);
+            drawOutlinedRect(ctx, 124, 162, 38, 50, 8, '#fbbf24', '#1e293b', 2, false);
+            drawPottedPlant(ctx, 466, FLOOR_Y, 0.9, Math.sin(t * 2));
         } else if (backdropId === 'cafe-chill') {
-            [135, 405].forEach((lx, idx) => {
-                const sway = Math.sin(t * 2 + idx) * 6;
+            // Large warm window looking out + pendant lamps
+            drawOutlinedRect(ctx, 175, 125, 190, 195, 16, '#fef3c7', '#92400e', 3, true);
+            [115, 425].forEach((lx, idx) => {
+                const sway = Math.sin(t * 1.8 + idx) * 5;
                 ctx.strokeStyle = '#78350f';
                 ctx.lineWidth = 3;
                 ctx.beginPath();
                 ctx.moveTo(lx, 0);
-                ctx.lineTo(lx + sway, 135);
+                ctx.lineTo(lx + sway, 138);
                 ctx.stroke();
-                ctx.fillStyle = 'rgba(254, 240, 138, 0.32)';
+                ctx.fillStyle = 'rgba(254, 240, 138, 0.36)';
                 ctx.beginPath();
-                ctx.arc(lx + sway, 165, 58 + audioLevel * 12, 0, Math.PI * 2);
+                ctx.arc(lx + sway, 172, 64 + audioLevel * 12, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.fillStyle = '#92400e';
                 ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 2.5;
+                ctx.lineWidth = 2.6;
                 ctx.beginPath();
-                ctx.arc(lx + sway, 145, 28, Math.PI, Math.PI * 2);
+                ctx.arc(lx + sway, 148, 30, Math.PI, Math.PI * 2);
                 ctx.closePath();
                 ctx.fill();
                 ctx.stroke();
             });
+            drawPottedPlant(ctx, 56, FLOOR_Y, 0.95, Math.sin(t * 1.6));
         } else if (backdropId === 'server-tech') {
-            [42, 416].forEach((rx, col) => {
-                drawOutlinedRect(ctx, rx, 200, 82, FLOOR_Y - 200, 8, '#0f172a', '#334155', 2.5, false);
+            [36, 422].forEach((rx, col) => {
+                drawOutlinedRect(ctx, rx, 190, 82, FLOOR_Y - 190, 8, '#0f172a', '#334155', 2.5, true);
                 for (let row = 0; row < 8; row++) {
-                    const ry = 225 + row * 62;
-                    drawOutlinedRect(ctx, rx + 10, ry, 62, 42, 4, '#1e293b', '#334155', 1.8, false);
-                    const isAlertLed = (Math.floor(t * 5 + row + col) % 3) === 0;
-                    ctx.fillStyle = isAlertLed ? '#ef4444' : '#22c55e';
+                    const ry = 215 + row * 64;
+                    drawOutlinedRect(ctx, rx + 10, ry, 62, 44, 4, '#1e293b', '#334155', 1.8, false);
+                    const isAlert = (Math.floor(t * 5 + row + col) % 3) === 0;
+                    ctx.fillStyle = isAlert ? '#ef4444' : '#22c55e';
                     ctx.beginPath();
-                    ctx.arc(rx + 22, ry + 21, 4.5 + audioLevel * 2, 0, Math.PI * 2);
+                    ctx.arc(rx + 22, ry + 22, 4.5 + audioLevel * 2, 0, Math.PI * 2);
                     ctx.fill();
                 }
             });
@@ -478,7 +827,7 @@
             ctx.fillStyle = b.hill;
             ctx.beginPath();
             ctx.moveTo(0, FLOOR_Y - 35);
-            ctx.quadraticCurveTo(145, FLOOR_Y - 95, 290, FLOOR_Y - 40);
+            ctx.quadraticCurveTo(145, FLOOR_Y - 98, 290, FLOOR_Y - 40);
             ctx.quadraticCurveTo(420, FLOOR_Y - 10, W, FLOOR_Y - 55);
             ctx.lineTo(W, H);
             ctx.lineTo(0, H);
@@ -487,7 +836,7 @@
             ctx.fillStyle = b.floor;
             ctx.beginPath();
             ctx.moveTo(0, FLOOR_Y - 15);
-            ctx.quadraticCurveTo(210, FLOOR_Y - 60, 410, FLOOR_Y - 12);
+            ctx.quadraticCurveTo(210, FLOOR_Y - 62, 410, FLOOR_Y - 12);
             ctx.quadraticCurveTo(485, FLOOR_Y + 5, W, FLOOR_Y - 22);
             ctx.lineTo(W, H);
             ctx.lineTo(0, H);
@@ -497,6 +846,15 @@
             drawPalmTree(ctx, W - 56, FLOOR_Y, 0.96, Math.cos(t * 2));
             return;
         } else if (backdropId === 'city-skyline') {
+            // Soft drifting clouds
+            ctx.fillStyle = 'rgba(255,255,255,0.68)';
+            [[90 + ((t * 14) % 180), 130], [310 + ((t * 10) % 150), 185]].forEach(([cx, cy]) => {
+                ctx.beginPath();
+                ctx.arc(cx, cy, 24, 0, Math.PI * 2);
+                ctx.arc(cx + 22, cy - 8, 28, 0, Math.PI * 2);
+                ctx.arc(cx + 46, cy, 22, 0, Math.PI * 2);
+                ctx.fill();
+            });
             const buildings = [
                 { x: 18, w: 78, h: 270, c: '#94a3b8' },
                 { x: 108, w: 88, h: 350, c: '#788ba4' },
@@ -506,9 +864,9 @@
             ];
             buildings.forEach((bd, idx) => {
                 const rise = easeOutCubic(clamp01(progress * 2.2 - idx * 0.04));
-                const bh = bd.h * Math.max(0.7, rise);
+                const bh = bd.h * Math.max(0.75, rise);
                 const by = FLOOR_Y - bh;
-                drawOutlinedRect(ctx, bd.x, by, bd.w, bh, 6, bd.c, '#334155', 2.5, false);
+                drawOutlinedRect(ctx, bd.x, by, bd.w, bh, 6, bd.c, '#334155', 2.4, false);
                 ctx.fillStyle = '#fef08a';
                 for (let wy = by + 20; wy < FLOOR_Y - 28; wy += 34) {
                     for (let wx = bd.x + 14; wx < bd.x + bd.w - 20; wx += 26) {
@@ -516,21 +874,22 @@
                     }
                 }
             });
-        } else if (backdropId === 'sunset-warm' || backdropId === 'mint-fresh') {
-            ctx.save();
-            ctx.fillStyle = 'rgba(255,255,255,0.28)';
-            ctx.beginPath();
-            ctx.arc(270, 390, 195 + Math.sin(t * 2) * 6, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
         } else if (backdropId === 'alert-tint') {
-            const pulseAlpha = 0.08 + Math.abs(Math.sin(t * 5)) * 0.08 + audioLevel * 0.06;
+            const pulseAlpha = 0.09 + Math.abs(Math.sin(t * 5)) * 0.08 + audioLevel * 0.06;
             ctx.save();
             ctx.fillStyle = `rgba(225, 29, 72, ${pulseAlpha})`;
             ctx.beginPath();
-            ctx.arc(270, 410, 220, 0, Math.PI * 2);
+            ctx.arc(270, 405, 240, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
+        } else {
+            ctx.save();
+            ctx.fillStyle = 'rgba(255,255,255,0.34)';
+            ctx.beginPath();
+            ctx.arc(270, 385, 200 + Math.sin(t * 2) * 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            drawPottedPlant(ctx, 56, FLOOR_Y, 0.92, Math.sin(t * 1.6));
         }
 
         // Horizon Floor
@@ -544,148 +903,247 @@
         ctx.stroke();
     }
 
-    // ---- Expressive Multi-Cast Cartoon Head (5 hairstyles + blinking + audio lip-sync!) ----
+    // ---- Cel-Shaded Expressive Multi-Cast Cartoon Head (Neck + Ears + Highlighted Hair + 4-stage Audio Lip-Sync) ----
     function drawCharacterHead(ctx, hx, hy, t, mood = 'happy', audioLevel = 0, cast = 'narrator', shirtExtra = {}) {
         const prof = CAST_PROFILES[cast] || CAST_PROFILES.narrator;
-        const blink = Math.sin(t * 2.1 + hx) > 0.96;
-        const talkOpen = clamp01(audioLevel * 1.55);
-        const tilt = Math.sin(t * 3.5 + hy * 0.01) * 0.03 + audioLevel * 0.035;
+        const blink = Math.sin(t * 2.2 + hx * 0.3) > 0.965;
+        const tilt = Math.sin(t * 3.1 + hy * 0.01) * 0.025 + audioLevel * 0.03;
 
         ctx.save();
         ctx.translate(hx, hy);
         ctx.rotate(tilt);
 
-        // Top bun / back hair before face
+        // Neck + Chin shadow before head
+        drawOutlinedRect(ctx, -10, 30, 20, 22, 6, prof.skinShade, '#1e293b', 2.4, false);
+        ctx.fillStyle = 'rgba(0,0,0,0.12)';
+        ctx.fillRect(-9, 34, 18, 6);
+
+        // Back hair / Top bun silhouette behind face
         if (prof.style === 'top-bun' || prof.style === 'high-bun') {
             ctx.fillStyle = prof.hair;
             ctx.strokeStyle = '#1e293b';
             ctx.lineWidth = 2.8;
             ctx.beginPath();
-            ctx.arc(0, -48, 17, 0, Math.PI * 2);
+            ctx.arc(0, -49, 17, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            // Hair tie / clip accent
+            drawOutlinedRect(ctx, -13, -38, 26, 7, 3, prof.style === 'top-bun' ? '#f472b6' : '#fb923c', '#1e293b', 2, false);
+            // Side long locks behind neck
+            ctx.fillStyle = prof.hair;
+            ctx.beginPath();
+            ctx.roundRect(-41, -10, 12, 46, 6);
+            ctx.roundRect(29, -10, 12, 46, 6);
             ctx.fill();
             ctx.stroke();
         }
 
-        // Head base
-        ctx.fillStyle = '#fed7aa';
+        // Side Ears
+        [-39, 39].forEach((ex) => {
+            ctx.fillStyle = prof.skin;
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2.4;
+            ctx.beginPath();
+            ctx.ellipse(ex, 4, 6.5, 9, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        });
+
+        // Contoured Anime/Cartoon Face (rounded forehead + tapered chin)
+        ctx.fillStyle = prof.skin;
         ctx.strokeStyle = '#1e293b';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(0, 0, 40, 0, Math.PI * 2);
+        ctx.moveTo(-39, -6);
+        ctx.bezierCurveTo(-40, -46, 40, -46, 39, -6);
+        ctx.bezierCurveTo(39, 25, 18, 41, 0, 41);
+        ctx.bezierCurveTo(-18, 41, -39, 25, -39, -6);
+        ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
-        // Hair silhouette per cast profile
+        // Forehead / Front Hair Layers + Cel Highlight
         ctx.fillStyle = prof.hair;
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2.4;
         if (prof.style === 'spiky') {
             ctx.beginPath();
-            ctx.moveTo(-38, -8);
-            ctx.lineTo(-32, -38);
-            ctx.lineTo(-18, -28);
-            ctx.lineTo(-6, -48);
+            ctx.moveTo(-40, -8);
+            ctx.lineTo(-34, -40);
+            ctx.lineTo(-19, -29);
+            ctx.lineTo(-6, -50);
             ctx.lineTo(8, -28);
-            ctx.lineTo(22, -46);
-            ctx.lineTo(32, -24);
-            ctx.lineTo(38, -6);
-            ctx.quadraticCurveTo(0, -24, -38, -8);
+            ctx.lineTo(23, -47);
+            ctx.lineTo(35, -24);
+            ctx.lineTo(40, -6);
+            ctx.quadraticCurveTo(0, -23, -40, -8);
             ctx.closePath();
             ctx.fill();
+            ctx.stroke();
         } else if (prof.style === 'parted') {
             ctx.beginPath();
-            ctx.arc(0, -10, 40, Math.PI * 0.96, Math.PI * 2.04);
-            ctx.lineTo(36, 0);
-            ctx.quadraticCurveTo(6, -18, 0, -4);
-            ctx.quadraticCurveTo(-8, -18, -36, 0);
+            ctx.arc(0, -10, 40, Math.PI * 0.94, Math.PI * 2.06);
+            ctx.lineTo(38, 0);
+            ctx.quadraticCurveTo(10, -20, 4, -3);
+            ctx.quadraticCurveTo(-8, -21, -38, 0);
             ctx.closePath();
             ctx.fill();
+            ctx.stroke();
         } else {
             ctx.beginPath();
-            ctx.arc(0, -9, 40, Math.PI, Math.PI * 2);
-            ctx.lineTo(36, -2);
-            ctx.quadraticCurveTo(0, -22, -36, -2);
+            ctx.arc(0, -10, 40, Math.PI * 0.96, Math.PI * 2.04);
+            ctx.lineTo(38, -2);
+            ctx.quadraticCurveTo(12, -24, 0, -10);
+            ctx.quadraticCurveTo(-12, -24, -38, -2);
             ctx.closePath();
             ctx.fill();
+            ctx.stroke();
         }
+        // Subtle glossy hair highlight arc
+        ctx.strokeStyle = prof.hairHi;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(0, -18, 25, Math.PI * 1.18, Math.PI * 1.48);
+        ctx.stroke();
 
-        // Eyes (wide anime/cartoon whites + pupils just like Reference Video 1)
+        // Eyes with dual highlight catchlights + squinting celebrate
         if (mood === 'sleepy' || blink) {
             ctx.strokeStyle = '#1e293b';
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(-20, -2);
-            ctx.lineTo(-9, -2);
-            ctx.moveTo(9, -2);
-            ctx.lineTo(20, -2);
+            ctx.moveTo(-21, -1);
+            ctx.quadraticCurveTo(-15, 3, -9, -1);
+            ctx.moveTo(9, -1);
+            ctx.quadraticCurveTo(15, 3, 21, -1);
             ctx.stroke();
         } else {
-            const eyeR = mood === 'shocked' ? 8.5 : 7;
-            ctx.fillStyle = '#ffffff';
-            ctx.strokeStyle = '#1e293b';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(-14, -2, eyeR, 0, Math.PI * 2);
-            ctx.arc(14, -2, eyeR, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            ctx.fillStyle = '#0f172a';
-            const pupilShift = Math.sin(t * 1.4) * 1.2;
-            ctx.beginPath();
-            ctx.arc(-14 + pupilShift, -2, mood === 'shocked' ? 3.5 : 4.2, 0, Math.PI * 2);
-            ctx.arc(14 + pupilShift, -2, mood === 'shocked' ? 3.5 : 4.2, 0, Math.PI * 2);
-            ctx.fill();
+            const eyeR = mood === 'shocked' ? 8.6 : 7.2;
+            const pupilShift = Math.sin(t * 1.6) * 1.4;
+            [-14, 14].forEach((ex) => {
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 2.1;
+                ctx.beginPath();
+                ctx.ellipse(ex, -2, eyeR, eyeR * 1.08, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Upper lash accent line
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(ex, -2, eyeR, Math.PI * 1.1, Math.PI * 1.9);
+                ctx.stroke();
+
+                // Iris + pupil + white catchlight
+                ctx.fillStyle = '#0f172a';
+                const pr = mood === 'shocked' ? 3.5 : 4.4;
+                ctx.beginPath();
+                ctx.arc(ex + pupilShift, -1.5, pr, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(ex + pupilShift - 1.5, -3.5, 1.7, 0, Math.PI * 2);
+                ctx.fill();
+            });
         }
 
-        // Eyebrows
+        // Glasses for boy-spiky / manager-red
+        if (prof.glasses) {
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2.4;
+            drawOutlinedRect(ctx, -26, -11, 22, 17, 4, 'rgba(255,255,255,0.16)', '#1e293b', 2.2, false);
+            drawOutlinedRect(ctx, 4, -11, 22, 17, 4, 'rgba(255,255,255,0.16)', '#1e293b', 2.2, false);
+            ctx.beginPath();
+            ctx.moveTo(-4, -3);
+            ctx.lineTo(4, -3);
+            ctx.stroke();
+        }
+
+        // Expressive Eyebrows
         ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 2.4;
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
         if (mood === 'thinking') {
             ctx.beginPath();
-            ctx.moveTo(-22, -13);
-            ctx.lineTo(-8, -15);
-            ctx.moveTo(8, -17);
-            ctx.lineTo(22, -12);
+            ctx.moveTo(-22, -14);
+            ctx.lineTo(-8, -16);
+            ctx.moveTo(8, -18);
+            ctx.quadraticCurveTo(15, -21, 22, -14);
             ctx.stroke();
         } else if (mood === 'shocked') {
             ctx.beginPath();
-            ctx.moveTo(-22, -16);
-            ctx.lineTo(-8, -13);
-            ctx.moveTo(8, -13);
-            ctx.lineTo(22, -16);
+            ctx.moveTo(-22, -17);
+            ctx.quadraticCurveTo(-15, -21, -8, -14);
+            ctx.moveTo(8, -14);
+            ctx.quadraticCurveTo(15, -21, 22, -17);
             ctx.stroke();
         } else {
             ctx.beginPath();
             ctx.moveTo(-21, -13);
-            ctx.lineTo(-8, -14);
+            ctx.quadraticCurveTo(-14, -16, -8, -14);
             ctx.moveTo(8, -14);
-            ctx.lineTo(21, -13);
+            ctx.quadraticCurveTo(14, -16, 21, -13);
             ctx.stroke();
         }
 
-        // Cheeks
-        ctx.fillStyle = 'rgba(244, 63, 94, 0.32)';
+        // Subtle Nose Line & Rosy Cheeks
+        ctx.strokeStyle = prof.skinShade;
+        ctx.lineWidth = 2.2;
         ctx.beginPath();
-        ctx.arc(-24, 11, 5, 0, Math.PI * 2);
-        ctx.arc(24, 11, 5, 0, Math.PI * 2);
+        ctx.moveTo(0, 3);
+        ctx.lineTo(-2, 9);
+        ctx.lineTo(2, 9.5);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.28)';
+        ctx.beginPath();
+        ctx.ellipse(-24, 11, 5.5, 3.8, 0, 0, Math.PI * 2);
+        ctx.ellipse(24, 11, 5.5, 3.8, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Lip-Synced Mouth (with tongue tint when open like Reference Video 1!)
+        // 4-Stage Real Audio Lip-Sync Mouth (rest smile -> soft open -> wide talk with teeth -> shout/shock O)
+        const talkOpen = clamp01(audioLevel * 1.45);
         ctx.strokeStyle = '#1e293b';
         ctx.lineWidth = 2.5;
-        if (talkOpen > 0.14 || mood === 'shocked') {
-            const mh = mood === 'shocked' ? 11 + talkOpen * 5 : 4 + talkOpen * 10;
-            const mw = mood === 'shocked' ? 10 : 12;
+        if (mood === 'shocked' && talkOpen < 0.25) {
             ctx.fillStyle = '#9f1239';
             ctx.beginPath();
-            ctx.ellipse(0, 18, mw, mh, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 20, 8.5, 10, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
+        } else if (talkOpen > 0.42) {
+            const mh = 6 + talkOpen * 8.5;
+            const mw = 11 + talkOpen * 3;
+            ctx.fillStyle = '#881337';
+            ctx.beginPath();
+            ctx.ellipse(0, 19, mw, mh, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            // White upper teeth
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.roundRect(-mw * 0.65, 19 - mh * 0.85, mw * 1.3, 4.2, 2);
+            ctx.fill();
+            // Pink tongue
             ctx.fillStyle = '#fb7185';
             ctx.beginPath();
-            ctx.ellipse(0, 18 + mh * 0.35, mw * 0.6, mh * 0.35, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 19 + mh * 0.38, mw * 0.56, mh * 0.34, 0, 0, Math.PI * 2);
             ctx.fill();
+        } else if (talkOpen > 0.12) {
+            ctx.fillStyle = '#9f1239';
+            ctx.beginPath();
+            ctx.ellipse(0, 19, 9.5, 4 + talkOpen * 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
         } else {
             ctx.beginPath();
-            ctx.arc(0, 15, 9, 0.15 * Math.PI, 0.85 * Math.PI);
+            if (mood === 'thinking') {
+                ctx.moveTo(-8, 19);
+                ctx.quadraticCurveTo(0, 18, 9, 20);
+            } else {
+                ctx.arc(0, 15, 9.5, 0.16 * Math.PI, 0.84 * Math.PI);
+            }
             ctx.stroke();
         }
 
@@ -693,81 +1151,251 @@
             ctx.strokeStyle = '#0f172a';
             ctx.lineWidth = 6;
             ctx.beginPath();
-            ctx.arc(0, -4, 44, Math.PI * 0.95, Math.PI * 2.05);
+            ctx.arc(0, -5, 44, Math.PI * 0.95, Math.PI * 2.05);
             ctx.stroke();
-            drawOutlinedRect(ctx, -49, -12, 14, 28, 7, '#a855f7', '#0f172a', 2.5, false);
-            drawOutlinedRect(ctx, 35, -12, 14, 28, 7, '#a855f7', '#0f172a', 2.5, false);
+            drawOutlinedRect(ctx, -49, -12, 13, 28, 6, '#a855f7', '#0f172a', 2.4, false);
+            drawOutlinedRect(ctx, 36, -12, 13, 28, 6, '#a855f7', '#0f172a', 2.4, false);
         }
 
         ctx.restore();
     }
 
-    // ---- Seated Office Desk Character (matches Video 1 desk + chair + open laptop + cute sticker) ----
+    // ---- Comic Reaction Badges attached near speaking character ----
+    function drawComicReaction(ctx, rx, ry, mood, audioLevel, t) {
+        if (audioLevel < 0.32 && mood === 'happy') return;
+        const bob = Math.sin(t * 7) * 3;
+        ctx.save();
+        ctx.translate(rx, ry + bob);
+        if (mood === 'shocked') {
+            drawOutlinedRect(ctx, -18, -22, 36, 44, 12, '#fef2f2', '#ef4444', 2.8, true);
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(-3.5, -13, 7, 17);
+            ctx.beginPath();
+            ctx.arc(0, 11, 4, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (mood === 'thinking') {
+            drawOutlinedRect(ctx, -20, -20, 40, 40, 14, '#fef3c7', '#d97706', 2.6, true);
+            ctx.strokeStyle = '#d97706';
+            ctx.lineWidth = 3.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(0, -4, 7, Math.PI * 0.9, Math.PI * 2.15);
+            ctx.lineTo(0, 6);
+            ctx.stroke();
+            ctx.fillStyle = '#d97706';
+            ctx.beginPath();
+            ctx.arc(0, 12, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (audioLevel > 0.35) {
+            // Minimal pulsing audio voice wave arcs
+            ctx.strokeStyle = '#2563eb';
+            ctx.lineWidth = 2.8;
+            ctx.lineCap = 'round';
+            [8, 16].forEach((r, idx) => {
+                ctx.globalAlpha = Math.max(0.25, audioLevel - idx * 0.2);
+                ctx.beginPath();
+                ctx.arc(-6, 0, r, -0.35 * Math.PI, 0.35 * Math.PI);
+                ctx.stroke();
+            });
+        }
+        ctx.restore();
+    }
+
+    // ---- Seated Office Desk Character (Detailed Collar/Lapels, Ergonomic Chair, Glowing Monitor + Desk Mug) ----
     function drawSeatedDeskCharacter(ctx, cx, cy, scale, t, cast = 'girl-purple', mood = 'happy', audioLevel = 0, isCalling = false) {
         if (scale <= 0.02) return;
         const prof = CAST_PROFILES[cast] || CAST_PROFILES['girl-purple'];
-        const bob = Math.sin(t * 3 + cx) * 1.8;
+        const bob = Math.sin(t * 3 + cx) * 1.6 + audioLevel * -2.2;
 
         ctx.save();
         ctx.translate(cx, cy + bob);
         ctx.scale(scale, scale);
 
-        // Office Chair Backrest
-        drawOutlinedRect(ctx, -56, -72, 112, 118, 22, '#cbd5e1', '#94a3b8', 2.5, false);
-        // Shoulders & Torso
+        // Ergonomic Mesh Office Chair Backrest + Headrest bar
+        drawOutlinedRect(ctx, -56, -74, 112, 120, 24, '#cbd5e1', '#64748b', 2.6, false);
+        drawOutlinedRect(ctx, -46, -64, 92, 92, 18, '#e2e8f0', null, 0, false);
+
+        // Contoured Torso & Cel-Shaded Collar + Lapels
         drawOutlinedRect(ctx, -44, -6, 88, 72, 22, prof.shirt, '#1e293b', 2.8, false);
-        // Collar / Inner neck
+        ctx.fillStyle = prof.shirtShade;
+        ctx.beginPath();
+        ctx.roundRect(-44, 34, 88, 30, 12);
+        ctx.fill();
+
+        // Inner shirt V-collar + optional tie
         ctx.fillStyle = prof.inner;
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(-16, -6);
-        ctx.lineTo(0, 12);
+        ctx.lineTo(0, 16);
         ctx.lineTo(16, -6);
         ctx.closePath();
         ctx.fill();
+        ctx.stroke();
 
-        // Talking/Calling arm lifting smartphone cleanly to ear
+        if (prof.tie) {
+            ctx.fillStyle = prof.tie;
+            ctx.beginPath();
+            ctx.moveTo(-5, 6);
+            ctx.lineTo(5, 6);
+            ctx.lineTo(6, 36);
+            ctx.lineTo(0, 42);
+            ctx.lineTo(-6, 36);
+            ctx.closePath();
+            ctx.fill();
+        }
+
         if (isCalling) {
-            drawOutlinedRect(ctx, 28, -42, 15, 42, 7, prof.shirt, '#1e293b', 2.5, false);
-            drawOutlinedRect(ctx, 26, -72, 20, 34, 4, '#0f172a', '#1e293b', 2, false);
+            drawArticulatedLimb(ctx, 32, 6, 48, -14, 38, -48, 14, prof.shirt, '#1e293b', prof.skin, false);
+            drawOutlinedRect(ctx, 30, -76, 18, 34, 5, '#0f172a', '#1e293b', 2, false);
+            // Phone call ring pulse
+            ctx.strokeStyle = `rgba(37, 99, 235, ${0.4 + Math.abs(Math.sin(t * 7)) * 0.5})`;
+            ctx.lineWidth = 2.4;
+            ctx.beginPath();
+            ctx.arc(48, -64, 12, -0.5, 0.5);
+            ctx.stroke();
+        } else if (audioLevel > 0.28) {
+            // Expressive hand gesture above desk while speaking!
+            drawArticulatedLimb(ctx, 34, 8, 56, 22, 62, -6 + Math.sin(t * 9) * 5, 13, prof.shirt, '#1e293b', prof.skin, true);
         }
 
         drawCharacterHead(ctx, 0, -56, t, mood, audioLevel, cast);
 
-        // Desk surface & front laptop
-        drawOutlinedRect(ctx, -108, 48, 216, 48, 8, '#e3c099', '#a67c52', 3, true);
-        // Laptop lid facing camera with cute minimal sticker icons (like orange cat / colorful dots!)
-        drawOutlinedRect(ctx, -48, 8, 96, 60, 8, '#cbd5e1', '#64748b', 2.5, true);
+        // Wooden Desk Top + Front Skirt
+        drawOutlinedRect(ctx, -114, 48, 228, 18, 6, '#eab37c', '#9c6f44', 2.8, true);
+        drawOutlinedRect(ctx, -110, 64, 220, 34, 4, '#d19c68', '#9c6f44', 2.6, false);
+
+        // Laptop lid facing camera with realistic metallic bezel + soft screen glow behind
+        drawOutlinedRect(ctx, -50, 4, 100, 64, 9, '#cbd5e1', '#475569', 2.5, true);
+        drawOutlinedRect(ctx, -44, 10, 88, 52, 6, '#e2e8f0', null, 0, false);
         if (prof.laptopDot) {
-            // Cute orange cat icon silhouette
             ctx.fillStyle = '#fb923c';
             ctx.beginPath();
-            ctx.arc(0, 38, 10, 0, Math.PI * 2);
+            ctx.arc(0, 36, 9.5, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.moveTo(-9, 32);
-            ctx.lineTo(-10, 23);
-            ctx.lineTo(-2, 30);
-            ctx.moveTo(9, 32);
-            ctx.lineTo(10, 23);
-            ctx.lineTo(2, 30);
+            ctx.moveTo(-8, 30);
+            ctx.lineTo(-9, 21);
+            ctx.lineTo(-2, 28);
+            ctx.moveTo(8, 30);
+            ctx.lineTo(9, 21);
+            ctx.lineTo(2, 28);
             ctx.fill();
         } else {
-            // Colorful icon dots like boy's Macbook in Video 1
-            const dots = ['#ef4444', '#facc15', '#22c55e', '#3b82f6', '#a855f7', '#fb923c'];
+            const dots = ['#ef4444', '#facc15', '#22c55e', '#3b82f6'];
             dots.forEach((dc, idx) => {
-                const dx = -24 + (idx % 3) * 24;
-                const dy = 28 + Math.floor(idx / 3) * 18;
                 ctx.fillStyle = dc;
                 ctx.beginPath();
-                ctx.arc(dx, dy, 6.5, 0, Math.PI * 2);
+                ctx.arc(-21 + idx * 14, 36, 4.5, 0, Math.PI * 2);
                 ctx.fill();
             });
         }
 
+        // Desk Coffee Mug with handle + soft steam on corner
+        drawOutlinedRect(ctx, 72, 28, 22, 22, 5, '#ffffff', '#1e293b', 2.2, false);
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.arc(94, 39, 5.5, -Math.PI * 0.5, Math.PI * 0.5);
+        ctx.stroke();
+
         ctx.restore();
     }
 
-    // ---- 11 Expressive Standing/Action Poses ----
+    // ---- Screen Content Renderer inside Devices / Windows (matches scene context!) ----
+    function drawRichScreenContent(ctx, x, y, w, h, screenType, progress, t, audioLevel = 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 8);
+        ctx.clip();
+
+        if (screenType === 'chat_msg' || screenType === 'night_scroll') {
+            ctx.fillStyle = screenType === 'night_scroll' ? '#0f172a' : '#f1f5f9';
+            ctx.fillRect(x, y, w, h);
+            // Animated chat bubbles popping sequentially
+            const b1 = stagePop(progress, 0.05, 0.18);
+            const b2 = stagePop(progress, 0.30, 0.18);
+            const b3 = stagePop(progress, 0.58, 0.18);
+            if (b1 > 0.05) {
+                drawOutlinedRect(ctx, x + 12, y + 16, w * 0.62 * b1, h * 0.22, 10, '#cbd5e1', '#64748b', 1.5, false);
+            }
+            if (b2 > 0.05) {
+                drawOutlinedRect(ctx, x + w - 12 - w * 0.64 * b2, y + h * 0.44, w * 0.64 * b2, h * 0.22, 10, '#3b82f6', '#1d4ed8', 1.5, false);
+            }
+            if (b3 > 0.05) {
+                drawOutlinedRect(ctx, x + 12, y + h * 0.72, w * 0.45 * b3, h * 0.18, 10, '#fecaca', '#ef4444', 1.5, false);
+            }
+        } else if (screenType === 'excel_err' || screenType === 'code_bug') {
+            ctx.fillStyle = screenType === 'code_bug' ? '#090d16' : '#f8fafc';
+            ctx.fillRect(x, y, w, h);
+            const rows = 4;
+            const rowH = (h - 24) / rows;
+            for (let r = 0; r < rows; r++) {
+                const ry = y + 12 + r * rowH;
+                const isErr = r === 1 || (r === 2 && Math.sin(t * 8) > 0);
+                drawOutlinedRect(
+                    ctx,
+                    x + 10,
+                    ry + 2,
+                    w - 20,
+                    rowH - 6,
+                    6,
+                    isErr ? 'rgba(239, 68, 68, 0.24)' : 'rgba(148, 163, 184, 0.18)',
+                    isErr ? '#ef4444' : '#94a3b8',
+                    isErr ? 2 : 1,
+                    false
+                );
+                if (isErr) {
+                    ctx.strokeStyle = '#ef4444';
+                    ctx.lineWidth = 3;
+                    const cxE = x + w - 26;
+                    const cyE = ry + rowH * 0.45;
+                    ctx.beginPath();
+                    ctx.moveTo(cxE - 6, cyE - 6);
+                    ctx.lineTo(cxE + 6, cyE + 6);
+                    ctx.moveTo(cxE + 6, cyE - 6);
+                    ctx.lineTo(cxE - 6, cyE + 6);
+                    ctx.stroke();
+                }
+            }
+        } else if (screenType === 'revenue_up' || screenType === 'wallet_cash') {
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(x, y, w, h);
+            const grow = easeOutCubic(clamp01(progress * 1.35));
+            const bars = [0.32, 0.48, 0.65, 0.92];
+            const bw = (w - 44) / 4;
+            bars.forEach((ratio, idx) => {
+                const bh = (h - 30) * ratio * grow * (idx === 3 ? 1 + audioLevel * 0.08 : 1);
+                drawOutlinedRect(ctx, x + 14 + idx * (bw + 6), y + h - 14 - bh, bw, bh, 5, idx === 3 ? '#22c55e' : '#38bdf8', null, 0, false);
+            });
+            // Trend line
+            ctx.strokeStyle = '#facc15';
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.moveTo(x + 20, y + h * 0.72);
+            ctx.lineTo(x + 20 + (w - 40) * grow, y + h * 0.72 - h * 0.5 * grow);
+            ctx.stroke();
+        } else {
+            // checklist_done / calendar_due / notification_bell
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(x, y, w, h);
+            for (let i = 0; i < 3; i++) {
+                const ry = y + 14 + i * ((h - 24) / 3);
+                const done = progress > 0.18 + i * 0.22;
+                drawOutlinedRect(ctx, x + 12, ry, w - 24, (h - 36) / 3, 8, '#ffffff', done ? '#22c55e' : '#cbd5e1', 1.8, false);
+                ctx.fillStyle = done ? '#22c55e' : '#cbd5e1';
+                ctx.beginPath();
+                ctx.arc(x + 28, ry + (h - 36) / 6, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = done ? '#1e293b' : '#94a3b8';
+                ctx.fillRect(x + 44, ry + (h - 36) / 6 - 4, w - 74, 8);
+            }
+        }
+        ctx.restore();
+    }
+
+    // ---- 11 Expressive Standing/Action Poses (Articulated Cel-Shaded Poses) ----
     function drawAnimatedActor(ctx, cx, cy, scale, progress, t, action = 'pointing', mood = 'happy', audioLevel = 0, cast = 'narrator') {
         if (scale <= 0.02) return;
         const prof = CAST_PROFILES[cast] || CAST_PROFILES.narrator;
@@ -779,12 +1407,12 @@
 
         if (action === 'sleeping') {
             const breathe = Math.sin(t * 2.5) * 3;
-            drawOutlinedRect(ctx, -145, 22, 290, 62, 16, '#818cf8', '#1e293b', 3.5, true);
+            drawOutlinedRect(ctx, -145, 22, 290, 62, 16, '#818cf8', '#1e293b', 3.4, true);
             drawOutlinedRect(ctx, -155, -24, 22, 118, 8, '#475569', '#1e293b', 3, false);
             drawOutlinedRect(ctx, 133, 4, 22, 90, 8, '#475569', '#1e293b', 3, false);
             drawOutlinedRect(ctx, -128, -4, 72, 34, 12, '#ffffff', '#1e293b', 2.8, false);
             drawOutlinedRect(ctx, -56, 8 + breathe * 0.3, 195, 58, 18, '#a78bfa', '#1e293b', 3, false);
-            drawCharacterHead(ctx, -90, -24 + breathe * 0.5, t, 'sleepy', audioLevel * 0.3, cast);
+            drawCharacterHead(ctx, -90, -24 + breathe * 0.5, t, 'sleepy', audioLevel * 0.25, cast);
             for (let z = 0; z < 3; z++) {
                 const zp = (t * 0.45 + z * 0.33) % 1;
                 const zx = -40 + z * 28 + Math.sin(t * 3 + z) * 6;
@@ -807,24 +1435,19 @@
         }
 
         if (action === 'typing') {
-            const typeBob = Math.sin(t * 14) * (2 + audioLevel * 3);
-            drawOutlinedRect(ctx, -135, 36, 270, 20, 8, '#b45309', '#1e293b', 3.2, true);
-            drawOutlinedRect(ctx, -118, 56, 16, 74, 4, '#78350f', '#1e293b', 2.8, false);
-            drawOutlinedRect(ctx, 102, 56, 16, 74, 4, '#78350f', '#1e293b', 2.8, false);
-            drawOutlinedRect(ctx, -36, -16 + typeBob * 0.4, 72, 56, 14, shirtColor, '#1e293b', 3, false);
+            const typeBob = Math.sin(t * 14) * (1.8 + audioLevel * 2.5);
+            drawOutlinedRect(ctx, -140, 36, 280, 18, 7, '#eab37c', '#8c6239', 3, true);
+            drawOutlinedRect(ctx, -122, 54, 16, 74, 4, '#b47c4a', '#78502b', 2.6, false);
+            drawOutlinedRect(ctx, 106, 54, 16, 74, 4, '#b47c4a', '#78502b', 2.6, false);
+
+            drawOutlinedRect(ctx, -38, -16 + typeBob * 0.4, 76, 56, 16, shirtColor, '#1e293b', 3, false);
             drawCharacterHead(ctx, 0, -56 + typeBob * 0.5, t, mood, audioLevel, cast);
-            drawOutlinedRect(ctx, -46, 6 + Math.sin(t * 18) * 5, 16, 36, 7, shirtColor, '#1e293b', 2.8, false);
-            drawOutlinedRect(ctx, 30, 6 + Math.cos(t * 18) * 5, 16, 36, 7, shirtColor, '#1e293b', 2.8, false);
-            drawOutlinedRect(ctx, -64, -26, 128, 66, 10, '#334155', '#0f172a', 3, true);
-            drawOutlinedRect(ctx, -54, -18, 108, 50, 6, mood === 'shocked' ? '#fee2e2' : '#e0f2fe', '#334155', 2, false);
-            const barFlash = Math.sin(t * 10) > 0;
-            ctx.fillStyle = mood === 'shocked' ? '#ef4444' : '#0ea5e9';
-            ctx.fillRect(-44, -8, barFlash ? 78 : 54, 8);
-            ctx.fillStyle = '#10b981';
-            ctx.fillRect(-44, 6, barFlash ? 52 : 84, 8);
-            ctx.fillStyle = '#f59e0b';
-            ctx.fillRect(-44, 20, 64, 6);
-            drawOutlinedRect(ctx, 82, 8, 28, 28, 6, '#ffffff', '#1e293b', 2.5, false);
+            drawArticulatedLimb(ctx, -36, -2, -52, 18, -32, 24 + Math.sin(t * 16) * 4, 13, shirtColor, '#1e293b', prof.skin);
+            drawArticulatedLimb(ctx, 36, -2, 52, 18, 32, 24 + Math.cos(t * 16) * 4, 13, shirtColor, '#1e293b', prof.skin);
+
+            drawOutlinedRect(ctx, -64, -28, 128, 66, 10, '#334155', '#0f172a', 3, true);
+            drawRichScreenContent(ctx, -56, -20, 112, 50, mood === 'shocked' ? 'excel_err' : 'revenue_up', progress, t, audioLevel);
+            drawOutlinedRect(ctx, 84, 8, 24, 28, 6, '#ffffff', '#1e293b', 2.4, false);
             ctx.restore();
             return;
         }
@@ -832,7 +1455,7 @@
         if (action === 'cooking') {
             const stir = Math.sin(t * 8) * 14;
             drawOutlinedRect(ctx, -145, 42, 290, 86, 12, '#fed7aa', '#1e293b', 3.2, true);
-            drawOutlinedRect(ctx, -38, -16, 76, 62, 14, shirtColor, '#1e293b', 3, false);
+            drawOutlinedRect(ctx, -38, -16, 76, 62, 16, shirtColor, '#1e293b', 3, false);
             drawOutlinedRect(ctx, -24, 0, 48, 44, 8, '#ffffff', '#1e293b', 2.2, false);
             drawCharacterHead(ctx, 0, -56, t, mood, audioLevel, cast);
             drawOutlinedRect(ctx, -78, 22, 92, 22, 8, '#475569', '#0f172a', 3, false);
@@ -842,32 +1465,35 @@
             ctx.rotate(stir * 0.02);
             drawOutlinedRect(ctx, -4, -36, 8, 42, 4, '#d97706', '#1e293b', 2, false);
             ctx.restore();
-            drawOutlinedRect(ctx, 18, -4 + Math.sin(t * 8) * 4, 34, 14, 7, shirtColor, '#1e293b', 2.6, false);
-            drawOutlinedRect(ctx, 76, -8, 44, 50, 10, '#dcfce7', '#1e293b', 2.6, false);
+            drawArticulatedLimb(ctx, 32, -2, 48, 10, 26, 14 + Math.sin(t * 8) * 5, 13, shirtColor, '#1e293b', prof.skin);
             ctx.restore();
             return;
         }
 
         if (action === 'phone-scroll' || action === 'shocked-phone' || action === 'calling') {
-            const shake = action === 'shocked-phone' ? Math.sin(t * 22) * 3.5 : Math.sin(t * 4) * 2;
-            ctx.translate(shake, Math.sin(t * 4.5) * 3);
-            ctx.fillStyle = 'rgba(15,23,42,0.12)';
+            const shake = action === 'shocked-phone' ? Math.sin(t * 22) * 3.2 : Math.sin(t * 4) * 1.8;
+            ctx.translate(shake, Math.sin(t * 4.5) * 2.5);
+            ctx.fillStyle = 'rgba(15,23,42,0.14)';
             ctx.beginPath();
-            ctx.ellipse(0, 122, 42, 8, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 122, 44, 8, 0, 0, Math.PI * 2);
             ctx.fill();
-            drawOutlinedRect(ctx, -24, 58, 17, 56, 5, '#475569', '#1e293b', 2.8, false);
-            drawOutlinedRect(ctx, 7, 58, 17, 56, 5, '#475569', '#1e293b', 2.8, false);
-            drawOutlinedRect(ctx, -28, 108, 22, 11, 5, '#1e293b', '#1e293b', 2, false);
-            drawOutlinedRect(ctx, 6, 108, 22, 11, 5, '#1e293b', '#1e293b', 2, false);
-            drawOutlinedRect(ctx, -28, -14, 56, 76, 12, shirtColor, '#1e293b', 3, true);
+
+            drawArticulatedLimb(ctx, -14, 56, -16, 86, -18, 112, 16, '#334155', '#1e293b');
+            drawArticulatedLimb(ctx, 14, 56, 16, 86, 18, 112, 16, '#334155', '#1e293b');
+            drawOutlinedRect(ctx, -28, 108, 22, 12, 6, '#1e293b', '#0f172a', 2, false);
+            drawOutlinedRect(ctx, 6, 108, 22, 12, 6, '#1e293b', '#0f172a', 2, false);
+
+            drawOutlinedRect(ctx, -30, -14, 60, 76, 16, shirtColor, '#1e293b', 3, true);
+            drawOutlinedRect(ctx, -11, -14, 22, 74, 4, prof.inner, null, 0, false);
             drawCharacterHead(ctx, 0, -56, t, action === 'shocked-phone' ? 'shocked' : mood, audioLevel, cast);
+
             if (action === 'calling') {
-                drawOutlinedRect(ctx, 22, -48, 15, 44, 7, shirtColor, '#1e293b', 2.6, false);
-                drawOutlinedRect(ctx, 22, -78, 22, 36, 5, '#0f172a', '#0f172a', 2.5, true);
+                drawArticulatedLimb(ctx, 28, -2, 48, -18, 40, -52, 13, shirtColor, '#1e293b', prof.skin);
+                drawOutlinedRect(ctx, 30, -80, 20, 36, 5, '#0f172a', '#0f172a', 2.4, true);
             } else {
-                drawOutlinedRect(ctx, 18, -8, 42, 15, 7, shirtColor, '#1e293b', 2.6, false);
-                drawOutlinedRect(ctx, 48, -44 + Math.sin(t * 7) * 3, 44, 76, 9, '#0f172a', '#0f172a', 3, true);
-                drawOutlinedRect(ctx, 53, -36 + Math.sin(t * 7) * 3, 34, 60, 5, action === 'shocked-phone' ? '#fecaca' : '#dbeafe', '#334155', 1.8, false);
+                drawArticulatedLimb(ctx, 26, -2, 44, 14, 54, -8 + Math.sin(t * 6) * 2, 13, shirtColor, '#1e293b', prof.skin);
+                drawOutlinedRect(ctx, 48, -46 + Math.sin(t * 7) * 2.5, 48, 82, 10, '#0f172a', '#0f172a', 3, true);
+                drawRichScreenContent(ctx, 53, -38 + Math.sin(t * 7) * 2.5, 38, 66, action === 'shocked-phone' ? 'code_bug' : 'chat_msg', progress, t, audioLevel);
             }
             ctx.restore();
             return;
@@ -876,27 +1502,20 @@
         if (action === 'running') {
             const stride = Math.sin(t * 14);
             ctx.translate(0, Math.abs(stride) * -7);
-            ctx.strokeStyle = 'rgba(30, 41, 59, 0.25)';
+            ctx.strokeStyle = 'rgba(30, 41, 59, 0.28)';
             ctx.lineWidth = 3;
             [-40, -10, 25].forEach((ly, i) => {
-                const lx = -110 - ((t * 180 + i * 30) % 45);
+                const lx = -112 - ((t * 180 + i * 30) % 45);
                 ctx.beginPath();
                 ctx.moveTo(lx, ly);
                 ctx.lineTo(lx + 46, ly);
                 ctx.stroke();
             });
-            ctx.save();
-            ctx.translate(-8, 56);
-            ctx.rotate(stride * 0.65);
-            drawOutlinedRect(ctx, -8, 0, 16, 56, 5, '#475569', '#1e293b', 2.8, false);
-            ctx.restore();
-            ctx.save();
-            ctx.translate(8, 56);
-            ctx.rotate(-stride * 0.65);
-            drawOutlinedRect(ctx, -8, 0, 16, 56, 5, '#475569', '#1e293b', 2.8, false);
-            ctx.restore();
+            drawArticulatedLimb(ctx, -10, 56, -22 + stride * 24, 86, -12 + stride * 34, 112, 15, '#334155', '#1e293b');
+            drawArticulatedLimb(ctx, 10, 56, 22 - stride * 24, 86, 12 - stride * 34, 112, 15, '#334155', '#1e293b');
             ctx.rotate(0.16);
-            drawOutlinedRect(ctx, -28, -14, 56, 74, 12, shirtColor, '#1e293b', 3, true);
+            drawOutlinedRect(ctx, -30, -14, 60, 74, 16, shirtColor, '#1e293b', 3, true);
+            drawArticulatedLimb(ctx, 26, -2, 44, 12, 50 + stride * 12, -16, 12, shirtColor, '#1e293b', prof.skin);
             drawCharacterHead(ctx, 4, -56, t, mood, audioLevel, cast);
             ctx.restore();
             return;
@@ -905,58 +1524,53 @@
         if (action === 'celebrating') {
             const jump = Math.abs(Math.sin(t * 6)) * -(10 + audioLevel * 12);
             ctx.translate(0, jump);
-            ctx.fillStyle = 'rgba(15,23,42,0.12)';
+            ctx.fillStyle = 'rgba(15,23,42,0.14)';
             ctx.beginPath();
-            ctx.ellipse(0, 122 - jump, 42, 8, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 122 - jump, 44, 8, 0, 0, Math.PI * 2);
             ctx.fill();
-            drawOutlinedRect(ctx, -24, 58, 17, 56, 5, '#475569', '#1e293b', 2.8, false);
-            drawOutlinedRect(ctx, 7, 58, 17, 56, 5, '#475569', '#1e293b', 2.8, false);
-            ctx.save();
-            ctx.translate(-28, -6);
-            ctx.rotate(2.4 + Math.sin(t * 8) * 0.2);
-            drawOutlinedRect(ctx, -7, 0, 14, 52, 7, shirtColor, '#1e293b', 2.8, false);
-            ctx.restore();
-            ctx.save();
-            ctx.translate(28, -6);
-            ctx.rotate(-2.4 - Math.sin(t * 8) * 0.2);
-            drawOutlinedRect(ctx, -7, 0, 14, 52, 7, shirtColor, '#1e293b', 2.8, false);
-            ctx.restore();
-            drawOutlinedRect(ctx, -28, -14, 56, 76, 12, shirtColor, '#1e293b', 3, true);
+            drawArticulatedLimb(ctx, -14, 56, -16, 86, -18, 112, 16, '#334155', '#1e293b');
+            drawArticulatedLimb(ctx, 14, 56, 16, 86, 18, 112, 16, '#334155', '#1e293b');
+            drawArticulatedLimb(ctx, -28, -2, -52, -26, -42, -58 + Math.sin(t * 8) * 5, 13, shirtColor, '#1e293b', prof.skin);
+            drawArticulatedLimb(ctx, 28, -2, 52, -26, 42, -58 + Math.cos(t * 8) * 5, 13, shirtColor, '#1e293b', prof.skin);
+            drawOutlinedRect(ctx, -30, -14, 60, 76, 16, shirtColor, '#1e293b', 3, true);
+            drawOutlinedRect(ctx, -11, -14, 22, 74, 4, prof.inner, null, 0, false);
             drawCharacterHead(ctx, 0, -56, t, 'happy', audioLevel, cast);
             ctx.restore();
             return;
         }
 
-        // Default standing presenter (jacket + white inner tee look like Minh IT in Video 1!)
-        const bob = Math.sin(t * 4.5) * 3;
+        // Default standing presenter with articulated pointing/gesturing arm responding to speech energy!
+        const bob = Math.sin(t * 4.2) * 2.5 + audioLevel * -2.5;
         ctx.translate(0, bob);
-        ctx.fillStyle = 'rgba(15,23,42,0.12)';
+        ctx.fillStyle = 'rgba(15,23,42,0.14)';
         ctx.beginPath();
-        ctx.ellipse(0, 122, 42, 8, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 122 - bob * 0.5, 44, 8, 0, 0, Math.PI * 2);
         ctx.fill();
-        drawOutlinedRect(ctx, -24, 58, 17, 56, 5, '#334155', '#1e293b', 2.8, false);
-        drawOutlinedRect(ctx, 7, 58, 17, 56, 5, '#334155', '#1e293b', 2.8, false);
-        drawOutlinedRect(ctx, -28, 108, 22, 11, 5, '#1e293b', '#1e293b', 2, false);
-        drawOutlinedRect(ctx, 6, 108, 22, 11, 5, '#1e293b', '#1e293b', 2, false);
-        drawOutlinedRect(ctx, -40, -10, 14, 56, 7, shirtColor, '#1e293b', 2.8, false);
 
-        ctx.save();
-        ctx.translate(28, -4);
-        const gestureAng = action === 'drinking' ? -1.4 : (mood === 'happy' ? -0.95 + Math.sin(t * 6) * (0.14 + audioLevel * 0.22) : -0.2);
-        ctx.rotate(gestureAng);
-        drawOutlinedRect(ctx, -6, 0, 14, 54, 7, shirtColor, '#1e293b', 2.8, false);
-        ctx.fillStyle = '#fed7aa';
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.arc(1, 56, 8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
+        drawArticulatedLimb(ctx, -14, 56, -16, 86, -18, 112, 16, '#334155', '#1e293b');
+        drawArticulatedLimb(ctx, 14, 56, 16, 86, 18, 112, 16, '#334155', '#1e293b');
+        drawOutlinedRect(ctx, -28, 108, 22, 12, 6, '#1e293b', '#0f172a', 2, false);
+        drawOutlinedRect(ctx, 6, 108, 22, 12, 6, '#1e293b', '#0f172a', 2, false);
 
-        drawOutlinedRect(ctx, -28, -14, 56, 76, 12, shirtColor, '#1e293b', 3, true);
-        // White inner collar tee stripe
-        drawOutlinedRect(ctx, -10, -14, 20, 74, 4, prof.inner, null, 0, false);
+        // Relaxed left arm + Expressive right pointing/gesturing arm driven by audioLevel!
+        drawArticulatedLimb(ctx, -28, -2, -40, 22, -32, 46, 13, shirtColor, '#1e293b', prof.skin);
+        const gestureLift = action === 'drinking' ? -28 : (-18 - audioLevel * 24 + Math.sin(t * 6.5) * 6);
+        drawArticulatedLimb(ctx, 28, -2, 52, 8, 66, gestureLift, 13, shirtColor, '#1e293b', prof.skin, action === 'pointing');
+
+        // Jacket/Torso + Cel-shade + Collar & Tie
+        drawOutlinedRect(ctx, -30, -14, 60, 76, 16, shirtColor, '#1e293b', 3, true);
+        drawOutlinedRect(ctx, -11, -14, 22, 74, 4, prof.inner, null, 0, false);
+        if (prof.tie) {
+            ctx.fillStyle = prof.tie;
+            ctx.beginPath();
+            ctx.moveTo(-4, -10);
+            ctx.lineTo(4, -10);
+            ctx.lineTo(5, 22);
+            ctx.lineTo(0, 28);
+            ctx.lineTo(-5, 22);
+            ctx.closePath();
+            ctx.fill();
+        }
         drawCharacterHead(ctx, 0, -56, t, mood, audioLevel, cast, { headphone: action === 'drinking' && mood === 'happy' });
         ctx.restore();
     }
@@ -970,7 +1584,7 @@
                 const sx = 220 + i * 38 + Math.sin(t * 3 + i) * 10;
                 const sy = 360 - p * 120;
                 ctx.save();
-                ctx.globalAlpha = (1 - p) * 0.55;
+                ctx.globalAlpha = (1 - p) * 0.52;
                 ctx.fillStyle = '#ffffff';
                 ctx.beginPath();
                 ctx.arc(sx, sy, 10 + p * 14, 0, Math.PI * 2);
@@ -1028,10 +1642,10 @@
         }
         if (effect === 'confetti') {
             const cols = ['#facc15', '#34d399', '#fb7185', '#38bdf8', '#a855f7'];
-            for (let i = 0; i < 8; i++) {
-                const p = (t * 0.55 + i * 0.13) % 1;
-                const cx = 60 + ((i * 63) % 420) + Math.sin(t * 4 + i) * 14;
-                const cy = 110 + p * 260;
+            for (let i = 0; i < 10; i++) {
+                const p = (t * 0.55 + i * 0.11) % 1;
+                const cx = 56 + ((i * 52) % 428) + Math.sin(t * 4 + i) * 14;
+                const cy = 110 + p * 270;
                 ctx.save();
                 ctx.translate(cx, cy);
                 ctx.rotate(t * 5 + i);
@@ -1076,13 +1690,13 @@
             return;
         }
 
-        const spSize = 10 + audioLevel * 7;
+        const spSize = 9.5 + audioLevel * 7;
         drawSparkle(ctx, 74, 195, spSize, '#fbbf24', t * 1.4);
         drawSparkle(ctx, 466, 240, spSize * 0.85, '#fde047', -t * 1.4);
     }
 
-    // ---- 36 Crisp Flat-Vector Props ----
-    function drawProp(ctx, propId, cx, cy, scale, progress, t, audioLevel = 0) {
+    // ---- 36 High-Craft Vector Props (with inner Screen/Lighting/Shading detail) ----
+    function drawProp(ctx, propId, cx, cy, scale, progress, t, audioLevel = 0, screenType = 'chat_msg') {
         if (scale <= 0.02) return;
         ctx.save();
         ctx.translate(cx, cy);
@@ -1090,28 +1704,28 @@
 
         switch (propId) {
             case 'house': {
-                drawOutlinedRect(ctx, -82, -20, 164, 122, 6, '#fef3c7', '#1e293b', 3.5, true);
-                drawOutlinedRect(ctx, -20, 36, 40, 66, 5, '#92400e', '#1e293b', 3, false);
-                drawOutlinedRect(ctx, -64, 8, 32, 32, 4, '#bae6fd', '#1e293b', 2.5, false);
-                drawOutlinedRect(ctx, 32, 8, 32, 32, 4, '#bae6fd', '#1e293b', 2.5, false);
+                drawOutlinedRect(ctx, -82, -20, 164, 122, 8, '#fef3c7', '#1e293b', 3.4, true);
+                drawOutlinedRect(ctx, -20, 36, 40, 66, 6, '#92400e', '#1e293b', 2.8, false);
+                drawOutlinedRect(ctx, -64, 8, 32, 32, 5, '#bae6fd', '#1e293b', 2.4, false);
+                drawOutlinedRect(ctx, 32, 8, 32, 32, 5, '#bae6fd', '#1e293b', 2.4, false);
                 ctx.fillStyle = '#ef4444';
                 ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 3.5;
+                ctx.lineWidth = 3.4;
                 ctx.beginPath();
-                ctx.moveTo(-100, -18);
-                ctx.lineTo(0, -100);
-                ctx.lineTo(100, -18);
+                ctx.moveTo(-102, -16);
+                ctx.lineTo(0, -102);
+                ctx.lineTo(102, -16);
                 ctx.closePath();
                 ctx.fill();
                 ctx.stroke();
                 break;
             }
             case 'door': {
-                drawOutlinedRect(ctx, -64, -105, 128, 210, 12, '#0d9488', '#1e293b', 3.5, true);
-                drawOutlinedRect(ctx, -46, -86, 92, 72, 6, '#14b8a6', '#1e293b', 2.5, false);
+                drawOutlinedRect(ctx, -64, -105, 128, 210, 12, '#0d9488', '#1e293b', 3.4, true);
+                drawOutlinedRect(ctx, -46, -86, 92, 72, 6, '#14b8a6', '#1e293b', 2.4, false);
                 ctx.fillStyle = '#fbbf24';
                 ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 2.5;
+                ctx.lineWidth = 2.4;
                 ctx.beginPath();
                 ctx.arc(38, 12, 8, 0, Math.PI * 2);
                 ctx.fill();
@@ -1131,8 +1745,8 @@
             }
             case 'bus': {
                 ctx.translate(0, Math.sin(t * 7) * 2.5);
-                drawOutlinedRect(ctx, -110, -56, 220, 108, 18, '#facc15', '#1e293b', 3.5, true);
-                [-72, -16, 40].forEach((wx) => drawOutlinedRect(ctx, wx, -38, 42, 34, 6, '#bae6fd', '#1e293b', 2.5, false));
+                drawOutlinedRect(ctx, -110, -56, 220, 108, 18, '#facc15', '#1e293b', 3.4, true);
+                [-72, -16, 40].forEach((wx) => drawOutlinedRect(ctx, wx, -38, 42, 34, 6, '#bae6fd', '#1e293b', 2.4, false));
                 [-64, 64].forEach((cxW) => {
                     ctx.fillStyle = '#1e293b';
                     ctx.beginPath();
@@ -1146,8 +1760,8 @@
                 break;
             }
             case 'scooter': {
-                drawOutlinedRect(ctx, -84, -18, 168, 52, 24, '#ef4444', '#1e293b', 3.5, true);
-                drawOutlinedRect(ctx, -38, -28, 86, 18, 8, '#334155', '#1e293b', 2.5, false);
+                drawOutlinedRect(ctx, -84, -18, 168, 52, 24, '#ef4444', '#1e293b', 3.4, true);
+                drawOutlinedRect(ctx, -38, -28, 86, 18, 8, '#334155', '#1e293b', 2.4, false);
                 ctx.strokeStyle = '#1e293b';
                 ctx.lineWidth = 5;
                 ctx.beginPath();
@@ -1168,7 +1782,7 @@
                 break;
             }
             case 'envelope': {
-                drawOutlinedRect(ctx, -110, -68, 220, 136, 12, '#fffbeb', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -110, -68, 220, 136, 12, '#fffbeb', '#1e293b', 3.4, true);
                 ctx.strokeStyle = '#1e293b';
                 ctx.lineWidth = 3;
                 ctx.beginPath();
@@ -1184,16 +1798,19 @@
                 break;
             }
             case 'cash_stack': {
-                drawOutlinedRect(ctx, -88, -32, 176, 80, 10, '#4ade80', '#1e293b', 3.5, true);
-                drawOutlinedRect(ctx, -88, -50, 176, 80, 10, '#86efac', '#1e293b', 3.5, false);
+                drawOutlinedRect(ctx, -88, -32, 176, 80, 10, '#22c55e', '#1e293b', 3.4, true);
+                drawOutlinedRect(ctx, -88, -50, 176, 80, 10, '#86efac', '#1e293b', 3.4, false);
                 drawOutlinedRect(ctx, -26, -50, 52, 80, 4, '#fef08a', '#1e293b', 2.5, false);
+                ctx.strokeStyle = '#15803d';
+                ctx.lineWidth = 2.5;
+                ctx.strokeRect(-72, -36, 144, 52);
                 break;
             }
             case 'jar':
             case 'locked_jar': {
-                const fillRatio = 0.28 + 0.48 * easeOutCubic(Math.min(1, progress * 1.4));
-                drawOutlinedRect(ctx, -64, -122, 128, 24, 8, '#94a3b8', '#1e293b', 3.5, false);
-                drawOutlinedRect(ctx, -90, -98, 180, 212, 28, 'rgba(255,255,255,0.78)', '#1e293b', 3.5, true);
+                const fillRatio = 0.28 + 0.5 * easeOutCubic(Math.min(1, progress * 1.4));
+                drawOutlinedRect(ctx, -64, -122, 128, 24, 8, '#94a3b8', '#1e293b', 3.4, false);
+                drawOutlinedRect(ctx, -90, -98, 180, 212, 28, 'rgba(255,255,255,0.82)', '#1e293b', 3.4, true);
                 ctx.save();
                 ctx.beginPath();
                 ctx.roundRect(-82, -90, 164, 196, 22);
@@ -1201,6 +1818,8 @@
                 const liqH = 180 * fillRatio;
                 ctx.fillStyle = '#4ade80';
                 ctx.fillRect(-82, 106 - liqH, 164, liqH);
+                ctx.fillStyle = 'rgba(255,255,255,0.28)';
+                ctx.fillRect(-70, -76, 18, 168);
                 ctx.restore();
                 if (propId === 'locked_jar') {
                     ctx.strokeStyle = '#1e293b';
@@ -1212,12 +1831,13 @@
                 break;
             }
             case 'card_doc': {
-                drawOutlinedRect(ctx, -96, -118, 192, 236, 14, '#ffffff', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -96, -118, 192, 236, 14, '#ffffff', '#1e293b', 3.4, true);
                 drawOutlinedRect(ctx, -72, -96, 144, 24, 6, '#3b82f6', '#1e293b', 2, false);
                 [-44, -10, 24, 58].forEach((ly, i) => {
-                    ctx.fillStyle = i % 2 === 0 ? '#10b981' : '#94a3b8';
+                    const checked = progress > 0.15 + i * 0.18;
+                    ctx.fillStyle = checked ? '#22c55e' : '#cbd5e1';
                     ctx.beginPath();
-                    ctx.arc(-58, ly + 4, 8, 0, Math.PI * 2);
+                    ctx.arc(-58, ly + 4, 8.5, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.fillStyle = '#cbd5e1';
                     ctx.fillRect(-38, ly, 104, 8);
@@ -1228,7 +1848,7 @@
                 ctx.translate(0, Math.sin(t * 4) * 5);
                 ctx.fillStyle = '#fbbf24';
                 ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 4;
+                ctx.lineWidth = 3.8;
                 ctx.beginPath();
                 ctx.arc(0, 0, 62, 0, Math.PI * 2);
                 ctx.fill();
@@ -1243,24 +1863,25 @@
                 break;
             }
             case 'red_button': {
-                const press = Math.sin(t * 6) > 0.3 ? 6 : 0;
-                drawOutlinedRect(ctx, -78, -6, 156, 46, 22, '#991b1b', '#1e293b', 3.5, true);
-                drawOutlinedRect(ctx, -78, -28 + press, 156, 46, 22, '#ef4444', '#1e293b', 3.5, false);
+                const press = progress > 0.5 ? 6 : 0;
+                drawOutlinedRect(ctx, -78, -6, 156, 46, 22, '#991b1b', '#1e293b', 3.4, true);
+                drawOutlinedRect(ctx, -78, -28 + press, 156, 46, 22, '#ef4444', '#1e293b', 3.4, false);
                 break;
             }
             case 'chart_bars': {
-                const h1 = 96 * easeOutCubic(Math.min(1, progress * 1.4));
-                const h2 = 140 * easeOutCubic(Math.min(1, progress * 1.3));
-                const h3 = 185 * easeOutCubic(Math.min(1, progress * 1.25));
+                const grow = easeOutCubic(Math.min(1, progress * 1.45));
+                const h1 = 96 * grow;
+                const h2 = 140 * grow;
+                const h3 = (185 + audioLevel * 12) * grow;
                 drawOutlinedRect(ctx, -104, 90 - h1, 56, h1, 8, '#93c5fd', '#1e293b', 3, true);
                 drawOutlinedRect(ctx, -28, 90 - h2, 56, h2, 8, '#60a5fa', '#1e293b', 3, true);
-                drawOutlinedRect(ctx, 48, 90 - h3, 56, h3, 8, '#34d399', '#1e293b', 3, true);
+                drawOutlinedRect(ctx, 48, 90 - h3, 56, h3, 8, '#22c55e', '#1e293b', 3, true);
                 break;
             }
             case 'rice_bowl': {
                 ctx.fillStyle = '#92400e';
                 ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 3.5;
+                ctx.lineWidth = 3.4;
                 ctx.beginPath();
                 ctx.ellipse(0, 14, 115, 48, 0, 0, Math.PI * 2);
                 ctx.fill();
@@ -1281,7 +1902,7 @@
                 break;
             }
             case 'coffee_cup': {
-                drawOutlinedRect(ctx, -46, -54, 92, 128, 14, '#fef3c7', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -46, -54, 92, 128, 14, '#fef3c7', '#1e293b', 3.4, true);
                 drawOutlinedRect(ctx, -54, -72, 108, 22, 8, '#78350f', '#1e293b', 3, false);
                 drawOutlinedRect(ctx, -46, -4, 92, 40, 4, '#d97706', '#1e293b', 2, false);
                 ctx.strokeStyle = '#1e293b';
@@ -1294,9 +1915,9 @@
             }
             case 'water_glass': {
                 const fillR = 0.35 + 0.5 * easeOutCubic(Math.min(1, progress * 1.4));
-                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                ctx.fillStyle = 'rgba(255,255,255,0.84)';
                 ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 3.5;
+                ctx.lineWidth = 3.4;
                 ctx.beginPath();
                 ctx.moveTo(-66, -86);
                 ctx.lineTo(66, -86);
@@ -1324,7 +1945,7 @@
                 ctx.scale(beat, beat);
                 ctx.fillStyle = '#fb7185';
                 ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 3.5;
+                ctx.lineWidth = 3.4;
                 ctx.beginPath();
                 ctx.moveTo(0, 62);
                 ctx.bezierCurveTo(-86, 8, -90, -76, -38, -76);
@@ -1344,31 +1965,31 @@
                     ctx.arc(cxC, -82 + Math.sin(t * 8 + idx) * 2, 6, 0, Math.PI * 2);
                     ctx.fill();
                 });
-                drawOutlinedRect(ctx, -78, -36, 156, 76, 12, '#fbcfe8', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -78, -36, 156, 76, 12, '#fbcfe8', '#1e293b', 3.4, true);
                 drawOutlinedRect(ctx, -78, -14, 156, 18, 4, '#ffffff', '#1e293b', 2, false);
                 break;
             }
             case 'gift_box': {
-                drawOutlinedRect(ctx, -72, -38, 144, 110, 12, '#ef4444', '#1e293b', 3.5, true);
-                drawOutlinedRect(ctx, -82, -62, 164, 30, 8, '#f87171', '#1e293b', 3.5, false);
-                drawOutlinedRect(ctx, -14, -62, 28, 134, 4, '#fde047', '#1e293b', 2.5, false);
+                drawOutlinedRect(ctx, -72, -38, 144, 110, 12, '#ef4444', '#1e293b', 3.4, true);
+                drawOutlinedRect(ctx, -82, -62, 164, 30, 8, '#f87171', '#1e293b', 3.4, false);
+                drawOutlinedRect(ctx, -14, -62, 28, 134, 4, '#fde047', '#1e293b', 2.4, false);
                 break;
             }
             case 'phone': {
-                ctx.translate(Math.sin(t * 16) * (0.4 + audioLevel), 0);
-                drawOutlinedRect(ctx, -82, -130, 164, 260, 24, '#1e293b', '#0f172a', 3.5, true);
-                drawOutlinedRect(ctx, -70, -114, 140, 228, 16, '#f8fafc', '#334155', 2, false);
-                drawOutlinedRect(ctx, -56, -86, 112, 46, 10, '#dbeafe', '#1e293b', 2.2, false);
-                drawOutlinedRect(ctx, -56, -24, 112, 46, 10, '#fef3c7', '#1e293b', 2.2, false);
+                ctx.translate(Math.sin(t * 16) * (0.4 + audioLevel * 1.4), 0);
+                drawOutlinedRect(ctx, -84, -132, 168, 264, 26, '#1e293b', '#0f172a', 3.4, true);
+                drawRichScreenContent(ctx, -72, -114, 144, 228, screenType === 'night_scroll' ? 'night_scroll' : 'chat_msg', progress, t, audioLevel);
+                // Dynamic Island notch + notification red dot
+                drawOutlinedRect(ctx, -26, -124, 52, 11, 5, '#0f172a', null, 0, false);
                 ctx.fillStyle = '#ef4444';
                 ctx.beginPath();
-                ctx.arc(54, -90, 13, 0, Math.PI * 2);
+                ctx.arc(58, -96, 10 + audioLevel * 4, 0, Math.PI * 2);
                 ctx.fill();
                 break;
             }
             case 'scam_link': {
-                drawOutlinedRect(ctx, -112, -58, 224, 116, 16, '#ffffff', '#1e293b', 3.5, true);
-                drawOutlinedRect(ctx, -112, -58, 224, 34, 14, '#ef4444', '#1e293b', 3.5, false);
+                drawOutlinedRect(ctx, -112, -58, 224, 116, 16, '#ffffff', '#1e293b', 3.4, true);
+                drawOutlinedRect(ctx, -112, -58, 224, 34, 14, '#ef4444', '#1e293b', 3.4, false);
                 ctx.strokeStyle = '#ef4444';
                 ctx.lineWidth = 6;
                 ctx.beginPath();
@@ -1382,7 +2003,7 @@
                 break;
             }
             case 'plug_socket': {
-                drawOutlinedRect(ctx, -76, -76, 152, 152, 22, '#ffffff', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -76, -76, 152, 152, 22, '#ffffff', '#1e293b', 3.4, true);
                 ctx.fillStyle = '#1e293b';
                 ctx.beginPath();
                 ctx.arc(-24, -10, 11, 0, Math.PI * 2);
@@ -1403,9 +2024,9 @@
             case 'battery': {
                 const charge = 0.25 + 0.65 * easeOutCubic(Math.min(1, progress * 1.4));
                 drawOutlinedRect(ctx, -28, -112, 56, 20, 6, '#94a3b8', '#1e293b', 3, false);
-                drawOutlinedRect(ctx, -68, -92, 136, 190, 18, '#ffffff', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -68, -92, 136, 190, 18, '#ffffff', '#1e293b', 3.4, true);
                 const barH = Math.max(24, 166 * charge);
-                drawOutlinedRect(ctx, -56, 86 - barH, 112, barH, 10, '#4ade80', '#1e293b', 2.5, false);
+                drawOutlinedRect(ctx, -56, 86 - barH, 112, barH, 10, '#4ade80', '#1e293b', 2.4, false);
                 break;
             }
             case 'padlock': {
@@ -1414,7 +2035,7 @@
                 ctx.beginPath();
                 ctx.arc(0, -38, 42, Math.PI, Math.PI * 2);
                 ctx.stroke();
-                drawOutlinedRect(ctx, -68, -36, 136, 114, 18, '#fbbf24', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -68, -36, 136, 114, 18, '#fbbf24', '#1e293b', 3.4, true);
                 ctx.fillStyle = '#1e293b';
                 ctx.beginPath();
                 ctx.arc(0, 14, 14, 0, Math.PI * 2);
@@ -1426,7 +2047,7 @@
                 ctx.scale(flicker, flicker);
                 ctx.fillStyle = '#ef4444';
                 ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 3.5;
+                ctx.lineWidth = 3.4;
                 ctx.beginPath();
                 ctx.moveTo(0, -96);
                 ctx.bezierCurveTo(64, -36, 78, 66, 0, 88);
@@ -1442,7 +2063,7 @@
                 break;
             }
             case 'warning_triangle': {
-                const pulse = 1 + Math.sin(t * 7) * 0.05 + audioLevel * 0.06;
+                const pulse = 1 + Math.sin(t * 7) * 0.05 + audioLevel * 0.07;
                 ctx.scale(pulse, pulse);
                 ctx.fillStyle = '#ef4444';
                 ctx.strokeStyle = '#1e293b';
@@ -1465,7 +2086,7 @@
                 ctx.strokeStyle = '#1e293b';
                 ctx.lineWidth = 8;
                 ctx.strokeRect(-26, -104, 52, 32);
-                drawOutlinedRect(ctx, -64, -74, 128, 164, 18, '#fb7185', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -64, -74, 128, 164, 18, '#fb7185', '#1e293b', 3.4, true);
                 ctx.fillStyle = '#fda4af';
                 ctx.fillRect(-32, -52, 12, 120);
                 ctx.fillRect(20, -52, 12, 120);
@@ -1474,11 +2095,19 @@
             case 'clock': {
                 ctx.fillStyle = '#ffffff';
                 ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 4.5;
+                ctx.lineWidth = 4.2;
                 ctx.beginPath();
                 ctx.arc(0, 0, 88, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
+                for (let h = 0; h < 12; h++) {
+                    const ang = (h * Math.PI) / 6;
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(ang) * 70, Math.sin(ang) * 70);
+                    ctx.lineTo(Math.cos(ang) * 78, Math.sin(ang) * 78);
+                    ctx.lineWidth = 2.6;
+                    ctx.stroke();
+                }
                 const mA = -Math.PI / 2 + t * 2.4;
                 const hA = -Math.PI / 2 + t * 0.4;
                 ctx.lineCap = 'round';
@@ -1496,8 +2125,8 @@
                 break;
             }
             case 'calendar': {
-                drawOutlinedRect(ctx, -92, -92, 184, 184, 18, '#ffffff', '#1e293b', 3.5, true);
-                drawOutlinedRect(ctx, -92, -92, 184, 48, 18, '#ef4444', '#1e293b', 3.5, false);
+                drawOutlinedRect(ctx, -92, -92, 184, 184, 18, '#ffffff', '#1e293b', 3.4, true);
+                drawOutlinedRect(ctx, -92, -92, 184, 48, 18, '#ef4444', '#1e293b', 3.4, false);
                 for (let r = 0; r < 3; r++) {
                     for (let c = 0; c < 4; c++) {
                         drawOutlinedRect(ctx, -64 + c * 36, -24 + r * 34, 24, 22, 4, r === 1 && c === 2 ? '#fde047' : '#e2e8f0', '#94a3b8', 1.5, false);
@@ -1506,7 +2135,7 @@
                 break;
             }
             case 'lightbulb': {
-                const glow = 1 + Math.sin(t * 6) * 0.08 + audioLevel * 0.09;
+                const glow = 1 + Math.sin(t * 6) * 0.08 + audioLevel * 0.1;
                 ctx.strokeStyle = '#f59e0b';
                 ctx.lineWidth = 5;
                 for (let i = 0; i < 8; i++) {
@@ -1518,7 +2147,7 @@
                 }
                 ctx.fillStyle = '#fde047';
                 ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 3.5;
+                ctx.lineWidth = 3.4;
                 ctx.beginPath();
                 ctx.arc(0, -16, 56, 0, Math.PI * 2);
                 ctx.fill();
@@ -1527,23 +2156,17 @@
                 break;
             }
             case 'laptop': {
-                drawOutlinedRect(ctx, -92, -78, 184, 114, 12, '#334155', '#0f172a', 3.5, true);
-                drawOutlinedRect(ctx, -80, -66, 160, 90, 6, '#e0f2fe', '#334155', 2, false);
-                ctx.fillStyle = '#0ea5e9';
-                ctx.fillRect(-66, -50, 74, 10);
-                ctx.fillStyle = '#ef4444';
-                ctx.fillRect(-66, -32, 118, 10);
-                ctx.fillStyle = '#10b981';
-                ctx.fillRect(-66, -14, 92, 10);
-                drawOutlinedRect(ctx, -112, 36, 224, 24, 8, '#94a3b8', '#1e293b', 3, true);
+                drawOutlinedRect(ctx, -96, -82, 192, 120, 12, '#334155', '#0f172a', 3.4, true);
+                drawRichScreenContent(ctx, -84, -70, 168, 96, screenType, progress, t, audioLevel);
+                drawOutlinedRect(ctx, -114, 38, 228, 22, 8, '#94a3b8', '#1e293b', 3, true);
                 break;
             }
             case 'megaphone': {
                 ctx.save();
-                ctx.rotate(-0.18 + Math.sin(t * 7) * 0.06);
+                ctx.rotate(-0.18 + Math.sin(t * 7) * 0.06 + audioLevel * 0.06);
                 ctx.fillStyle = '#f97316';
                 ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 3.5;
+                ctx.lineWidth = 3.4;
                 ctx.beginPath();
                 ctx.moveTo(-64, -18);
                 ctx.lineTo(54, -64);
@@ -1571,22 +2194,23 @@
                 ctx.beginPath();
                 ctx.arc(0, 0, 12, 0, Math.PI * 2);
                 ctx.fill();
+                const hit = 1 - easeOutCubic(clamp01(progress * 2.2));
                 ctx.strokeStyle = '#0f172a';
                 ctx.lineWidth = 5;
                 ctx.beginPath();
-                ctx.moveTo(4, -4);
-                ctx.lineTo(74, -64);
+                ctx.moveTo(4 + hit * 60, -4 - hit * 60);
+                ctx.lineTo(74 + hit * 60, -64 - hit * 60);
                 ctx.stroke();
                 break;
             }
             case 'speech_drama': {
-                drawOutlinedRect(ctx, -108, -76, 146, 72, 22, '#fef2f2', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -108, -76, 146, 72, 22, '#fef2f2', '#1e293b', 3.4, true);
                 ctx.fillStyle = '#ef4444';
                 ctx.fillRect(-42, -58, 12, 24);
                 ctx.beginPath();
                 ctx.arc(-36, -24, 6, 0, Math.PI * 2);
                 ctx.fill();
-                drawOutlinedRect(ctx, -16, 8, 134, 68, 22, '#fef3c7', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -16, 8, 134, 68, 22, '#fef3c7', '#1e293b', 3.4, true);
                 [-12, 16, 44].forEach((dx, i) => {
                     const dy = 42 + Math.sin(t * 7 + i) * 4;
                     ctx.fillStyle = '#475569';
@@ -1597,22 +2221,22 @@
                 break;
             }
             case 'music_bars': {
-                drawOutlinedRect(ctx, -110, -90, 220, 180, 22, '#1e1b4b', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -110, -90, 220, 180, 22, '#1e1b4b', '#1e293b', 3.4, true);
                 for (let i = 0; i < 7; i++) {
-                    const boost = 1 + audioLevel * 0.85;
+                    const boost = 1 + audioLevel * 0.9;
                     const bh = Math.min(130, (24 + Math.abs(Math.sin(t * 6 + i * 0.8)) * 75) * boost);
                     drawOutlinedRect(ctx, -84 + i * 25, 58 - bh, 15, bh, 6, i % 2 === 0 ? '#a855f7' : '#38bdf8', '#0f172a', 1.8, false);
                 }
                 break;
             }
             case 'sleep_bed': {
-                drawOutlinedRect(ctx, -95, 10, 190, 44, 10, '#a78bfa', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -95, 10, 190, 44, 10, '#a78bfa', '#1e293b', 3.4, true);
                 drawOutlinedRect(ctx, -86, -16, 52, 28, 10, '#ffffff', '#1e293b', 2.8, false);
                 drawOutlinedRect(ctx, -30, -6, 120, 34, 12, '#818cf8', '#1e293b', 2.8, false);
                 break;
             }
             default: {
-                drawOutlinedRect(ctx, -68, -68, 136, 136, 28, '#fef3c7', '#1e293b', 3.5, true);
+                drawOutlinedRect(ctx, -68, -68, 136, 136, 28, '#fef3c7', '#1e293b', 3.4, true);
                 drawSparkle(ctx, 0, 0, 36 + audioLevel * 8, '#facc15', t * 2);
                 break;
             }
@@ -1646,178 +2270,234 @@
         const action = cue.action || 'pointing';
         const cast = cue.cast || 'narrator';
         const effect = cue.effect || 'sparkles';
+        const screenType = cue.screenType || 'chat_msg';
 
         drawBackdrop(ctx, backdropId, progress, t, audioLevel);
 
-        const slideT = easeOutCubic(Math.min(1, progress / 0.14));
-        const slideX = (1 - slideT) * (sceneIdx === 0 ? 0 : 90);
-        const pop1 = stagePop(progress, 0.04, 0.22);
-        const pop2 = stagePop(progress, 0.18, 0.22);
-        const pop3 = stagePop(progress, 0.36, 0.20);
-
-        ctx.save();
-        ctx.translate(slideX, 0);
+        const pop1 = stagePop(progress, 0.02, 0.18);
+        const pop2 = stagePop(progress, 0.16, 0.20);
+        const pop3 = stagePop(progress, 0.42, 0.20);
 
         switch (cue.layout) {
             case 'wide-team': {
-                // Reference Video 1 wide room: 2 desk teammates + narrator foreground-right + soft camera pan!
-                const camZoom = 1 + progress * 0.05;
+                // Multi-angle office room with slow camera push-in, animated screen, teammates & speaking narrator
+                const camZoom = 1 + easeOutCubic(progress) * 0.055;
                 ctx.save();
                 ctx.translate(270, 520);
                 ctx.scale(camZoom, camZoom);
                 ctx.translate(-270, -520);
-                drawSeatedDeskCharacter(ctx, 138, 550, pop1 * 0.72, t, 'girl-purple', 'happy', 0, false);
-                drawSeatedDeskCharacter(ctx, 305, 550, pop2 * 0.72, t, 'boy-spiky', mood, 0, false);
-                drawSeatedDeskCharacter(ctx, 440, 485, pop2 * 0.56, t, 'manager-red', 'happy', 0, action === 'calling');
+                drawSeatedDeskCharacter(ctx, 136, 545, pop1 * 0.72, t, 'girl-purple', 'happy', 0, false);
+                drawSeatedDeskCharacter(ctx, 304, 545, pop2 * 0.72, t, 'boy-spiky', mood, 0, false);
+                drawSeatedDeskCharacter(ctx, 438, 480, pop2 * 0.56, t, 'manager-red', 'happy', 0, action === 'calling');
                 ctx.restore();
-                // Narrator character foreground-right speaking with audio lip-sync!
-                drawAnimatedActor(ctx, 445, 700, pop1 * 0.92, progress, t, 'pointing', mood, audioLevel, 'narrator');
+                // Contextual focus card floating softly in upper-center of office room
+                if (props[0]) {
+                    drawOutlinedRect(ctx, 178, 224, 184, 120, 18, 'rgba(255,255,255,0.92)', '#94a3b8', 2.4, true);
+                    drawProp(ctx, props[0], 270, 284, pop2 * 0.42, progress, t, audioLevel, screenType);
+                }
+                drawAnimatedActor(ctx, 444, 702, pop1 * 0.94, progress, t, action === 'celebrating' ? 'celebrating' : 'pointing', mood, audioLevel, cast);
+                drawComicReaction(ctx, 378, 590, mood, audioLevel, t);
                 break;
             }
 
             case 'desk-closeup': {
-                // Tight close-up at speaker's desk with camera zoom + coffee/phone beside laptop!
-                const camZoom = 1 + progress * 0.06;
+                // Tight medium close-up with cinematic zoom, laptop, side context prop & comic reaction!
+                const camZoom = 1 + easeOutCubic(progress) * 0.065;
                 ctx.save();
-                ctx.translate(270, 540);
+                ctx.translate(270, 545);
                 ctx.scale(camZoom, camZoom);
-                ctx.translate(-270, -540);
-                drawSeatedDeskCharacter(ctx, 270, 535, pop1 * 1.48, t, cast, mood, audioLevel, action === 'calling');
-                // Side coffee/phone prop on desk edge
-                if (props[1]) {
-                    drawProp(ctx, props[1], 455, 585, pop2 * 0.38, progress, t, audioLevel);
-                }
+                ctx.translate(-270, -545);
+                drawSeatedDeskCharacter(ctx, 265, 540, pop1 * 1.48, t, cast, mood, audioLevel, action === 'calling');
+                drawProp(ctx, props[0], 438, 360, pop2 * 0.44, progress, t, audioLevel, screenType);
+                drawComicReaction(ctx, 118, 385, mood, audioLevel, t);
                 ctx.restore();
                 break;
             }
 
             case 'hand-pov': {
-                // First-person hand POV holding camera/pen/document close-up (matches Video 1 signature shots!)
-                const docScale = pop1 * 1.15;
-                drawOutlinedRect(ctx, 105, 220, 330, 405, 16, '#ffffff', '#cbd5e1', 3, true);
-                drawProp(ctx, props[0], 270, 405, docScale * 0.95, progress, t, audioLevel);
+                // First-person POV hands holding phone with animated screen OR signing paper with red stamp "APPROVED"
+                drawOutlinedRect(ctx, 88, 198, 364, 440, 22, '#ffffff', '#cbd5e1', 3, true);
+                const docScale = pop1 * 1.12;
+                const isDocShot = props[0] === 'card_doc' || props[0] === 'envelope' || screenType === 'contract_sign';
+                drawProp(ctx, isDocShot ? 'card_doc' : 'phone', 270, 398, docScale * 0.96, progress, t, audioLevel, screenType);
 
-                // Animated POV hands framing or signing!
-                const handY = 640 - easeOutBack(clamp01(progress * 2.2)) * 45;
-                const drawHand = (hx, hy, tilt) => {
+                // Animated POV arms & hands
+                const drawPovHand = (hx, hy, tilt, sleeveCol = '#1e3a5f') => {
                     ctx.save();
                     ctx.translate(hx, hy);
                     ctx.rotate(tilt);
-                    drawOutlinedRect(ctx, -22, 0, 44, 150, 14, '#1e293b', '#0f172a', 2.5, false);
-                    ctx.fillStyle = '#fed7aa';
+                    drawOutlinedRect(ctx, -20, 0, 40, 175, 16, sleeveCol, '#0f172a', 2.8, true);
+                    drawOutlinedRect(ctx, -22, -6, 44, 14, 6, '#f8fafc', '#1e293b', 2, false);
+                    ctx.fillStyle = '#fbd3b4';
                     ctx.strokeStyle = '#1e293b';
-                    ctx.lineWidth = 2.5;
+                    ctx.lineWidth = 2.6;
                     ctx.beginPath();
-                    ctx.arc(0, -14, 24, 0, Math.PI * 2);
+                    ctx.arc(0, -20, 24, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    // Thumb
+                    ctx.beginPath();
+                    ctx.ellipse(16, -24, 8, 14, 0.4, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.stroke();
                     ctx.restore();
                 };
-                if (props[0] === 'card_doc' || props[0] === 'envelope') {
-                    // Right hand holding blue pen writing zig-zag signature line!
-                    const signX = 270 + Math.sin(t * 9) * 38;
+
+                if (isDocShot) {
+                    const signProg = easeOutCubic(clamp01((progress - 0.12) / 0.55));
+                    const signX = 200 + signProg * 135;
+                    const signY = 486 + Math.sin(signProg * Math.PI * 5) * 6;
                     ctx.strokeStyle = '#2563eb';
-                    ctx.lineWidth = 4;
+                    ctx.lineWidth = 4.2;
+                    ctx.lineCap = 'round';
                     ctx.beginPath();
-                    ctx.moveTo(190, 470);
-                    ctx.lineTo(190 + easeOutCubic(progress) * 140, 466 + Math.sin(t * 8) * 4);
+                    ctx.moveTo(200, 488);
+                    for (let k = 1; k <= 12; k++) {
+                        const kp = (k / 12) * signProg;
+                        ctx.lineTo(200 + kp * 135, 488 + Math.sin(kp * Math.PI * 6) * 5);
+                    }
                     ctx.stroke();
-                    drawHand(signX + 35, 505, -0.45);
+                    drawPovHand(signX + 34, signY + 32, -0.45);
+                    // Red circle stamp popping on payoff!
+                    if (progress > 0.65) {
+                        const stP = stagePop(progress, 0.65, 0.16);
+                        ctx.save();
+                        ctx.translate(342, 466);
+                        ctx.scale(stP, stP);
+                        ctx.rotate(-0.18);
+                        ctx.strokeStyle = '#ef4444';
+                        ctx.lineWidth = 4.5;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, 32, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(-12, 2);
+                        ctx.lineTo(-3, 12);
+                        ctx.lineTo(14, -10);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
                 } else {
-                    drawHand(92, handY, -0.25);
-                    drawHand(448, handY, 0.25);
+                    const handY = 635 - easeOutBack(clamp01(progress * 2.2)) * 42;
+                    drawPovHand(94, handY, -0.24);
+                    drawPovHand(446, handY, 0.24);
+                    if (progress > 0.52) {
+                        drawCursorPointer(ctx, 270, 420, progress > 0.58 && progress < 0.72 ? 0.85 : 1, clamp01((progress - 0.58) * 3.5));
+                    }
                 }
                 break;
             }
 
             case 'laptop-popup': {
-                // Soft desk background behind sharp zoomed OS modal popup
-                drawSeatedDeskCharacter(ctx, 270, 560, 1.1, t, cast, 'thinking', audioLevel * 0.4, false);
-                ctx.fillStyle = 'rgba(15, 23, 42, 0.22)';
+                drawSeatedDeskCharacter(ctx, 270, 565, 1.08, t, cast, mood, audioLevel * 0.45, false);
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.26)';
                 ctx.fillRect(0, 0, W, H);
                 ctx.save();
-                ctx.translate(270, 400);
+                ctx.translate(270, 395);
                 ctx.scale(pop1, pop1);
-                drawOutlinedRect(ctx, -210, -150, 420, 290, 20, '#ffffff', '#64748b', 3.5, true);
-                drawOutlinedRect(ctx, -210, -150, 420, 44, 18, '#475569', '#334155', 3, false);
+                drawOutlinedRect(ctx, -214, -162, 428, 314, 22, '#ffffff', '#64748b', 3.4, true);
+                drawOutlinedRect(ctx, -214, -162, 428, 44, 18, '#334155', '#1e293b', 3, false);
                 ['#ef4444', '#facc15', '#22c55e'].forEach((dotC, di) => {
                     ctx.fillStyle = dotC;
                     ctx.beginPath();
-                    ctx.arc(-182 + di * 22, -128, 7, 0, Math.PI * 2);
+                    ctx.arc(-182 + di * 22, -140, 7, 0, Math.PI * 2);
                     ctx.fill();
                 });
-                // Highlighted active item inside popup + pointer stick
-                drawOutlinedRect(ctx, -172, -62, 344, 68, 12, '#fef2f2', '#ef4444', 3, false);
-                drawProp(ctx, props[0], -115, -28, 0.24, progress, t, audioLevel);
-                drawOutlinedRect(ctx, -60, -38, 195, 16, 8, '#ef4444', null, 0, false);
-                drawOutlinedRect(ctx, -172, 28, 344, 54, 12, '#f1f5f9', '#cbd5e1', 2, false);
-                drawOutlinedRect(ctx, -142, 46, 220, 14, 7, '#94a3b8', null, 0, false);
+                drawRichScreenContent(ctx, -192, -102, 384, 234, screenType, progress, t, audioLevel);
                 ctx.restore();
-                // Cursor clicking popup row
-                const cxCur = 380 - easeOutCubic(progress) * 60;
-                const cyCur = 460 - easeOutCubic(progress) * 45;
-                drawCursorPointer(ctx, cxCur, cyCur, progress > 0.5 && progress < 0.65 ? 0.85 : 1, progress > 0.55 ? (progress - 0.55) * 4 : 0);
+                const curT = easeInOutCubic(clamp01(progress * 1.4));
+                drawCursorPointer(
+                    ctx,
+                    400 - curT * 92,
+                    490 - curT * 58,
+                    progress > 0.56 && progress < 0.70 ? 0.84 : 1,
+                    progress > 0.58 ? clamp01((progress - 0.58) * 3.5) : 0
+                );
                 break;
             }
 
             case 'ui-window': {
-                // Reference Video 2 crisp App Mockup Card + typing/dropdown cursor click
+                // Sleek SaaS App Mockup Window with real animated UI screen & Bezier cursor click
                 ctx.save();
-                ctx.translate(270, 390);
+                ctx.translate(270, 410);
                 ctx.scale(pop1, pop1);
-                drawOutlinedRect(ctx, -215, -175, 430, 340, 22, '#0f172a', '#334155', 2.5, true);
-                drawOutlinedRect(ctx, -195, -155, 390, 42, 10, '#1e293b', '#334155', 1.5, false);
-                drawOutlinedRect(ctx, -182, -143, 210, 18, 6, '#38bdf8', null, 0, false);
-                // Interactive blue highlight box popping in center
-                const cardPop = stagePop(progress, 0.2, 0.22);
+                drawOutlinedRect(ctx, -220, -210, 440, 405, 24, '#0f172a', '#334155', 2.8, true);
+                drawOutlinedRect(ctx, -200, -188, 400, 40, 12, '#1e293b', '#334155', 1.6, false);
+                ['#ef4444', '#facc15', '#22c55e'].forEach((dc, i) => {
+                    ctx.fillStyle = dc;
+                    ctx.beginPath();
+                    ctx.arc(-178 + i * 18, -168, 5.5, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                drawRichScreenContent(ctx, -196, -132, 392, 236, screenType, progress, t, audioLevel);
+
+                const btnClicked = progress > 0.62;
+                const btnScale = progress > 0.6 && progress < 0.72 ? 0.94 : 1;
                 ctx.save();
-                ctx.scale(cardPop, cardPop);
-                drawOutlinedRect(ctx, -165, -75, 330, 160, 16, '#1e293b', '#3b82f6', 2.5, true);
-                drawProp(ctx, props[0], -85, 5, 0.42, progress, t, audioLevel);
-                drawOutlinedRect(ctx, -10, -24, 145, 16, 8, '#60a5fa', null, 0, false);
-                drawOutlinedRect(ctx, -10, 8, 105, 12, 6, '#64748b', null, 0, false);
-                // Interactive action button
-                const isClicked = progress > 0.62;
-                drawOutlinedRect(ctx, -10, 38, 128, 34, 10, isClicked ? '#22c55e' : '#2563eb', null, 0, false);
+                ctx.translate(0, 146);
+                ctx.scale(btnScale, btnScale);
+                drawOutlinedRect(ctx, -110, -22, 220, 44, 14, btnClicked ? '#22c55e' : '#3b82f6', '#ffffff', 2, true);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3.5;
+                ctx.lineCap = 'round';
+                if (btnClicked) {
+                    ctx.beginPath();
+                    ctx.moveTo(-12, 2);
+                    ctx.lineTo(-3, 11);
+                    ctx.lineTo(14, -8);
+                    ctx.stroke();
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(-16, 0);
+                    ctx.lineTo(16, 0);
+                    ctx.moveTo(6, -9);
+                    ctx.lineTo(16, 0);
+                    ctx.lineTo(6, 9);
+                    ctx.stroke();
+                }
                 ctx.restore();
                 ctx.restore();
-                const curT = easeOutCubic(clamp01(progress * 1.4));
-                const clickRipple = progress > 0.62 ? clamp01((progress - 0.62) * 3.5) : 0;
-                drawCursorPointer(ctx, 410 - curT * 95, 520 - curT * 60, progress > 0.6 && progress < 0.7 ? 0.84 : 1, clickRipple);
+
+                const curP = easeInOutCubic(clamp01((progress - 0.12) / 0.52));
+                drawCursorPointer(
+                    ctx,
+                    430 - curP * 145,
+                    640 - curP * 85,
+                    progress > 0.6 && progress < 0.72 ? 0.84 : 1,
+                    progress > 0.62 ? clamp01((progress - 0.62) * 3.2) : 0
+                );
                 break;
             }
 
             case 'ui-checklist': {
-                // Reference Video 2 white shadow cards with blue checkmarks popping in sequence!
                 const cols = 2;
                 [0, 1, 2, 3].forEach((idx) => {
-                    const cardP = stagePop(progress, 0.06 + idx * 0.14, 0.18);
+                    const cardP = stagePop(progress, 0.05 + idx * 0.14, 0.18);
                     if (cardP <= 0.02) return;
                     const c = idx % cols;
                     const r = Math.floor(idx / cols);
                     const px = 148 + c * 244;
-                    const py = 290 + r * 195;
+                    const py = 305 + r * 205;
                     ctx.save();
                     ctx.translate(px, py);
                     ctx.scale(cardP, cardP);
-                    drawOutlinedRect(ctx, -105, -78, 210, 156, 22, '#ffffff', '#dbeafe', 2.5, true);
-                    drawProp(ctx, props[idx % props.length], 0, -8, 0.36, progress, t, audioLevel);
-                    // Blue checkmark badge in top-right corner
+                    drawOutlinedRect(ctx, -106, -82, 212, 164, 24, '#ffffff', '#bfdbfe', 2.8, true);
+                    drawProp(ctx, props[idx % props.length], 0, -6, 0.40, progress, t, audioLevel, screenType);
                     const chkP = stagePop(progress, 0.24 + idx * 0.14, 0.16);
                     if (chkP > 0.05) {
                         ctx.save();
-                        ctx.translate(88, -68);
+                        ctx.translate(88, -70);
                         ctx.scale(chkP, chkP);
-                        ctx.fillStyle = '#3b82f6';
+                        ctx.fillStyle = '#2563eb';
                         ctx.beginPath();
-                        ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                        ctx.arc(0, 0, 19, 0, Math.PI * 2);
                         ctx.fill();
                         ctx.strokeStyle = '#ffffff';
                         ctx.lineWidth = 3.5;
                         ctx.beginPath();
                         ctx.moveTo(-7, 1);
-                        ctx.lineTo(-2, 6);
-                        ctx.lineTo(8, -6);
+                        ctx.lineTo(-2, 7);
+                        ctx.lineTo(9, -6);
                         ctx.stroke();
                         ctx.restore();
                     }
@@ -1827,78 +2507,94 @@
             }
 
             case 'ui-flow': {
-                // Reference Video 2 horizontal pill progression + rotating tilted stamp
-                const step1P = stagePop(progress, 0.05, 0.18);
-                const step2P = stagePop(progress, 0.22, 0.18);
-                const step3P = stagePop(progress, 0.40, 0.18);
-                [[120, step1P, '#e2e8f0'], [270, step2P, '#fde68a'], [420, step3P, '#bbf7d0']].forEach(([px, sp, fill], i) => {
+                // Marching-ants connector lines + 3 crisp floating icon pills + animated chart widget below
+                const s1 = stagePop(progress, 0.04, 0.18);
+                const s2 = stagePop(progress, 0.22, 0.18);
+                const s3 = stagePop(progress, 0.40, 0.18);
+                ctx.save();
+                ctx.setLineDash([8, 8]);
+                ctx.lineDashOffset = -t * 36;
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.moveTo(120, 310);
+                ctx.lineTo(420, 310);
+                ctx.stroke();
+                ctx.restore();
+
+                [[116, s1, '#e0f2fe'], [270, s2, '#fef3c7'], [424, s3, '#dcfce7']].forEach(([px, sp, fill], i) => {
                     if (sp <= 0.04) return;
                     ctx.save();
-                    ctx.translate(px, 340);
+                    ctx.translate(px, 310);
                     ctx.scale(sp, sp);
-                    drawOutlinedRect(ctx, -56, -42, 112, 84, 18, fill, '#94a3b8', 2.5, true);
-                    drawProp(ctx, props[i % props.length], 0, 0, 0.28, progress, t, audioLevel);
+                    drawOutlinedRect(ctx, -58, -50, 116, 100, 22, fill, '#64748b', 2.5, true);
+                    drawProp(ctx, props[i % props.length], 0, 0, 0.34, progress, t, audioLevel, screenType);
                     ctx.restore();
                 });
-                // Highlight tilted card hero below
-                const tiltP = stagePop(progress, 0.52, 0.22);
-                if (tiltP > 0.05) {
+
+                const heroP = stagePop(progress, 0.50, 0.20);
+                if (heroP > 0.05) {
                     ctx.save();
-                    ctx.translate(270, 520);
-                    ctx.rotate(-0.06);
-                    ctx.scale(tiltP, tiltP);
-                    drawOutlinedRect(ctx, -170, -48, 340, 96, 20, '#3b82f6', '#1d4ed8', 3, true);
-                    drawOutlinedRect(ctx, -135, -14, 195, 28, 14, '#ffffff', null, 0, false);
-                    drawSparkle(ctx, 112, 0, 20 + audioLevel * 6, '#fde047', t * 2);
+                    ctx.translate(270, 525);
+                    ctx.scale(heroP, heroP);
+                    drawOutlinedRect(ctx, -188, -96, 376, 192, 24, '#0f172a', '#3b82f6', 3, true);
+                    drawRichScreenContent(ctx, -172, -80, 344, 160, screenType, progress, t, audioLevel);
                     ctx.restore();
                 }
                 break;
             }
 
             case 'ui-grid-hero': {
-                // Big sleek app icon / floating button hero with cursor click animation
                 ctx.save();
-                ctx.translate(270, 390);
+                ctx.translate(270, 410);
                 ctx.scale(pop1 * (1 + audioLevel * 0.04), pop1 * (1 + audioLevel * 0.04));
-                drawOutlinedRect(ctx, -140, -140, 280, 280, 48, '#ffffff', '#bfdbfe', 3, true);
-                drawProp(ctx, props[0], 0, 0, 0.85, progress, t, audioLevel);
+                drawOutlinedRect(ctx, -162, -162, 324, 324, 46, '#ffffff', '#93c5fd', 3.2, true);
+                drawProp(ctx, props[0], 0, 0, 0.94, progress, t, audioLevel, screenType);
                 ctx.restore();
-                const curP = easeOutCubic(clamp01(progress * 1.5));
-                drawCursorPointer(ctx, 410 - curP * 90, 540 - curP * 95, progress > 0.55 && progress < 0.68 ? 0.82 : 1, progress > 0.58 ? (progress - 0.58) * 3 : 0);
+                const curP = easeInOutCubic(clamp01(progress * 1.4));
+                drawCursorPointer(
+                    ctx,
+                    415 - curP * 105,
+                    555 - curP * 100,
+                    progress > 0.55 && progress < 0.68 ? 0.82 : 1,
+                    progress > 0.58 ? clamp01((progress - 0.58) * 3) : 0
+                );
                 break;
             }
 
             case 'character-action': {
-                drawProp(ctx, props[0], 355, 285, pop2 * 0.72, progress, t, audioLevel);
+                drawProp(ctx, props[0], 355, 290, pop2 * 0.76, progress, t, audioLevel, screenType);
                 if (props[1]) {
-                    drawProp(ctx, props[1], 140, 265, pop3 * 0.45, progress, t, audioLevel);
+                    drawProp(ctx, props[1], 138, 270, pop3 * 0.48, progress, t, audioLevel, screenType);
                 }
-                drawAnimatedActor(ctx, 260, 625, pop1 * 1.12, progress, t, action, mood, audioLevel, cast);
+                drawAnimatedActor(ctx, 260, 628, pop1 * 1.12, progress, t, action, mood, audioLevel, cast);
+                drawComicReaction(ctx, 355, 515, mood, audioLevel, t);
                 if (cue.crossOut && pop3 > 0.2) {
-                    drawRedCross(ctx, 355, 285, 75, pop3);
+                    drawRedCross(ctx, 355, 290, 75, pop3);
                 }
                 break;
             }
 
             case 'character-left': {
-                drawAnimatedActor(ctx, 132, 620, pop1 * 1.05, progress, t, action, mood, audioLevel, cast);
-                drawProp(ctx, props[0], 356, 405, pop2 * 0.96, progress, t, audioLevel);
+                drawAnimatedActor(ctx, 134, 622, pop1 * 1.06, progress, t, action, mood, audioLevel, cast);
+                drawComicReaction(ctx, 212, 515, mood, audioLevel, t);
+                drawProp(ctx, props[0], 362, 410, pop2 * 0.98, progress, t, audioLevel, screenType);
                 if (props[1] && pop3 > 0.1) {
-                    drawProp(ctx, props[1], 415, 215, pop3 * 0.42, progress, t, audioLevel);
+                    drawProp(ctx, props[1], 418, 215, pop3 * 0.44, progress, t, audioLevel, screenType);
                 }
                 if (cue.crossOut && pop3 > 0.2) {
-                    drawRedCross(ctx, 356, 405, 95, pop3);
+                    drawRedCross(ctx, 362, 410, 95, pop3);
                 }
                 break;
             }
 
             case 'split-compare': {
-                drawOutlinedRect(ctx, 42, 235, 212, 330, 22, 'rgba(254, 226, 226, 0.85)', '#1e293b', 3, true);
-                drawOutlinedRect(ctx, 286, 235, 212, 330, 22, 'rgba(220, 252, 231, 0.92)', '#1e293b', 3, true);
-                drawProp(ctx, props[0], 148, 400, pop1 * 0.72, progress, t, audioLevel);
-                drawProp(ctx, props[1] || props[0], 392, 400, pop2 * 0.72, progress, t, audioLevel);
+                drawOutlinedRect(ctx, 42, 235, 212, 336, 24, 'rgba(254, 226, 226, 0.9)', '#1e293b', 3, true);
+                drawOutlinedRect(ctx, 286, 235, 212, 336, 24, 'rgba(220, 252, 231, 0.94)', '#1e293b', 3, true);
+                drawProp(ctx, props[0], 148, 405, pop1 * 0.74, progress, t, audioLevel, 'excel_err');
+                drawProp(ctx, props[1] || props[0], 392, 405, pop2 * 0.74, progress, t, audioLevel, 'revenue_up');
                 if (cue.crossOut && pop3 > 0.2) {
-                    drawRedCross(ctx, 148, 400, 76, pop3);
+                    drawRedCross(ctx, 148, 405, 76, pop3);
                 } else if (pop3 > 0.2) {
                     ctx.save();
                     ctx.translate(458, 260);
@@ -1926,7 +2622,7 @@
                 [108, 270, 432].forEach((px, idx) => {
                     const pr = props[idx] || props[idx % props.length];
                     const hoverY = 445 + Math.sin(t * 3 + idx) * 8;
-                    drawProp(ctx, pr, px, hoverY, [pop1, pop2, pop3][idx] * 0.62, progress, t, audioLevel);
+                    drawProp(ctx, pr, px, hoverY, [pop1, pop2, pop3][idx] * 0.64, progress, t, audioLevel, screenType);
                 });
                 break;
             }
@@ -1950,7 +2646,7 @@
                     ctx.scale(pop2, pop2);
                     drawOutlinedRect(ctx, -162, -112, 324, 224, 52, '#ffffff', '#1e293b', 3.5, true);
                     ctx.restore();
-                    drawProp(ctx, props[0], 320, 345, pop2 * 0.78, progress, t, audioLevel);
+                    drawProp(ctx, props[0], 320, 345, pop2 * 0.78, progress, t, audioLevel, screenType);
                 }
                 break;
             }
@@ -1959,25 +2655,14 @@
                 ctx.save();
                 ctx.translate(270, 415);
                 ctx.scale(pop1, pop1);
-                drawOutlinedRect(ctx, -168, -195, 336, 370, 24, '#ffffff', '#1e293b', 4, true);
-                [0, 1, 2].forEach((idx) => {
-                    const rowP = stagePop(progress, 0.16 + idx * 0.16, 0.16);
-                    if (rowP <= 0.05) return;
-                    const ry = -112 + idx * 105;
-                    ctx.save();
-                    ctx.globalAlpha = rowP;
-                    drawOutlinedRect(ctx, -132, ry - 34, 68, 68, 16, '#ecfdf5', '#1e293b', 2.5, false);
-                    drawProp(ctx, props[idx % props.length], -98, ry, 0.24 * rowP, progress, t, audioLevel);
-                    drawOutlinedRect(ctx, -44, ry - 16, 162, 16, 8, '#34d399', '#1e293b', 2, false);
-                    drawOutlinedRect(ctx, -44, ry + 8, 114, 12, 6, '#cbd5e1', '#64748b', 1.5, false);
-                    ctx.restore();
-                });
+                drawOutlinedRect(ctx, -168, -195, 336, 370, 24, '#ffffff', '#1e293b', 3.8, true);
+                drawRichScreenContent(ctx, -148, -172, 296, 324, 'checklist_done', progress, t, audioLevel);
                 ctx.restore();
                 break;
             }
 
             case 'action-flow': {
-                drawProp(ctx, props[0], 136, 435, pop1 * 0.72, progress, t, audioLevel);
+                drawProp(ctx, props[0], 136, 435, pop1 * 0.74, progress, t, audioLevel, screenType);
                 if (pop2 > 0.1) {
                     ctx.save();
                     ctx.translate(270, 430);
@@ -1998,15 +2683,15 @@
                     ctx.stroke();
                     ctx.restore();
                 }
-                drawProp(ctx, props[1] || 'lightbulb', 404, 435, pop2 * 0.72, progress, t, audioLevel);
+                drawProp(ctx, props[1] || 'lightbulb', 404, 435, pop2 * 0.74, progress, t, audioLevel, screenType);
                 break;
             }
 
             case 'center-hero':
             default: {
-                drawProp(ctx, props[0], 270, 435, pop1 * (1 + audioLevel * 0.04), progress, t, audioLevel);
+                drawProp(ctx, props[0], 270, 435, pop1 * (1 + audioLevel * 0.05), progress, t, audioLevel, screenType);
                 if (props[1] && pop2 > 0.1) {
-                    drawProp(ctx, props[1], 420, 245, pop2 * 0.45, progress, t, audioLevel);
+                    drawProp(ctx, props[1], 420, 245, pop2 * 0.45, progress, t, audioLevel, screenType);
                 }
                 if (cue.crossOut && pop3 > 0.2) {
                     drawRedCross(ctx, 270, 435, 130, pop3);
@@ -2016,22 +2701,15 @@
         }
 
         drawAmbientEffects(ctx, effect, t, audioLevel);
-        ctx.restore();
     }
 
     function drawMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, prevScene = null, audioLevel = 0) {
-        if (sceneIdx > 0 && prevScene && sceneProgress < 0.14) {
-            const t = easeOutCubic(sceneProgress / 0.14);
-            const prevOffset = -W * t;
-            const currOffset = W * (1 - t);
-
-            ctx.save();
-            ctx.translate(prevOffset, 0);
+        // Fast clean film-cut cross-dissolve (0.07s feel) instead of jarring full-canvas slide
+        if (sceneIdx > 0 && prevScene && sceneProgress < 0.08) {
+            const blend = easeOutCubic(sceneProgress / 0.08);
             renderSingleMotionScene(ctx, prevScene, 1, sceneIdx - 1, globalTime, 0);
-            ctx.restore();
-
             ctx.save();
-            ctx.translate(currOffset, 0);
+            ctx.globalAlpha = blend;
             renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel);
             ctx.restore();
             return;
@@ -2048,6 +2726,7 @@
         EFFECT_NAMES,
         CAST_NAMES,
         SFX_NAMES,
+        SCREEN_TYPES,
         analyzeSceneVisualCue,
         drawMotionScene
     };

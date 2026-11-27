@@ -345,6 +345,7 @@
         const propNames = App.motionGraphics?.PROP_NAMES || [];
         const casts = App.motionGraphics?.CAST_NAMES || [];
         const sfxNames = App.motionGraphics?.SFX_NAMES || [];
+        const screenTypes = App.motionGraphics?.SCREEN_TYPES || [];
         let prevLayout = '';
         let prevBackdrop = '';
         let prevProp = '';
@@ -368,6 +369,7 @@
                       backdrop: 'cream-room',
                       cast: 'narrator',
                       action: 'pointing',
+                      screenType: 'chat_msg',
                       effect: 'sparkles',
                       sfx: 'none',
                       props: ['lightbulb'],
@@ -382,10 +384,17 @@
 
             if (aiItem && layouts.includes(aiItem.layout)) {
                 let lay = aiItem.layout;
-                if (lay === prevLayout) lay = localCue.layout;
+                if (lay === prevLayout) {
+                    if (localCue.layout && localCue.layout !== prevLayout) {
+                        lay = localCue.layout;
+                    } else if (layouts.length > 1) {
+                        const alts = layouts.filter((l) => l !== prevLayout);
+                        lay = alts[idx % alts.length];
+                    }
+                }
 
-                let bd = backdrops.includes(aiItem.backdrop) ? aiItem.backdrop : localCue.backdrop;
-                if (bd === prevBackdrop) bd = localCue.backdrop;
+                // Keep room continuity when the scene changes camera angle/layout!
+                const bd = backdrops.includes(aiItem.backdrop) ? aiItem.backdrop : localCue.backdrop;
 
                 let cast = casts.includes(aiItem.cast) ? aiItem.cast : (localCue.cast || 'narrator');
                 if (lay === 'desk-closeup' && cast === prevCast && localCue.cast && localCue.cast !== prevCast) {
@@ -393,21 +402,19 @@
                 }
 
                 let chosenProps = Array.isArray(aiItem.props) && aiItem.props.length > 0 ? aiItem.props : localCue.props;
-                if (chosenProps[0] === prevProp) {
-                    if (chosenProps.length > 1) {
-                        chosenProps = [...chosenProps.slice(1), chosenProps[0]];
-                    } else if (propNames.length > 0) {
-                        chosenProps = [localCue.props[0]];
-                    }
+                if (chosenProps[0] === prevProp && chosenProps.length > 1) {
+                    chosenProps = [...chosenProps.slice(1), chosenProps[0]];
                 }
 
                 const sfx = sfxNames.includes(aiItem.sfx) ? aiItem.sfx : (localCue.sfx || 'none');
+                const screenType = screenTypes.includes(aiItem.screenType) ? aiItem.screenType : (localCue.screenType || 'chat_msg');
 
                 finalCue = {
                     layout: lay,
                     backdrop: bd,
                     cast,
                     action: aiItem.action || localCue.action,
+                    screenType,
                     effect: aiItem.effect || localCue.effect,
                     sfx,
                     props: chosenProps,
@@ -505,6 +512,7 @@
                           effects: App.motionGraphics?.EFFECT_NAMES,
                           casts: App.motionGraphics?.CAST_NAMES,
                           sfxList: App.motionGraphics?.SFX_NAMES,
+                          screenTypes: App.motionGraphics?.SCREEN_TYPES,
                           visualStyle,
                           signal
                       })

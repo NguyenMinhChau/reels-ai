@@ -703,11 +703,11 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
         return results;
     }
 
-    async function generateMultiBeatStoryboard({ title, beatTexts, layouts, backdrops, props, actions, effects, casts, sfxList, visualStyle = 'motion', signal }) {
+    async function generateMultiBeatStoryboard({ title, beatTexts, layouts, backdrops, props, actions, effects, casts, sfxList, screenTypes, visualStyle = 'motion', signal }) {
         const cleanBeats = (beatTexts || []).map((b) => String(b || '').trim()).filter(Boolean);
         if (cleanBeats.length === 0) return null;
 
-        const cacheKey = `storyboard-v4:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
+        const cacheKey = `storyboard-v5:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
         if (caches.prompts.has(cacheKey)) {
             return caches.prompts.get(cacheKey);
         }
@@ -720,7 +720,7 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
             : ['office-shelf', 'office-desk', 'bedroom-night', 'kitchen-cozy', 'cafe-chill', 'server-tech', 'cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint', 'grid-light', 'blueprint-dark'];
         const propList = Array.isArray(props) && props.length > 0
             ? props
-            : ['house', 'envelope', 'jar', 'phone', 'lightbulb', 'clock', 'water_glass', 'plug_socket', 'laptop', 'folder', 'checklist', 'stamp', 'cursor'];
+            : ['house', 'envelope', 'jar', 'phone', 'lightbulb', 'clock', 'water_glass', 'plug_socket', 'laptop', 'card_doc', 'chart_bars', 'cash_stack'];
         const actionList = Array.isArray(actions) && actions.length > 0
             ? actions
             : ['pointing', 'typing', 'phone-scroll', 'shocked-phone', 'calling', 'cooking', 'counting-money', 'sleeping', 'running', 'drinking', 'celebrating'];
@@ -733,6 +733,9 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
         const sfxOptions = Array.isArray(sfxList) && sfxList.length > 0
             ? sfxList
             : ['pop', 'click', 'whoosh', 'ding', 'none'];
+        const screenList = Array.isArray(screenTypes) && screenTypes.length > 0
+            ? screenTypes
+            : ['chat_msg', 'excel_err', 'revenue_up', 'revenue_down', 'checklist_done', 'calendar_due', 'notification_bell', 'wallet_cash', 'code_bug', 'contract_sign', 'tea_break', 'night_scroll'];
 
         return dedupedCall(cacheKey, async () => {
             try {
@@ -740,32 +743,34 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
                 const isUiMode = visualStyle === 'ui-motion';
                 const styleDirective = isUiMode
                     ? `PHONG CÁCH HIỆN ĐẠI DOT-GRID UI MOTION:
-- Ưu tiên các bố cục UI sạch tối giản [ui-window, ui-checklist, ui-flow, ui-grid-hero] và xen kẽ 1-2 cảnh action-flow hoặc center-hero.
-- backdrop: Ưu tiên [grid-light, blueprint-dark, cream-room, mint-fresh], chuyển đổi sáng/tối theo cảm xúc câu nói (KHÔNG trùng 2 cảnh kề nhau).
+- Ưu tiên các bố cục UI sạch tối giản [ui-window, ui-checklist, ui-flow, ui-grid-hero] và xen kẽ 1-2 cảnh action-flow hoặc split-compare. KHÔNG lặp cùng layout 2 cảnh liền nhau.
+- backdrop: Chọn từ [grid-light, blueprint-dark, cream-room, mint-fresh], chuyển đổi sáng/tối theo cảm xúc từng câu.
+- screenType: Chọn giao diện bên trong màn hình/thẻ từ [${screenList.join(', ')}] khớp sát 100% nội dung câu nói.
 - sfx: Gán tiếng động micro UI crisp khớp nhịp (click = bấm nút/con trỏ; pop = bật thẻ/thông báo; whoosh = chuyển bước/quy trình; ding = hoàn tất/thành công).`
                     : `PHONG CÁCH HOẠT HÌNH 2D KỂ CHUYỆN GÓC MÁY ĐIỆN ẢNH:
-- Kết hợp đa dạng góc máy kể chuyện [wide-team (toàn cảnh phòng team làm việc), desk-closeup (cận mặt nhân vật tại bàn), hand-pov (góc nhìn tay cầm/ký giấy/điện thoại), laptop-popup (màn hình bật hộp thoại), character-action, split-compare, thought-bubble]. TUYỆT ĐỐI không trùng layout 2 cảnh liền kề.
-- cast: Đổi vai nhân vật hợp lý theo hội thoại/câu chuyện từ [${castList.join(', ')}] (narrator = người dẫn chuyện áo cam/xanh; manager-red = sếp/quản lý vest đỏ; girl-purple / boy-spiky / girl-bun = đồng nghiệp/nhân vật đời sống).
-- backdrop: Chọn đúng bối cảnh từ [${backdropList.join(', ')}] (office-shelf = phòng có kệ hồ sơ; office-desk = bàn làm việc; bedroom-night = phòng ngủ; kitchen-cozy = nhà bếp; cafe-chill = quán cafe; server-tech = phòng máy; hills-nature = thiên nhiên; city-skyline = thành phố; alert-tint = cảnh báo; mint-fresh = tiền/sức khỏe). KHÔNG trùng backdrop 2 cảnh kề nhau!
-- sfx: Tiếng động nhẹ tự nhiên [pop, click, whoosh, ding, none] khi có sự kiện bật ra hoặc chuyển cảnh.`;
+- Kết hợp đa dạng góc máy điện ảnh [wide-team (toàn cảnh phòng team làm việc), desk-closeup (cận mặt nhân vật tại bàn), hand-pov (góc nhìn tay cầm điện thoại/ký hợp đồng), laptop-popup (màn hình bật hộp thoại cảnh báo/báo cáo), character-action, split-compare, thought-bubble]. TUYỆT ĐỐI KHÔNG lặp cùng 1 layout ở 2 cảnh kề nhau.
+- GIỮ MẠCH BỐI CẢNH TỰ NHIÊN: Nếu câu chuyện vẫn diễn ra trong văn phòng/nhà/công trường thì giữ cùng backdrop hợp lý (ví dụ office-shelf / office-desk) và đổi góc máy + nhân vật (wide-team -> desk-closeup -> hand-pov -> laptop-popup), tuyệt đối không nhảy bối cảnh vô lý sang nhà bếp hay thiên nhiên nếu lời thoại không nhắc tới!
+- cast: Đổi vai nhân vật hợp lý theo từng câu từ [${castList.join(', ')}].
+- screenType: Chọn đúng nội dung hiển thị trên màn hình điện thoại/laptop từ [${screenList.join(', ')}] khớp chính xác câu nói.`;
 
-                const prompt = `Bạn là Đạo diễn Hoạt Hình 2D chuyên dựng phim ngắn hành động khớp từng câu nói (KHÔNG vẽ phụ đề lên hình, kể chuyện bằng góc máy, nhân vật, chuyển động UI và đạo cụ).
-Tiêu đề: "${title}"
+                const prompt = `Bạn là Đạo diễn Hoạt Hình 2D chuyên dựng phim ngắn hành động khớp chặt từng câu nói (KHÔNG ghi chữ lên hình, kể chuyện bằng góc máy, hành động nhân vật, giao diện màn hình và đạo cụ).
+Tiêu đề tổng thể: "${title}"
 Danh sách ${cleanBeats.length} nhịp lời thoại theo thứ tự:
 ${numberedBeats}
 
 ${styleDirective}
 
-Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 cảnh riêng biệt) sao cho HÀNH ĐỘNG, GÓC MÁY, BỐI CẢNH VÀ ĐẠO CỤ khớp sát 100% ngữ cảnh:
+Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh sao cho mỗi cảnh phản ánh ĐÚNG 100% ý nghĩa câu nói đó:
 - layout: Chọn từ [${layoutList.join(', ')}].
-- backdrop: Chọn từ [${backdropList.join(', ')}].
-- cast: Chọn nhân vật chính từ [${castList.join(', ')}].
-- action: Chọn đúng động tác từ [${actionList.join(', ')}] (calling = đang gọi điện thoại; typing = gõ laptop; shocked-phone = giật mình xem điện thoại; sleeping = nằm ngủ; cooking = nấu bếp; counting-money = đếm tiền; drinking = uống nước/cafe; running = chạy vội; celebrating = ăn mừng; pointing = chỉ tay/thuyết minh).
+- backdrop: Chọn đúng bối cảnh từ [${backdropList.join(', ')}].
+- cast: Chọn nhân vật từ [${castList.join(', ')}].
+- action: Chọn động tác từ [${actionList.join(', ')}].
+- screenType: Chọn đúng nội dung màn hình/thẻ từ [${screenList.join(', ')}].
 - characterMood: "happy", "shocked", "thinking", hoặc "sleepy".
-- effect: Hiệu ứng chuyển động từ [${effectList.join(', ')}] (sparks, sweat, steam, hearts, confetti, money, notes, sparkles).
+- effect: Hiệu ứng từ [${effectList.join(', ')}].
 - sfx: Âm thanh điểm nhấn từ [${sfxOptions.join(', ')}].
-- props: Mảng 1 đến 3 đạo cụ chọn từ [${propList.join(', ')}] khớp chính xác câu nói.
-- crossOut: true nếu câu nói mang ý cấm làm / sai lầm / sập / lừa đảo, ngược lại false.`;
+- props: Mảng 1 đến 3 đạo cụ chọn từ [${propList.join(', ')}] khớp chính xác câu nói (KHÔNG chọn bừa đạo cụ không liên quan).
+- crossOut: true nếu câu nói mang ý sai lầm / cấm làm / rủi ro / lừa đảo, ngược lại false.`;
 
                 const payload = {
                     contents: [{ parts: [{ text: prompt }] }],
@@ -780,13 +785,14 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 cảnh r
                                     backdrop: { type: 'STRING', enum: backdropList },
                                     cast: { type: 'STRING', enum: castList },
                                     action: { type: 'STRING', enum: actionList },
+                                    screenType: { type: 'STRING', enum: screenList },
                                     effect: { type: 'STRING', enum: effectList },
                                     sfx: { type: 'STRING', enum: sfxOptions },
                                     props: { type: 'ARRAY', items: { type: 'STRING', enum: propList } },
                                     characterMood: { type: 'STRING', enum: ['happy', 'shocked', 'thinking', 'sleepy'] },
                                     crossOut: { type: 'BOOLEAN' }
                                 },
-                                required: ['layout', 'backdrop', 'cast', 'action', 'effect', 'sfx', 'props', 'characterMood', 'crossOut']
+                                required: ['layout', 'backdrop', 'cast', 'action', 'screenType', 'effect', 'sfx', 'props', 'characterMood', 'crossOut']
                             }
                         }
                     }
@@ -801,6 +807,7 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 cảnh r
                         backdrop: backdropList.includes(item.backdrop) ? item.backdrop : '',
                         cast: castList.includes(item.cast) ? item.cast : '',
                         action: actionList.includes(item.action) ? item.action : '',
+                        screenType: screenList.includes(item.screenType) ? item.screenType : '',
                         effect: effectList.includes(item.effect) ? item.effect : 'sparkles',
                         sfx: sfxOptions.includes(item.sfx) ? item.sfx : 'none',
                         props: Array.isArray(item.props) ? item.props.filter((p) => propList.includes(p)).slice(0, 3) : [],
