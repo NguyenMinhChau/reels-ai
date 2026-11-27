@@ -919,7 +919,7 @@ Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho 
                 if (!setupDone) {
                     finishWithError(new ApiError('TIMEOUT', 'Kết nối Gemini Live WebSocket quá thời gian chờ.'));
                 }
-            }, 10000);
+            }, 15000);
 
             ws.onopen = () => {
                 ws.send(
@@ -1007,13 +1007,25 @@ Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho 
 
             ws.onerror = () => {
                 clearTimeout(setupTimer);
+                if (results.some(Boolean)) {
+                    if (!settled) {
+                        settled = true;
+                        cleanup();
+                        resolve({ buffers: results, errorReason: `Kết nối Live API bị gián đoạn (${liveModel}).` });
+                    }
+                    return;
+                }
                 finishWithError(new ApiError('WS_ERROR', `Lỗi kết nối Live API (${liveModel}).`));
             };
 
             ws.onclose = (ev) => {
                 clearTimeout(setupTimer);
                 if (!settled) {
-                    if (!setupDone) {
+                    if (results.some(Boolean) && queuePos < missingIndices.length) {
+                        settled = true;
+                        cleanup();
+                        resolve({ buffers: results, errorReason: ev.reason || 'Kết nối Live API bị ngắt giữa chừng.' });
+                    } else if (!setupDone) {
                         const reason = ev.reason || `WebSocket đóng (mã ${ev.code}) — có thể do thiếu API Key hoặc model không hỗ trợ.`;
                         finishWithError(new ApiError('WS_CLOSED', reason));
                     } else if (queuePos < missingIndices.length) {

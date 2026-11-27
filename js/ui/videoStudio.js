@@ -484,39 +484,44 @@
             }
 
             // Generate 1 dedicated Live API TTS clip PER scene/beat over a single WebSocket so scene switches
-            // wait strictly until that scene's exact phrase finishes speaking!
+            // wait strictly until that scene's exact phrase finishes speaking! (With 1 automatic mobile retry for any dropped scenes)
             if (isLiveEngine && uncachedBeatIndices.length > 0 && hasApiKey) {
-                try {
-                    let liveDoneCount = totalBeats - uncachedBeatIndices.length;
-                    const missingBeatTexts = uncachedBeatIndices.map((idx) => flatBeats[idx].text);
-                    const liveRes = await App.geminiApi.fetchBatchLiveTtsPcm({
-                        texts: missingBeatTexts,
-                        voiceName,
-                        model: liveModelId,
-                        signal,
-                        onSceneDone: () => {
-                            liveDoneCount++;
-                            const pct = 22 + Math.round((liveDoneCount / totalBeats) * 38);
-                            updateStudioProgress(pct, `Đang thu giọng từng cảnh ${liveDoneCount}/${totalBeats} (khớp 100% khung hình)...`);
-                        }
-                    });
+                for (let liveAttempt = 0; liveAttempt < 2; liveAttempt++) {
+                    const pendingIndices = uncachedBeatIndices.filter((idx) => !beatHasRealTts[idx]);
+                    if (pendingIndices.length === 0) break;
+                    try {
+                        let liveDoneCount = totalBeats - pendingIndices.length;
+                        const missingBeatTexts = pendingIndices.map((idx) => flatBeats[idx].text);
+                        const liveRes = await App.geminiApi.fetchBatchLiveTtsPcm({
+                            texts: missingBeatTexts,
+                            voiceName,
+                            model: liveModelId,
+                            signal,
+                            onSceneDone: () => {
+                                liveDoneCount++;
+                                const pct = 22 + Math.round((liveDoneCount / totalBeats) * 38);
+                                updateStudioProgress(pct, `Đang thu giọng từng cảnh ${liveDoneCount}/${totalBeats} (khớp 100% khung hình)...`);
+                            }
+                        });
 
-                    for (let m = 0; m < uncachedBeatIndices.length; m++) {
-                        const targetIdx = uncachedBeatIndices[m];
-                        if (liveRes.buffers[m]) {
-                            const decoded = await App.mediaEngine.decodeTtsToAudioBuffer(liveRes.buffers[m], audioCtx, 24000);
-                            if (decoded) {
-                                flatAudioSlices[targetIdx] = decoded;
-                                beatHasRealTts[targetIdx] = true;
-                                const beatSig = hashString(`${flatBeats[targetIdx].text}|${voiceName}|${ttsEngine}`);
-                                beatAudioCache.set(beatSig, decoded);
+                        for (let m = 0; m < pendingIndices.length; m++) {
+                            const targetIdx = pendingIndices[m];
+                            if (liveRes.buffers[m]) {
+                                const decoded = await App.mediaEngine.decodeTtsToAudioBuffer(liveRes.buffers[m], audioCtx, 24000);
+                                if (decoded) {
+                                    flatAudioSlices[targetIdx] = decoded;
+                                    beatHasRealTts[targetIdx] = true;
+                                    const beatSig = hashString(`${flatBeats[targetIdx].text}|${voiceName}|${ttsEngine}`);
+                                    beatAudioCache.set(beatSig, decoded);
+                                }
                             }
                         }
+                        if (liveRes.errorReason) lastTtsError = liveRes.errorReason;
+                    } catch (liveErr) {
+                        if (liveErr.name === 'AbortError') throw liveErr;
+                        lastTtsError = liveErr.message || 'Live API không phản hồi';
+                        console.warn(`Live API attempt ${liveAttempt + 1} warning:`, lastTtsError);
                     }
-                } catch (liveErr) {
-                    if (liveErr.name === 'AbortError') throw liveErr;
-                    lastTtsError = liveErr.message || 'Live API không phản hồi';
-                    console.warn('Live API per-beat fallback to REST chapters:', lastTtsError);
                 }
             }
 
@@ -683,6 +688,7 @@
             document.getElementById('vs-playback-controls')?.classList.remove('hidden');
             document.getElementById('vs-timer-badge')?.classList.remove('hidden');
 
+            await App.mediaEngine.prepareMixedPreviewWavUrl?.(bgmStyle);
             await App.mediaEngine.startPlayback({ startAt: 0, bgmStyle, recordMode: false });
         } catch (err) {
             if (err.name === 'AbortError') return;

@@ -50,12 +50,109 @@
         onAudioBlocked: null
     };
 
-    // Tiny silent WAV (0.05s) to switch iOS WebKit audio hardware channel from Ambient -> Playback
-    // so Web Audio works even when iPhone physical Silent Switch is ON.
-    const SILENT_WAV_DATA_URI =
-        'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-    let silentHtmlAudioEl = null;
+    // Unified HTML <audio playsinline> playback channel:
+    // - Works natively even when iPhone physical Silent Switch is ON
+    // - Uses hardware media volume buttons cleanly on both iOS & Android
+    let previewAudioEl = null;
+    let silentUnlockWavUrl = null;
+    let mixedPreviewCache = { key: '', url: '' };
     let isAudioUnlocked = false;
+    let useHtmlAudioClock = false;
+
+    function getSilentUnlockWavUrl() {
+        if (silentUnlockWavUrl) return silentUnlockWavUrl;
+        try {
+            const sampleRate = 8000;
+            const numSamples = 800; // 0.1s genuine silent PCM16 WAV
+            const buf = new ArrayBuffer(44 + numSamples * 2);
+            const view = new DataView(buf);
+            const writeStr = (off, s) => {
+                for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+            };
+            writeStr(0, 'RIFF');
+            view.setUint32(4, 36 + numSamples * 2, true);
+            writeStr(8, 'WAVE');
+            writeStr(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeStr(36, 'data');
+            view.setUint32(40, numSamples * 2, true);
+            silentUnlockWavUrl = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+            return silentUnlockWavUrl;
+        } catch (_) {
+            return 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+        }
+    }
+
+    function encodeAudioBufferToWavBlob(audioBuffer) {
+        const sr = audioBuffer.sampleRate || 44100;
+        const data = audioBuffer.getChannelData(0);
+        const len = data.length;
+        const buf = new ArrayBuffer(44 + len * 2);
+        const view = new DataView(buf);
+        const writeStr = (off, s) => {
+            for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+        };
+        writeStr(0, 'RIFF');
+        view.setUint32(4, 36 + len * 2, true);
+        writeStr(8, 'WAVE');
+        writeStr(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sr, true);
+        view.setUint32(28, sr * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeStr(36, 'data');
+        view.setUint32(40, len * 2, true);
+
+        let offset = 44;
+        for (let i = 0; i < len; i++) {
+            const s = Math.max(-1, Math.min(1, data[i]));
+            view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+            offset += 2;
+        }
+        return new Blob([buf], { type: 'audio/wav' });
+    }
+
+    function getOrCreatePreviewAudioEl() {
+        if (previewAudioEl) return previewAudioEl;
+        if (typeof document === 'undefined' || !global.Audio) return null;
+        const el = new global.Audio();
+        el.id = 'vs-preview-audio';
+        el.setAttribute('playsinline', 'true');
+        el.playsInline = true;
+        el.preload = 'auto';
+        el.style.display = 'none';
+        if (document.body) {
+            document.body.appendChild(el);
+        }
+        previewAudioEl = el;
+        return el;
+    }
+
+    function revokeMixedPreviewCache() {
+        if (mixedPreviewCache.url) {
+            try {
+                URL.revokeObjectURL(mixedPreviewCache.url);
+            } catch (_) {}
+        }
+        mixedPreviewCache = { key: '', url: '' };
+    }
+
+    if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                isAudioUnlocked = false;
+            }
+        });
+    }
 
     function bindCanvasElements(canvas, timerBadge, cbs = {}) {
         canvasEl = canvas;
@@ -103,21 +200,22 @@
             src.start(0);
         } catch (_) {}
 
-        if (!isAudioUnlocked) {
+        const audioEl = getOrCreatePreviewAudioEl();
+        if (audioEl && !isPlaying && (!isAudioUnlocked || (audioEl.paused && audioEl.dataset?.kind !== 'mixed'))) {
             try {
-                if (!silentHtmlAudioEl) {
-                    silentHtmlAudioEl = new Audio(SILENT_WAV_DATA_URI);
-                    silentHtmlAudioEl.setAttribute('playsinline', 'true');
-                    silentHtmlAudioEl.playsInline = true;
-                    silentHtmlAudioEl.volume = 0.01;
-                }
-                const p = silentHtmlAudioEl.play();
-                if (p && typeof p.then === 'function') {
-                    p.then(() => {
+                audioEl.muted = false;
+                audioEl.volume = 1.0;
+                if (!audioEl.src || audioEl.dataset?.kind !== 'mixed') {
+                    audioEl.src = getSilentUnlockWavUrl();
+                    if (audioEl.dataset) audioEl.dataset.kind = 'silent';
+                    const p = audioEl.play();
+                    if (p && typeof p.then === 'function') {
+                        p.then(() => {
+                            isAudioUnlocked = true;
+                        }).catch(() => {});
+                    } else {
                         isAudioUnlocked = true;
-                    }).catch(() => {});
-                } else {
-                    isAudioUnlocked = true;
+                    }
                 }
             } catch (_) {}
         }
@@ -485,6 +583,10 @@
 
     function setScenes(scenes, videoTitle = '') {
         stopPlayback({ resetToZero: false });
+        revokeMixedPreviewCache();
+        if (previewAudioEl && previewAudioEl.dataset) {
+            previewAudioEl.dataset.kind = '';
+        }
         currentVideoTitle = String(videoTitle || '').trim();
         const measureCtx = ctx || document.createElement('canvas').getContext('2d');
         measureCtx.font = '800 22px Inter, sans-serif';
@@ -528,8 +630,14 @@
     function getCurrentTime() {
         if (!isPlaying) return pausedAt;
         const wallElapsed = Math.max(0, (performance.now() - perfStartTime) / 1000);
+        if (useHtmlAudioClock && previewAudioEl && !previewAudioEl.paused && !previewAudioEl.ended) {
+            const mediaTime = previewAudioEl.currentTime;
+            if (Number.isFinite(mediaTime) && (mediaTime > playbackOffset + 0.02 || wallElapsed < 0.3)) {
+                return Math.min(totalDuration, Math.max(0, mediaTime));
+            }
+        }
         let elapsed = wallElapsed;
-        if (audioCtx && audioCtx.state === 'running') {
+        if (!useHtmlAudioClock && audioCtx && audioCtx.state === 'running') {
             const audioElapsed = Math.max(0, audioCtx.currentTime - audioStartTime);
             // Guard against frozen OS/mobile AudioContext clock stuck at 0 while claiming state==='running'
             if (audioElapsed > 0.02 || wallElapsed < 0.25) {
@@ -904,6 +1012,12 @@
     }
 
     function clearScheduledAudio() {
+        useHtmlAudioClock = false;
+        if (previewAudioEl && !previewAudioEl.paused) {
+            try {
+                previewAudioEl.pause();
+            } catch (_) {}
+        }
         activeAudioSources.forEach((src) => {
             try {
                 src.stop();
@@ -1036,7 +1150,14 @@
             }
         }
 
-        if (!chosenFormat && typeof global.WebMMuxer !== 'undefined') {
+        const isIOS =
+            /iPad|iPhone|iPod/.test(global.navigator?.userAgent || '') ||
+            (global.navigator?.platform === 'MacIntel' && (global.navigator?.maxTouchPoints || 0) > 1);
+        const canNativeMp4Record =
+            typeof global.MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/mp4');
+
+        // On iPhone/iPad, skip WebM (iOS Photos cannot save/play WebM with audio) when native Safari MP4 MediaRecorder works
+        if (!chosenFormat && typeof global.WebMMuxer !== 'undefined' && !(isIOS && canNativeMp4Record)) {
             const vpCandidates = [
                 { codec: 'vp09.00.10.08', muxerCodec: 'V_VP9' },
                 { codec: 'vp8', muxerCodec: 'V_VP8' }
@@ -1239,6 +1360,53 @@
         }
     }
 
+    function getCachedMixedPreviewWavUrl(bgmStyle) {
+        if (studioScenes.length === 0 || totalDuration <= 0) return '';
+        const cacheKey = `${bgmStyle}:${studioScenes.length}:${totalDuration.toFixed(3)}`;
+        return mixedPreviewCache.key === cacheKey && mixedPreviewCache.url ? mixedPreviewCache.url : '';
+    }
+
+    async function prepareMixedPreviewWavUrl(bgmStyle) {
+        const cached = getCachedMixedPreviewWavUrl(bgmStyle);
+        if (cached) return cached;
+        const OfflineCtx = global.OfflineAudioContext || global.webkitOfflineAudioContext;
+        if (typeof OfflineCtx === 'undefined' || studioScenes.length === 0 || totalDuration <= 0) {
+            return '';
+        }
+        const cacheKey = `${bgmStyle}:${studioScenes.length}:${totalDuration.toFixed(3)}`;
+
+        const sampleRate = 44100;
+        const totalSamples = Math.max(1, Math.ceil(totalDuration * sampleRate));
+        const offlineCtx = new OfflineCtx(1, totalSamples, sampleRate);
+
+        let sceneStart = 0;
+        studioScenes.forEach((scene) => {
+            if (scene.audioBuffer) {
+                const src = offlineCtx.createBufferSource();
+                src.buffer = scene.audioBuffer;
+                src.playbackRate.value = scene.playbackRate || 1.0;
+                src.connect(offlineCtx.destination);
+                src.start(sceneStart);
+            }
+            sceneStart += scene.duration;
+        });
+
+        const bgmBuffer = getCachedBgmBuffer(offlineCtx, bgmStyle, totalDuration);
+        if (bgmBuffer) {
+            const bgmNode = offlineCtx.createBufferSource();
+            bgmNode.buffer = bgmBuffer;
+            bgmNode.connect(offlineCtx.destination);
+            bgmNode.start(0);
+        }
+
+        const rendered = await offlineCtx.startRendering();
+        const wavBlob = encodeAudioBufferToWavBlob(rendered);
+        const nextUrl = URL.createObjectURL(wavBlob);
+        revokeMixedPreviewCache();
+        mixedPreviewCache = { key: cacheKey, url: nextUrl };
+        return nextUrl;
+    }
+
     async function startPlayback({ startAt = null, bgmStyle = 'upbeat', recordMode = false, onRecordComplete = null, onRecordProgress = null, onRecordError = null } = {}) {
         if (studioScenes.length === 0 || totalDuration <= 0) return;
 
@@ -1249,6 +1417,87 @@
         const targetStart = startAt !== null ? startAt : pausedAt >= totalDuration - 0.05 ? 0 : pausedAt;
         playbackOffset = Math.max(0, Math.min(totalDuration, targetStart));
         pausedAt = playbackOffset;
+
+        const audioEl = !recordMode ? getOrCreatePreviewAudioEl() : null;
+        if (audioEl) {
+            try {
+                // Use synchronous cache hit first so tapping Play/Unmute on iOS Safari executes .play() with ZERO await delay!
+                let wavUrl = getCachedMixedPreviewWavUrl(bgmStyle);
+                if (!wavUrl) {
+                    wavUrl = await prepareMixedPreviewWavUrl(bgmStyle);
+                    if (runId !== playbackRunId) return;
+                }
+                if (wavUrl) {
+                    useHtmlAudioClock = true;
+                    isPlaying = true;
+                    isRecording = false;
+                    perfStartTime = performance.now();
+
+                    if (audioEl.src !== wavUrl) {
+                        audioEl.src = wavUrl;
+                    }
+                    if (audioEl.dataset) audioEl.dataset.kind = 'mixed';
+                    audioEl.muted = false;
+                    audioEl.volume = 1.0;
+                    try {
+                        audioEl.currentTime = playbackOffset;
+                    } catch (_) {
+                        audioEl.addEventListener(
+                            'loadedmetadata',
+                            () => {
+                                try {
+                                    audioEl.currentTime = playbackOffset;
+                                } catch (_) {}
+                            },
+                            { once: true }
+                        );
+                    }
+
+                    const playPromise = audioEl.play();
+                    if (playPromise && typeof playPromise.then === 'function') {
+                        playPromise
+                            .then(() => {
+                                if (runId !== playbackRunId) return;
+                                isAudioUnlocked = true;
+                                if (callbacks.onAudioBlocked) callbacks.onAudioBlocked(false);
+                            })
+                            .catch(() => {
+                                if (runId !== playbackRunId) return;
+                                if (callbacks.onAudioBlocked) callbacks.onAudioBlocked(true);
+                                if (App.toast) {
+                                    App.toast.show('Chạm nút "Chạm để bật âm thanh" trên khung video để nghe!', 'info', { duration: 4500 });
+                                }
+                            });
+                    } else if (callbacks.onAudioBlocked) {
+                        callbacks.onAudioBlocked(false);
+                    }
+
+                    if (callbacks.onStateChange) callbacks.onStateChange(getPlaybackState());
+                    const tickHtml = () => {
+                        if (!isPlaying || runId !== playbackRunId) return;
+                        const current = getCurrentTime();
+                        if (current >= totalDuration || audioEl.ended) {
+                            renderFrameAtTime(totalDuration - 0.01);
+                            isPlaying = false;
+                            pausedAt = 0;
+                            playbackOffset = 0;
+                            stopTimers();
+                            clearScheduledAudio();
+                            if (callbacks.onStateChange) callbacks.onStateChange(getPlaybackState());
+                            return;
+                        }
+                        renderFrameAtTime(current);
+                        rafId = requestAnimationFrame(tickHtml);
+                    };
+                    rafId = requestAnimationFrame(tickHtml);
+                    return;
+                }
+            } catch (mixErr) {
+                console.warn('HTML Audio mix preview fallback to WebAudio:', mixErr);
+                useHtmlAudioClock = false;
+            }
+        }
+        if (runId !== playbackRunId) return;
 
         let ctxAudio = ensureAudioContext();
         if (ctxAudio.state === 'suspended' || ctxAudio.state === 'interrupted') {
@@ -1430,17 +1679,34 @@
     let previewBgmSource = null;
 
     function previewBgmSample(style = 'upbeat', durationSec = 3.5) {
-        if (previewBgmSource) {
-            try {
-                previewBgmSource.stop();
-                previewBgmSource.disconnect();
-            } catch (_) {}
-            previewBgmSource = null;
-        }
+        clearScheduledAudio();
         if (style === 'none') return;
         const ctxAudio = unlockAudioSync();
         const buf = getCachedBgmBuffer(ctxAudio, style, durationSec);
         if (!buf) return;
+
+        const audioEl = getOrCreatePreviewAudioEl();
+        if (audioEl && typeof global.Blob !== 'undefined') {
+            try {
+                const wavBlob = encodeAudioBufferToWavBlob(buf);
+                const url = URL.createObjectURL(wavBlob);
+                if (audioEl.dataset) audioEl.dataset.kind = 'bgm';
+                audioEl.src = url;
+                audioEl.muted = false;
+                audioEl.volume = 1.0;
+                audioEl.onended = () => {
+                    try {
+                        URL.revokeObjectURL(url);
+                    } catch (_) {}
+                };
+                const p = audioEl.play();
+                if (p && typeof p.catch === 'function') {
+                    p.catch(() => {});
+                }
+                return;
+            } catch (_) {}
+        }
+
         const src = ctxAudio.createBufferSource();
         src.buffer = buf;
         src.connect(ctxAudio.destination);
@@ -1452,6 +1718,8 @@
         bindCanvasElements,
         ensureAudioContext,
         unlockAudioSync,
+        prepareMixedPreviewWavUrl,
+        encodeAudioBufferToWavBlob,
         previewBgmSample,
         decodeTtsToAudioBuffer,
         pcm16ToAudioBuffer,
