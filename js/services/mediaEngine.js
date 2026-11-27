@@ -613,6 +613,7 @@
         totalDuration = studioScenes.reduce((sum, s) => sum + (Number.isFinite(s.duration) ? s.duration : 2.0), 0);
         pausedAt = 0;
         playbackOffset = 0;
+        cachedRecordMix = { key: '', buffer: null };
         lastFormattedSecond = '';
         updateTimerText(0);
         if (studioScenes.length > 0) {
@@ -1115,6 +1116,8 @@
     }
 
     let currentBgmStyle = 'upbeat';
+    let cachedFastFormat = undefined;
+    let cachedRecordMix = { key: '', buffer: null };
 
     function prepareForExportSync() {
         const ctxAudio = unlockAudioSync();
@@ -1124,7 +1127,7 @@
             keepOsc = ctxAudio.createOscillator();
             keepGain = ctxAudio.createGain();
             keepOsc.frequency.value = 440;
-            keepGain.gain.value = 0.0001;
+            keepGain.gain.value = 0.0002;
             keepOsc.connect(keepGain);
             keepGain.connect(ctxAudio.destination);
             keepOsc.start();
@@ -1175,17 +1178,18 @@
         return offlineCtx.startRendering();
     }
 
-    async function fastExportVideo({ bgmStyle = 'upbeat', onProgress = null, signal = null } = {}) {
+    async function probeFastExportFormat() {
+        if (cachedFastFormat !== undefined) return cachedFastFormat;
+
         const OfflineCtx = global.OfflineAudioContext || global.webkitOfflineAudioContext;
         if (
-            studioScenes.length === 0 ||
-            !canvasEl ||
             typeof global.VideoEncoder === 'undefined' ||
             typeof global.AudioEncoder === 'undefined' ||
             typeof global.VideoFrame === 'undefined' ||
             typeof global.AudioData === 'undefined' ||
             typeof OfflineCtx === 'undefined'
         ) {
+            cachedFastFormat = null;
             return null;
         }
 
@@ -1199,9 +1203,6 @@
             typeof global.MediaRecorder !== 'undefined' &&
             (MediaRecorder.isTypeSupported('video/mp4') || MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2'));
 
-        // Probe best container & codecs:
-        // 1) MP4 (H.264 + Stereo/Mono AAC) — plays & saves natively on iPhone/iOS, Android, Facebook Reels
-        // 2) WebM (VP9/VP8 + Opus) — fallback for desktop/browsers when native mobile MP4 MediaRecorder isn't available
         let chosenFormat = null;
 
         if (typeof global.Mp4Muxer !== 'undefined') {
@@ -1225,19 +1226,29 @@
                 if (!vSup.supported) continue;
 
                 for (const aProf of aacProfiles) {
-                    const aCfg = {
+                    const baseAac = {
                         codec: 'mp4a.40.2',
                         sampleRate: aProf.sampleRate,
                         numberOfChannels: aProf.numberOfChannels,
                         bitrate: aProf.bitrate
                     };
-                    const aSup = await AudioEncoder.isConfigSupported(aCfg).catch(() => ({ supported: false }));
-                    if (aSup.supported) {
+                    const aSupRaw = await AudioEncoder.isConfigSupported({ ...baseAac, aac: { format: 'aac' } }).catch(() => ({ supported: false }));
+                    if (aSupRaw.supported) {
                         chosenFormat = {
                             container: 'mp4',
                             mimeType: 'video/mp4',
                             videoConfig: vCfg,
-                            audioConfig: aCfg
+                            audioConfig: { ...baseAac, aac: { format: 'aac' } }
+                        };
+                        break outerMp4;
+                    }
+                    const aSupPlain = await AudioEncoder.isConfigSupported(baseAac).catch(() => ({ supported: false }));
+                    if (aSupPlain.supported) {
+                        chosenFormat = {
+                            container: 'mp4',
+                            mimeType: 'video/mp4',
+                            videoConfig: vCfg,
+                            audioConfig: baseAac
                         };
                         break outerMp4;
                     }
@@ -1245,7 +1256,7 @@
             }
         }
 
-        // On mobile (iOS & Android), prefer native MediaRecorder MP4 over WebM/Opus when supported so gallery players preserve sound
+        // On mobile (iOS & Android), prefer native MediaRecorder MP4 over WebM/Opus so phone galleries preserve sound
         if (!chosenFormat && typeof global.WebMMuxer !== 'undefined' && !(isMobile && canNativeMp4Record)) {
             const vpCandidates = [
                 { codec: 'vp09.00.10.08', muxerCodec: 'V_VP9' },
@@ -1285,6 +1296,38 @@
             }
         }
 
+        cachedFastFormat = chosenFormat;
+        return chosenFormat;
+    }
+
+    function canFastExportSync() {
+        return Boolean(cachedFastFormat);
+    }
+
+    async function prebuildExportAssets(bgmStyle = 'upbeat') {
+        const ctxAudio = ensureAudioContext();
+        const targetSr = ctxAudio.sampleRate || 44100;
+        const mixKey = `${bgmStyle}:${studioScenes.length}:${totalDuration.toFixed(3)}:${targetSr}`;
+        const tasks = [probeFastExportFormat()];
+        if (cachedRecordMix.key !== mixKey && studioScenes.length > 0 && totalDuration > 0) {
+            tasks.push(
+                renderMixedOfflineAudioBuffer(bgmStyle, targetSr)
+                    .then((buf) => {
+                        if (buf) cachedRecordMix = { key: mixKey, buffer: buf };
+                    })
+                    .catch(() => {})
+            );
+        }
+        await Promise.all(tasks);
+    }
+
+    async function fastExportVideo({ bgmStyle = 'upbeat', onProgress = null, signal = null } = {}) {
+        if (studioScenes.length === 0 || !canvasEl) {
+            return null;
+        }
+
+        const fps = 30;
+        const chosenFormat = await probeFastExportFormat();
         if (!chosenFormat) {
             return null;
         }
@@ -1474,7 +1517,218 @@
         return nextUrl;
     }
 
+    function startRecordingSync({ bgmStyle = 'upbeat', onRecordComplete = null, onRecordProgress = null, onRecordError = null } = {}) {
+        if (studioScenes.length === 0 || totalDuration <= 0 || !canvasEl) return;
+
+        // 100% SYNCHRONOUS setup inside user tap gesture (zero awaits before activeRecorder.start) so iOS Safari & Android Chrome never mute audio
+        stopPlayback({ resetToZero: false });
+        const runId = ++playbackRunId;
+        currentBgmStyle = bgmStyle;
+
+        const ctxAudio = unlockAudioSync();
+        isPlaying = true;
+        isRecording = true;
+        useHtmlAudioClock = false;
+        playbackOffset = 0;
+        pausedAt = 0;
+
+        let destNode = null;
+        let recordMonitorGain = null;
+        try {
+            destNode = ctxAudio.createMediaStreamDestination();
+            recordMonitorGain = ctxAudio.createGain();
+            recordMonitorGain.gain.value = 0.002;
+            recordMonitorGain.connect(ctxAudio.destination);
+        } catch (audioErr) {
+            isPlaying = false;
+            isRecording = false;
+            if (onRecordError) onRecordError(audioErr);
+            return;
+        }
+
+        const nowAudioT = ctxAudio.currentTime;
+        const targetSr = ctxAudio.sampleRate || 44100;
+        const mixKey = `${bgmStyle}:${studioScenes.length}:${totalDuration.toFixed(3)}:${targetSr}`;
+
+        if (cachedRecordMix.key === mixKey && cachedRecordMix.buffer) {
+            const singleMixNode = ctxAudio.createBufferSource();
+            singleMixNode.buffer = cachedRecordMix.buffer;
+            singleMixNode.connect(destNode);
+            if (recordMonitorGain) singleMixNode.connect(recordMonitorGain);
+            singleMixNode.start(0);
+            activeAudioSources.push(singleMixNode);
+        } else {
+            // Synchronous fallback scheduling when prebuild cache misses (e.g. user changed BGM right before Export)
+            let sceneStart = 0;
+            studioScenes.forEach((scene) => {
+                if (scene.audioBuffer) {
+                    const src = ctxAudio.createBufferSource();
+                    src.buffer = scene.audioBuffer;
+                    src.playbackRate.value = scene.playbackRate || 1.0;
+                    src.connect(destNode);
+                    if (recordMonitorGain) src.connect(recordMonitorGain);
+                    src.start(nowAudioT + sceneStart);
+                    activeAudioSources.push(src);
+                }
+                sceneStart += scene.duration;
+            });
+
+            const bgmBuffer = getCachedBgmBuffer(ctxAudio, bgmStyle, totalDuration);
+            if (bgmBuffer) {
+                const bgmNode = ctxAudio.createBufferSource();
+                bgmNode.buffer = bgmBuffer;
+                bgmNode.connect(destNode);
+                if (recordMonitorGain) bgmNode.connect(recordMonitorGain);
+                bgmNode.start(nowAudioT);
+                activeAudioSources.push(bgmNode);
+            }
+        }
+
+        // Keep-alive signal at t=0 BEFORE MediaRecorder initialization so Chromium & WebKit register live non-silent audio
+        try {
+            const keepAliveOsc = ctxAudio.createOscillator();
+            const keepAliveGain = ctxAudio.createGain();
+            keepAliveGain.gain.value = 0.0002;
+            keepAliveOsc.connect(keepAliveGain);
+            keepAliveGain.connect(destNode);
+            if (recordMonitorGain) keepAliveGain.connect(recordMonitorGain);
+            keepAliveOsc.start(0);
+            activeAudioSources.push(keepAliveOsc);
+        } catch (_) {}
+
+        renderFrameAtTime(0);
+
+        const recordedChunks = [];
+        let videoTrack = null;
+        try {
+            const canvasStream = canvasEl.captureStream(30);
+            videoTrack = canvasStream.getVideoTracks()[0] || null;
+            const recAudioTracks = destNode ? destNode.stream.getAudioTracks() : [];
+            recAudioTracks.forEach((track) => {
+                track.enabled = true;
+            });
+            const combinedStream = new MediaStream([
+                ...(videoTrack ? [videoTrack] : []),
+                ...recAudioTracks
+            ]);
+
+            const mimeTypes = [
+                'video/mp4;codecs="avc1.42E01E, mp4a.40.2"',
+                'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+                'video/mp4;codecs=avc1,mp4a.40.2',
+                'video/mp4',
+                'video/webm;codecs=vp8,opus',
+                'video/webm;codecs=vp9,opus',
+                'video/webm'
+            ];
+            const supportedMime = mimeTypes.find((m) => global.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+
+            if (supportedMime) {
+                if (supportedMime.includes('webm')) {
+                    try {
+                        activeRecorder = new MediaRecorder(combinedStream, {
+                            mimeType: supportedMime,
+                            audioBitsPerSecond: 128_000,
+                            videoBitsPerSecond: 2_500_000
+                        });
+                    } catch (_) {
+                        activeRecorder = new MediaRecorder(combinedStream, { mimeType: supportedMime });
+                    }
+                } else {
+                    activeRecorder = new MediaRecorder(combinedStream, { mimeType: supportedMime });
+                }
+            } else {
+                activeRecorder = new MediaRecorder(combinedStream);
+            }
+
+            activeRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+            };
+            activeRecorder.onerror = (ev) => {
+                stopPlayback({ resetToZero: true });
+                if (onRecordError) onRecordError(ev?.error || new Error('Lỗi ghi video trên trình duyệt.'));
+            };
+            activeRecorder.onstop = () => {
+                const type = supportedMime || activeRecorder?.mimeType || 'video/webm';
+                const blob = new Blob(recordedChunks, { type });
+                if (onRecordComplete && recordedChunks.length > 0) {
+                    onRecordComplete(blob, type, recAudioTracks.length > 0 && ctxAudio.state === 'running');
+                } else if (onRecordError) {
+                    onRecordError(new Error('Không thu được dữ liệu video.'));
+                }
+            };
+            activeRecorder.start(500);
+        } catch (recErr) {
+            stopPlayback({ resetToZero: true });
+            if (onRecordError) onRecordError(recErr);
+            return;
+        }
+
+        audioStartTime = ctxAudio.currentTime;
+        perfStartTime = performance.now();
+        if (callbacks.onStateChange) callbacks.onStateChange(getPlaybackState());
+
+        const tick = () => {
+            if (!isPlaying || runId !== playbackRunId) return;
+            const current = getCurrentTime();
+            if (current >= totalDuration) {
+                renderFrameAtTime(totalDuration - 0.01);
+                if (videoTrack?.requestFrame) {
+                    try {
+                        videoTrack.requestFrame();
+                    } catch (_) {}
+                }
+                const rec = activeRecorder;
+                isPlaying = false;
+                isRecording = false;
+                pausedAt = 0;
+                playbackOffset = 0;
+                stopTimers();
+                clearScheduledAudio();
+                if (rec && rec.state !== 'inactive') {
+                    rec.stop();
+                }
+                activeRecorder = null;
+                if (callbacks.onStateChange) callbacks.onStateChange(getPlaybackState());
+                return;
+            }
+            renderFrameAtTime(current);
+            if (videoTrack?.requestFrame) {
+                try {
+                    videoTrack.requestFrame();
+                } catch (_) {}
+            }
+            if (onRecordProgress && totalDuration > 0) {
+                onRecordProgress(Math.min(99, Math.round((current / totalDuration) * 100)));
+            }
+            rafId = requestAnimationFrame(tick);
+        };
+
+        rafId = requestAnimationFrame(tick);
+
+        bgTimerId = setInterval(() => {
+            if (!isPlaying || runId !== playbackRunId) return;
+            if (document.hidden) {
+                const current = getCurrentTime();
+                if (current >= totalDuration) {
+                    tick();
+                } else {
+                    renderFrameAtTime(current);
+                    if (videoTrack?.requestFrame) {
+                        try {
+                            videoTrack.requestFrame();
+                        } catch (_) {}
+                    }
+                }
+            }
+        }, 33);
+    }
+
     async function startPlayback({ startAt = null, bgmStyle = 'upbeat', recordMode = false, onRecordComplete = null, onRecordProgress = null, onRecordError = null } = {}) {
+        if (recordMode) {
+            startRecordingSync({ bgmStyle, onRecordComplete, onRecordProgress, onRecordError });
+            return;
+        }
         if (studioScenes.length === 0 || totalDuration <= 0) return;
 
         stopPlayback({ resetToZero: false });
@@ -1485,7 +1739,7 @@
         playbackOffset = Math.max(0, Math.min(totalDuration, targetStart));
         pausedAt = playbackOffset;
 
-        const audioEl = !recordMode ? getOrCreatePreviewAudioEl() : null;
+        const audioEl = getOrCreatePreviewAudioEl();
         if (audioEl) {
             try {
                 // Use synchronous cache hit first so tapping Play/Unmute on iOS Safari executes .play() with ZERO await delay!
@@ -1585,7 +1839,7 @@
         }
         if (runId !== playbackRunId) return;
 
-        const audioBlocked = ctxAudio.state !== 'running' && !recordMode;
+        const audioBlocked = ctxAudio.state !== 'running';
         if (callbacks.onAudioBlocked) {
             callbacks.onAudioBlocked(audioBlocked);
         }
@@ -1594,155 +1848,41 @@
         }
 
         isPlaying = true;
-        isRecording = Boolean(recordMode);
-        const destNode = recordMode ? ctxAudio.createMediaStreamDestination() : null;
-
-        // Pre-mix into ONE continuous buffer during recording + pull via -66dB monitor sink so mobile iOS/Android MediaRecorder never drops audio
-        let mixedRecBuffer = null;
-        let recordMonitorGain = null;
-        if (recordMode && destNode) {
-            try {
-                recordMonitorGain = ctxAudio.createGain();
-                recordMonitorGain.gain.value = 0.0005;
-                recordMonitorGain.connect(ctxAudio.destination);
-            } catch (_) {
-                recordMonitorGain = null;
-            }
-            try {
-                mixedRecBuffer = await renderMixedOfflineAudioBuffer(bgmStyle, ctxAudio.sampleRate || 44100);
-            } catch (_) {
-                mixedRecBuffer = null;
-            }
-            if (runId !== playbackRunId) return;
-        }
-
+        isRecording = false;
         audioStartTime = ctxAudio.currentTime + 0.05;
         perfStartTime = performance.now() + 50;
 
-        if (recordMode && destNode && mixedRecBuffer) {
-            const singleMixNode = ctxAudio.createBufferSource();
-            singleMixNode.buffer = mixedRecBuffer;
-            singleMixNode.connect(destNode);
-            if (recordMonitorGain) singleMixNode.connect(recordMonitorGain);
-            if (playbackOffset < mixedRecBuffer.duration) {
-                singleMixNode.start(audioStartTime, playbackOffset);
-            }
-            activeAudioSources.push(singleMixNode);
-        } else {
-            // Schedule scene audio buffers starting cleanly from playbackOffset
-            let sceneStart = 0;
-            studioScenes.forEach((scene) => {
-                const sceneEnd = sceneStart + scene.duration;
-                if (scene.audioBuffer && sceneEnd > playbackOffset) {
-                    const src = ctxAudio.createBufferSource();
-                    src.buffer = scene.audioBuffer;
-                    const rate = scene.playbackRate || 1.0;
-                    src.playbackRate.value = rate;
-                    if (!recordMode) src.connect(ctxAudio.destination);
-                    if (recordMonitorGain) src.connect(recordMonitorGain);
-                    if (destNode) src.connect(destNode);
+        let sceneStart = 0;
+        studioScenes.forEach((scene) => {
+            const sceneEnd = sceneStart + scene.duration;
+            if (scene.audioBuffer && sceneEnd > playbackOffset) {
+                const src = ctxAudio.createBufferSource();
+                src.buffer = scene.audioBuffer;
+                const rate = scene.playbackRate || 1.0;
+                src.playbackRate.value = rate;
+                src.connect(ctxAudio.destination);
 
-                    if (playbackOffset <= sceneStart) {
-                        const delay = sceneStart - playbackOffset;
-                        src.start(audioStartTime + delay);
-                    } else {
-                        const skipAudioSec = (playbackOffset - sceneStart) * rate;
-                        if (skipAudioSec < scene.audioBuffer.duration) {
-                            src.start(audioStartTime, skipAudioSec);
-                        }
-                    }
-                    activeAudioSources.push(src);
-                }
-                sceneStart = sceneEnd;
-            });
-
-            // Schedule cached BGM
-            const bgmBuffer = getCachedBgmBuffer(ctxAudio, bgmStyle, totalDuration);
-            if (bgmBuffer) {
-                const bgmNode = ctxAudio.createBufferSource();
-                bgmNode.buffer = bgmBuffer;
-                if (!recordMode) bgmNode.connect(ctxAudio.destination);
-                if (recordMonitorGain) bgmNode.connect(recordMonitorGain);
-                if (destNode) bgmNode.connect(destNode);
-                bgmNode.start(audioStartTime, playbackOffset % bgmBuffer.duration);
-                activeAudioSources.push(bgmNode);
-            }
-        }
-
-        // Keep audio stream alive immediately during recording on Safari/WebKit even across micro gaps
-        if (recordMode && destNode) {
-            try {
-                const keepAliveOsc = ctxAudio.createOscillator();
-                const keepAliveGain = ctxAudio.createGain();
-                keepAliveGain.gain.value = 0.0001;
-                keepAliveOsc.connect(keepAliveGain);
-                keepAliveGain.connect(destNode);
-                if (recordMonitorGain) keepAliveGain.connect(recordMonitorGain);
-                keepAliveOsc.start(ctxAudio.currentTime);
-                activeAudioSources.push(keepAliveOsc);
-            } catch (_) {}
-        }
-
-        // Setup MediaRecorder if exporting
-        const recordedChunks = [];
-        if (recordMode && canvasEl) {
-            try {
-                const canvasStream = canvasEl.captureStream(30);
-                const recAudioTracks = destNode ? destNode.stream.getAudioTracks() : [];
-                recAudioTracks.forEach((track) => {
-                    track.enabled = true;
-                });
-                const combinedStream = new MediaStream([
-                    ...canvasStream.getVideoTracks(),
-                    ...recAudioTracks
-                ]);
-
-                const mimeTypes = [
-                    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-                    'video/mp4;codecs=avc1,mp4a.40.2',
-                    'video/mp4',
-                    'video/webm;codecs=vp8,opus',
-                    'video/webm;codecs=vp9,opus',
-                    'video/webm'
-                ];
-                const supportedMime = mimeTypes.find((m) => global.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
-
-                if (supportedMime) {
-                    try {
-                        activeRecorder = new MediaRecorder(combinedStream, {
-                            mimeType: supportedMime,
-                            audioBitsPerSecond: 128_000,
-                            videoBitsPerSecond: 2_500_000
-                        });
-                    } catch (_) {
-                        activeRecorder = new MediaRecorder(combinedStream, { mimeType: supportedMime });
-                    }
+                if (playbackOffset <= sceneStart) {
+                    const delay = sceneStart - playbackOffset;
+                    src.start(audioStartTime + delay);
                 } else {
-                    activeRecorder = new MediaRecorder(combinedStream);
-                }
-
-                activeRecorder.ondataavailable = (e) => {
-                    if (e.data && e.data.size > 0) recordedChunks.push(e.data);
-                };
-                activeRecorder.onerror = (ev) => {
-                    stopPlayback({ resetToZero: true });
-                    if (onRecordError) onRecordError(ev?.error || new Error('Lỗi ghi video trên trình duyệt.'));
-                };
-                activeRecorder.onstop = () => {
-                    const type = supportedMime || 'video/webm';
-                    const blob = new Blob(recordedChunks, { type });
-                    if (onRecordComplete && recordedChunks.length > 0) {
-                        onRecordComplete(blob, type, recAudioTracks.length > 0 && ctxAudio.state === 'running');
-                    } else if (onRecordError) {
-                        onRecordError(new Error('Không thu được dữ liệu video.'));
+                    const skipAudioSec = (playbackOffset - sceneStart) * rate;
+                    if (skipAudioSec < scene.audioBuffer.duration) {
+                        src.start(audioStartTime, skipAudioSec);
                     }
-                };
-                activeRecorder.start(250);
-            } catch (recErr) {
-                stopPlayback({ resetToZero: true });
-                if (onRecordError) onRecordError(recErr);
-                return;
+                }
+                activeAudioSources.push(src);
             }
+            sceneStart = sceneEnd;
+        });
+
+        const bgmBuffer = getCachedBgmBuffer(ctxAudio, bgmStyle, totalDuration);
+        if (bgmBuffer) {
+            const bgmNode = ctxAudio.createBufferSource();
+            bgmNode.buffer = bgmBuffer;
+            bgmNode.connect(ctxAudio.destination);
+            bgmNode.start(audioStartTime, playbackOffset % bgmBuffer.duration);
+            activeAudioSources.push(bgmNode);
         }
 
         if (callbacks.onStateChange) callbacks.onStateChange(getPlaybackState());
@@ -1752,43 +1892,19 @@
             const current = getCurrentTime();
             if (current >= totalDuration) {
                 renderFrameAtTime(totalDuration - 0.01);
-                const rec = activeRecorder;
                 isPlaying = false;
-                isRecording = false;
                 pausedAt = 0;
                 playbackOffset = 0;
                 stopTimers();
                 clearScheduledAudio();
-                if (rec && rec.state !== 'inactive') {
-                    rec.stop();
-                }
-                activeRecorder = null;
                 if (callbacks.onStateChange) callbacks.onStateChange(getPlaybackState());
                 return;
             }
             renderFrameAtTime(current);
-            if (isRecording && onRecordProgress && totalDuration > 0) {
-                onRecordProgress(Math.min(99, Math.round((current / totalDuration) * 100)));
-            }
             rafId = requestAnimationFrame(tick);
         };
 
         rafId = requestAnimationFrame(tick);
-
-        // Background fallback heartbeat during export in case tab is hidden (rAF pauses when backgrounded)
-        if (recordMode) {
-            bgTimerId = setInterval(() => {
-                if (!isPlaying) return;
-                if (document.hidden) {
-                    const current = getCurrentTime();
-                    if (current >= totalDuration) {
-                        tick();
-                    } else {
-                        renderFrameAtTime(current);
-                    }
-                }
-            }, 33);
-        }
     }
 
     let previewBgmSource = null;
@@ -1834,6 +1950,8 @@
         ensureAudioContext,
         unlockAudioSync,
         prepareForExportSync,
+        prebuildExportAssets,
+        canFastExportSync,
         prepareMixedPreviewWavUrl,
         encodeAudioBufferToWavBlob,
         previewBgmSample,
@@ -1852,6 +1970,7 @@
         drawPlaceholderCanvas,
         renderFrameAtTime,
         fastExportVideo,
+        startRecordingSync,
         startPlayback,
         pausePlayback,
         stopPlayback,

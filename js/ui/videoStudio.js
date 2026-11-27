@@ -39,6 +39,15 @@
             wavBtn.classList.add('hidden');
             wavBtn.href = '#';
         }
+        const previewVid = document.getElementById('vs-exported-preview');
+        if (previewVid) {
+            try {
+                previewVid.pause();
+                previewVid.removeAttribute('src');
+                previewVid.load();
+            } catch (_) {}
+            previewVid.classList.add('hidden');
+        }
     }
 
     function getSceneInputs() {
@@ -858,7 +867,10 @@
             document.getElementById('vs-playback-controls')?.classList.remove('hidden');
             document.getElementById('vs-timer-badge')?.classList.remove('hidden');
 
-            await App.mediaEngine.prepareMixedPreviewWavUrl?.(bgmStyle);
+            await Promise.all([
+                App.mediaEngine.prepareMixedPreviewWavUrl?.(bgmStyle),
+                App.mediaEngine.prebuildExportAssets?.(bgmStyle)
+            ]);
             await App.mediaEngine.startPlayback({ startAt: 0, bgmStyle, recordMode: false });
         } catch (err) {
             if (err.name === 'AbortError') return;
@@ -954,11 +966,16 @@
         const manualLink = document.getElementById('btn-manual-download');
         const wavBtn = document.getElementById('btn-download-wav');
         const shareBtn = document.getElementById('btn-share-video');
+        const previewVid = document.getElementById('vs-exported-preview');
 
         if (infoEl) {
             infoEl.textContent = hasAudio
                 ? `File .${ext.toUpperCase()} (${sizeMB} MB • Có âm thanh) sẵn sàng`
                 : `File .${ext.toUpperCase()} (${sizeMB} MB — nếu máy mất tiếng hãy tải thêm .WAV bên cạnh)`;
+        }
+        if (previewVid) {
+            previewVid.src = url;
+            previewVid.classList.remove('hidden');
         }
         if (manualLink) {
             manualLink.href = url;
@@ -1018,16 +1035,9 @@
         }
     }
 
-    async function handleExportVideo() {
-        // Synchronously hold AudioContext unlock BEFORE any async encoder probes so iOS/Android MediaRecorder keeps sound
-        const exportGuard = App.mediaEngine.prepareForExportSync
-            ? App.mediaEngine.prepareForExportSync()
-            : { release: () => {} };
+    function handleExportVideo() {
         const scenes = App.mediaEngine.getScenes();
-        if (scenes.length === 0) {
-            exportGuard.release();
-            return;
-        }
+        if (scenes.length === 0) return;
 
         const btnExport = document.getElementById('btn-export-video');
         const btnGen = document.getElementById('btn-generate-ai-assets');
@@ -1039,6 +1049,7 @@
         if (exportAbortController) exportAbortController.abort();
         exportAbortController = new AbortController();
 
+        let exportGuard = { release: () => {} };
         const restoreButtons = () => {
             exportGuard.release();
             if (btnExport) btnExport.disabled = false;
@@ -1046,55 +1057,67 @@
             exportAbortController = null;
         };
 
-        try {
-            const fastResult = await App.mediaEngine.fastExportVideo({
+        const runMediaRecorderFallback = () => {
+            updateStudioProgress(0, 'Đang ghi hình chuẩn trình duyệt (chạy theo thời lượng video)...', 'loading');
+            App.mediaEngine.startRecordingSync({
                 bgmStyle,
-                signal: exportAbortController.signal,
-                onProgress: (pct, msg) => updateStudioProgress(pct, msg, 'loading')
+                onRecordProgress: (pct) => {
+                    updateStudioProgress(pct, `Đang ghi hình & đồng bộ âm thanh (${pct}%)...`, 'loading');
+                },
+                onRecordError: (err) => {
+                    restoreButtons();
+                    updateStudioProgress(0, err?.message || 'Lỗi khi xuất video.', 'error');
+                    App.toast.show(err?.message || 'Không thể xuất video trên trình duyệt này.', 'error');
+                },
+                onRecordComplete: async (videoBlob, mimeType, hasAudioTrack = true) => {
+                    const ext = await prepareDownloadAndShare(videoBlob, mimeType, bgmStyle, hasAudioTrack);
+                    restoreButtons();
+                    updateStudioProgress(
+                        100,
+                        hasAudioTrack
+                            ? `Hoàn tất! Video .${ext.toUpperCase()} có âm thanh đã sẵn sàng tải về máy.`
+                            : `Đã xuất .${ext.toUpperCase()} (nếu máy chặn audio trình duyệt, hãy tải thêm file .WAV bên cạnh).`,
+                        'done'
+                    );
+                    App.toast.show(`Đã xuất video .${ext.toUpperCase()} thành công!`);
+                }
             });
+        };
 
-            if (fastResult && fastResult.blob) {
-                const ext = await prepareDownloadAndShare(fastResult.blob, fastResult.mimeType, bgmStyle, fastResult.hasAudio !== false);
-                restoreButtons();
-                updateStudioProgress(100, `Hoàn tất! Đã tạo file video .${ext.toUpperCase()} có âm thanh (bấm Tải hoặc Lưu vào Ảnh).`, 'done');
-                App.toast.show(`Đã xuất video .${ext.toUpperCase()} có âm thanh thành công!`);
-                return;
-            }
-        } catch (fastErr) {
-            if (fastErr.name === 'AbortError') {
-                restoreButtons();
-                return;
-            }
-            console.warn('Fast WebCodecs export fallback to MediaRecorder:', fastErr);
+        // Only use async fast WebCodecs path if pre-probe already confirmed H.264 + AAC support;
+        // otherwise execute MediaRecorder 100% SYNCHRONOUSLY inside the user's tap gesture with ZERO awaits!
+        if (App.mediaEngine.canFastExportSync?.()) {
+            exportGuard = App.mediaEngine.prepareForExportSync
+                ? App.mediaEngine.prepareForExportSync()
+                : exportGuard;
+            App.mediaEngine
+                .fastExportVideo({
+                    bgmStyle,
+                    signal: exportAbortController.signal,
+                    onProgress: (pct, msg) => updateStudioProgress(pct, msg, 'loading')
+                })
+                .then(async (fastResult) => {
+                    if (fastResult && fastResult.blob) {
+                        const ext = await prepareDownloadAndShare(fastResult.blob, fastResult.mimeType, bgmStyle, fastResult.hasAudio !== false);
+                        restoreButtons();
+                        updateStudioProgress(100, `Hoàn tất! Đã tạo file video .${ext.toUpperCase()} có âm thanh (bấm Tải hoặc Lưu vào Ảnh).`, 'done');
+                        App.toast.show(`Đã xuất video .${ext.toUpperCase()} có âm thanh thành công!`);
+                        return;
+                    }
+                    runMediaRecorderFallback();
+                })
+                .catch((fastErr) => {
+                    if (fastErr?.name === 'AbortError') {
+                        restoreButtons();
+                        return;
+                    }
+                    console.warn('Fast WebCodecs export fallback to MediaRecorder:', fastErr);
+                    runMediaRecorderFallback();
+                });
+            return;
         }
 
-        updateStudioProgress(0, 'Đang ghi hình chuẩn trình duyệt (chạy theo thời lượng video)...', 'loading');
-
-        App.mediaEngine.startPlayback({
-            startAt: 0,
-            bgmStyle,
-            recordMode: true,
-            onRecordProgress: (pct) => {
-                updateStudioProgress(pct, `Đang ghi hình & đồng bộ âm thanh (${pct}%)...`, 'loading');
-            },
-            onRecordError: (err) => {
-                restoreButtons();
-                updateStudioProgress(0, err?.message || 'Lỗi khi xuất video.', 'error');
-                App.toast.show(err?.message || 'Không thể xuất video trên trình duyệt này.', 'error');
-            },
-            onRecordComplete: async (videoBlob, mimeType, hasAudioTrack = true) => {
-                const ext = await prepareDownloadAndShare(videoBlob, mimeType, bgmStyle, hasAudioTrack);
-                restoreButtons();
-                updateStudioProgress(
-                    100,
-                    hasAudioTrack
-                        ? `Hoàn tất! Video .${ext.toUpperCase()} có âm thanh đã sẵn sàng tải về máy.`
-                        : `Đã xuất .${ext.toUpperCase()} (nếu máy chặn audio trình duyệt, hãy tải thêm file .WAV bên cạnh).`,
-                    'done'
-                );
-                App.toast.show(`Đã xuất video .${ext.toUpperCase()} thành công!`);
-            }
-        });
+        runMediaRecorderFallback();
     }
 
     function init() {

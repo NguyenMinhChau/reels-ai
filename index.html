@@ -1497,43 +1497,52 @@
 						<!-- Mobile & Desktop Ready Download / Share Bar -->
 						<div
 							id="vs-export-ready-box"
-							class="hidden bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+							class="hidden bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-2xl p-3 space-y-2.5"
 						>
-							<div
-								class="text-xs text-emerald-900 dark:text-emerald-200 font-semibold flex items-center gap-2 min-w-0"
-							>
-								<i
-									class="fa-solid fa-file-video text-emerald-600 dark:text-emerald-400 text-base shrink-0"
-								></i>
-								<span id="vs-export-file-info" class="truncate">Video đã sẵn sàng tải về</span>
+							<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+								<div
+									class="text-xs text-emerald-900 dark:text-emerald-200 font-semibold flex items-center gap-2 min-w-0"
+								>
+									<i
+										class="fa-solid fa-file-video text-emerald-600 dark:text-emerald-400 text-base shrink-0"
+									></i>
+									<span id="vs-export-file-info" class="truncate">Video đã sẵn sàng tải về</span>
+								</div>
+								<div class="flex items-center gap-2 shrink-0 flex-wrap">
+									<a
+										id="btn-manual-download"
+										href="#"
+										download="reels-video.mp4"
+										class="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer"
+									>
+										<i class="fa-solid fa-download"></i> <span>Tải Video</span>
+									</a>
+									<a
+										id="btn-download-wav"
+										href="#"
+										download="reels-audio.wav"
+										class="hidden px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-500/40 hover:bg-emerald-100/70 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+										title="Tải riêng file âm thanh giọng đọc + nhạc nền (.WAV)"
+									>
+										<i class="fa-solid fa-file-audio"></i> <span>.WAV</span>
+									</a>
+									<button
+										type="button"
+										id="btn-share-video"
+										class="hidden flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer"
+									>
+										<i class="fa-solid fa-share-nodes"></i>
+										<span>Lưu vào Ảnh / Share</span>
+									</button>
+								</div>
 							</div>
-							<div class="flex items-center gap-2 shrink-0 flex-wrap">
-								<a
-									id="btn-manual-download"
-									href="#"
-									download="reels-video.mp4"
-									class="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer"
-								>
-									<i class="fa-solid fa-download"></i> <span>Tải Video</span>
-								</a>
-								<a
-									id="btn-download-wav"
-									href="#"
-									download="reels-audio.wav"
-									class="hidden px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-500/40 hover:bg-emerald-100/70 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
-									title="Tải riêng file âm thanh giọng đọc + nhạc nền (.WAV)"
-								>
-									<i class="fa-solid fa-file-audio"></i> <span>.WAV</span>
-								</a>
-								<button
-									type="button"
-									id="btn-share-video"
-									class="hidden flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer"
-								>
-									<i class="fa-solid fa-share-nodes"></i>
-									<span>Lưu vào Ảnh / Share</span>
-								</button>
-							</div>
+							<video
+								id="vs-exported-preview"
+								controls
+								playsinline
+								preload="metadata"
+								class="hidden w-full max-h-56 rounded-xl bg-black"
+							></video>
 						</div>
 
 						<!-- Ready-to-Post Social Caption & Hashtags -->
