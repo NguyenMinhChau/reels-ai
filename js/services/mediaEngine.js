@@ -45,8 +45,16 @@
     // Callbacks registered by VideoStudio UI
     let callbacks = {
         onProgressUpdate: null,
-        onStateChange: null
+        onStateChange: null,
+        onAudioBlocked: null
     };
+
+    // Tiny silent WAV (0.05s) to switch iOS WebKit audio hardware channel from Ambient -> Playback
+    // so Web Audio works even when iPhone physical Silent Switch is ON.
+    const SILENT_WAV_DATA_URI =
+        'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+    let silentHtmlAudioEl = null;
+    let isAudioUnlocked = false;
 
     function bindCanvasElements(canvas, timerBadge, cbs = {}) {
         canvasEl = canvas;
@@ -58,14 +66,78 @@
     }
 
     function ensureAudioContext() {
+        try {
+            if (global.navigator?.audioSession && global.navigator.audioSession.type !== 'playback') {
+                global.navigator.audioSession.type = 'playback';
+            }
+        } catch (_) {}
+
         if (!audioCtx || audioCtx.state === 'closed') {
             const Ctx = global.AudioContext || global.webkitAudioContext;
             audioCtx = new Ctx();
         }
-        if (audioCtx.state === 'suspended') {
+        if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') {
             audioCtx.resume().catch(() => {});
         }
         return audioCtx;
+    }
+
+    // Must be invoked SYNCHRONOUSLY inside tap/click handlers for mobile iOS & Android
+    function unlockAudioSync() {
+        try {
+            if (global.navigator?.audioSession && global.navigator.audioSession.type !== 'playback') {
+                global.navigator.audioSession.type = 'playback';
+            }
+        } catch (_) {}
+
+        const ctxAudio = ensureAudioContext();
+        try {
+            if (ctxAudio.state === 'suspended' || ctxAudio.state === 'interrupted') {
+                ctxAudio.resume().catch(() => {});
+            }
+            const silentBuf = ctxAudio.createBuffer(1, 1, ctxAudio.sampleRate || 22050);
+            const src = ctxAudio.createBufferSource();
+            src.buffer = silentBuf;
+            src.connect(ctxAudio.destination);
+            src.start(0);
+        } catch (_) {}
+
+        if (!isAudioUnlocked) {
+            try {
+                if (!silentHtmlAudioEl) {
+                    silentHtmlAudioEl = new Audio(SILENT_WAV_DATA_URI);
+                    silentHtmlAudioEl.setAttribute('playsinline', 'true');
+                    silentHtmlAudioEl.playsInline = true;
+                    silentHtmlAudioEl.volume = 0.01;
+                }
+                const p = silentHtmlAudioEl.play();
+                if (p && typeof p.then === 'function') {
+                    p.then(() => {
+                        isAudioUnlocked = true;
+                    }).catch(() => {});
+                } else {
+                    isAudioUnlocked = true;
+                }
+            } catch (_) {}
+        }
+        return ctxAudio;
+    }
+
+    function normalizeVoiceBuffer(audioBuffer) {
+        if (!audioBuffer || audioBuffer.length === 0) return audioBuffer;
+        const data = audioBuffer.getChannelData(0);
+        let peak = 0;
+        for (let i = 0; i < data.length; i++) {
+            const abs = Math.abs(data[i]);
+            if (abs > peak) peak = abs;
+        }
+        if (peak > 0.02 && peak < 0.78) {
+            const gain = Math.min(2.6, 0.85 / peak);
+            for (let i = 0; i < data.length; i++) {
+                data[i] = Math.max(-0.98, Math.min(0.98, data[i] * gain));
+            }
+        }
+        return audioBuffer;
     }
 
     function trimAudioSilence(audioBuffer, targetCtx, threshold = 0.012, keepPadSec = 0.05) {
@@ -80,14 +152,14 @@
         let end = len - 1;
         while (end > start && Math.abs(data[end]) < threshold) end--;
 
-        if (start >= end) return audioBuffer;
+        if (start >= end) return normalizeVoiceBuffer(audioBuffer);
 
         const padSamples = Math.floor(sr * keepPadSec);
         const trimStart = Math.max(0, start - padSamples);
         const trimEnd = Math.min(len, end + padSamples + 1);
         const outLen = trimEnd - trimStart;
 
-        if (outLen <= 0 || outLen >= len * 0.96) return audioBuffer;
+        if (outLen <= 0 || outLen >= len * 0.96) return normalizeVoiceBuffer(audioBuffer);
 
         const outBuf = targetCtx.createBuffer(1, outLen, sr);
         const outData = outBuf.getChannelData(0);
@@ -100,7 +172,7 @@
             outData[i] *= g;
             outData[outLen - 1 - i] *= g;
         }
-        return outBuf;
+        return normalizeVoiceBuffer(outBuf);
     }
 
     async function decodeTtsToAudioBuffer(rawBuffer, targetCtx, sampleRate = 24000) {
@@ -771,10 +843,13 @@
 
             let pad = 0;
             for (let c = 0; c < chord.length - 1; c++) {
-                pad += Math.sin(2 * Math.PI * chord[c] * t);
+                pad += Math.sin(2 * Math.PI * chord[c] * t) + 0.35 * Math.sin(4 * Math.PI * chord[c] * t);
             }
-            const melody = Math.sin(2 * Math.PI * chord[arpIdx] * t) * arpEnv * 0.55;
-            data[i] = ((pad / (chord.length - 1)) * 0.65 + melody) * env * gain;
+            const melody =
+                (Math.sin(2 * Math.PI * chord[arpIdx] * t) + 0.4 * Math.sin(4 * Math.PI * chord[arpIdx] * t)) *
+                arpEnv *
+                0.6;
+            data[i] = ((pad / (chord.length - 1)) * 0.52 + melody) * env * Math.min(0.22, gain * 1.65);
         }
 
         if (bgmBufferCache.size > 10) {
@@ -1130,14 +1205,18 @@
         pausedAt = playbackOffset;
 
         const ctxAudio = ensureAudioContext();
-        if (ctxAudio.state === 'suspended') {
+        if (ctxAudio.state === 'suspended' || ctxAudio.state === 'interrupted') {
             try {
                 await ctxAudio.resume();
             } catch (_) {}
         }
 
-        if (ctxAudio.state !== 'running' && !recordMode && App.toast) {
-            App.toast.show('Trình duyệt đang tạm khóa tự phát âm thanh — bấm nút Phát (▶) trên khung video để nghe!', 'info');
+        const audioBlocked = ctxAudio.state !== 'running' && !recordMode;
+        if (callbacks.onAudioBlocked) {
+            callbacks.onAudioBlocked(audioBlocked);
+        }
+        if (audioBlocked && App.toast) {
+            App.toast.show('Trình duyệt điện thoại cần bạn chạm nút "Chạm để bật âm thanh" trên khung video!', 'info', { duration: 4500 });
         }
 
         isPlaying = true;
@@ -1182,6 +1261,19 @@
             if (destNode) bgmNode.connect(destNode);
             bgmNode.start(audioStartTime, playbackOffset % bgmBuffer.duration);
             activeAudioSources.push(bgmNode);
+        }
+
+        // Keep audio stream alive during recording on Safari/WebKit even across micro gaps
+        if (recordMode && destNode) {
+            try {
+                const keepAliveOsc = ctxAudio.createOscillator();
+                const keepAliveGain = ctxAudio.createGain();
+                keepAliveGain.gain.value = 0.0001;
+                keepAliveOsc.connect(keepAliveGain);
+                keepAliveGain.connect(destNode);
+                keepAliveOsc.start(audioStartTime);
+                activeAudioSources.push(keepAliveOsc);
+            } catch (_) {}
         }
 
         // Setup MediaRecorder if exporting
@@ -1288,7 +1380,7 @@
             previewBgmSource = null;
         }
         if (style === 'none') return;
-        const ctxAudio = ensureAudioContext();
+        const ctxAudio = unlockAudioSync();
         const buf = getCachedBgmBuffer(ctxAudio, style, durationSec);
         if (!buf) return;
         const src = ctxAudio.createBufferSource();
@@ -1301,6 +1393,7 @@
     App.mediaEngine = {
         bindCanvasElements,
         ensureAudioContext,
+        unlockAudioSync,
         previewBgmSample,
         decodeTtsToAudioBuffer,
         pcm16ToAudioBuffer,

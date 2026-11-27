@@ -115,6 +115,7 @@
         document.getElementById('vs-playback-controls')?.classList.add('hidden');
         document.getElementById('vs-timer-badge')?.classList.add('hidden');
         document.getElementById('vs-progress-box')?.classList.add('hidden');
+        document.getElementById('btn-unmute-mobile-audio')?.classList.add('hidden');
 
         App.mediaEngine.drawPlaceholderCanvas(title);
         document.getElementById('video-studio-modal')?.classList.remove('hidden');
@@ -318,7 +319,7 @@
         const imageSourceMode = document.getElementById('vs-image-source')?.value || 'stock';
         const hasApiKey = Boolean((App.store.getState().apiKey || '').trim());
 
-        const audioCtx = App.mediaEngine.ensureAudioContext();
+        const audioCtx = App.mediaEngine.unlockAudioSync();
 
         try {
             // 1. Expand 5 narration chapters into 10-15 audio-aligned visual beats
@@ -542,12 +543,14 @@
             const beatCount = builtScenes.length;
 
             if (fallbackTtsCount === 5) {
-                const detailMsg = lastTtsError || 'Không nhận được giọng đọc AI (kiểm tra API Key hoặc quota 429).';
-                updateStudioProgress(100, `Đã dựng ${beatCount} phân cảnh (${totalSec}s) — Lỗi TTS: ${detailMsg}`, 'done');
+                const detailMsg = !hasApiKey
+                    ? 'Trình duyệt này chưa nhập Gemini API Key → mới có nhạc nền, chưa có giọng đọc AI.'
+                    : lastTtsError || 'Không nhận được giọng đọc AI (kiểm tra API Key hoặc quota 429).';
+                updateStudioProgress(100, `Đã dựng ${beatCount} phân cảnh (${totalSec}s) — ${detailMsg}`, 'done');
                 App.toast.show(detailMsg, 'warning', {
                     actionLabel: 'Cài Key',
                     onAction: () => App.modals.openSettingsModal(),
-                    duration: 7000
+                    duration: 8000
                 });
             } else if (fallbackTtsCount > 0) {
                 const detailMsg = lastTtsError ? ` (${lastTtsError})` : '';
@@ -575,6 +578,7 @@
     }
 
     function handleTogglePlayPause() {
+        App.mediaEngine.unlockAudioSync();
         const state = App.mediaEngine.getPlaybackState();
         const bgmStyle = document.getElementById('vs-bgm')?.value || 'upbeat';
         if (state.isPlaying) {
@@ -652,6 +656,7 @@
     }
 
     async function handleExportVideo() {
+        App.mediaEngine.unlockAudioSync();
         const scenes = App.mediaEngine.getScenes();
         if (scenes.length === 0) return;
 
@@ -720,10 +725,14 @@
         const canvas = document.getElementById('reels-canvas');
         const timerBadge = document.getElementById('vs-timer-badge');
         const scrubber = document.getElementById('vs-scrubber');
+        const unmuteBtn = document.getElementById('btn-unmute-mobile-audio');
 
         let lastScrubberUpdate = 0;
         App.mediaEngine.bindCanvasElements(canvas, timerBadge, {
             onStateChange: syncPlaybackUI,
+            onAudioBlocked: (blocked) => {
+                unmuteBtn?.classList.toggle('hidden', !blocked);
+            },
             onProgressUpdate: (elapsed, total) => {
                 const now = performance.now();
                 if (scrubber && !isSeeking && total > 0 && now - lastScrubberUpdate >= 100) {
@@ -734,12 +743,43 @@
             }
         });
 
+        // Global one-time gesture unlock for mobile browsers (iOS Safari & Android Chrome)
+        const unlockOnce = () => {
+            App.mediaEngine.unlockAudioSync();
+            document.removeEventListener('touchstart', unlockOnce);
+            document.removeEventListener('pointerdown', unlockOnce);
+        };
+        document.addEventListener('touchstart', unlockOnce, { passive: true, once: true });
+        document.addEventListener('pointerdown', unlockOnce, { passive: true, once: true });
+
+        unmuteBtn?.addEventListener('click', () => {
+            App.mediaEngine.unlockAudioSync();
+            unmuteBtn.classList.add('hidden');
+            const bgmStyle = document.getElementById('vs-bgm')?.value || 'upbeat';
+            const state = App.mediaEngine.getPlaybackState();
+            App.mediaEngine.startPlayback({
+                startAt: state.currentTime || 0,
+                bgmStyle,
+                recordMode: false
+            });
+        });
+
+        canvas?.addEventListener('click', () => {
+            if (App.mediaEngine.getScenes().length === 0) return;
+            if (unmuteBtn && !unmuteBtn.classList.contains('hidden')) {
+                unmuteBtn.click();
+                return;
+            }
+            handleTogglePlayPause();
+        });
+
         document.getElementById('btn-open-studio-scratch')?.addEventListener('click', openFromScratch);
         document.getElementById('btn-rewrite-story')?.addEventListener('click', handleEnhanceStorytelling);
         document.getElementById('btn-generate-ai-assets')?.addEventListener('click', handleGenerateAssets);
         document.getElementById('btn-export-video')?.addEventListener('click', handleExportVideo);
         document.getElementById('btn-share-video')?.addEventListener('click', handleShareExportedVideo);
         document.getElementById('btn-preview-bgm')?.addEventListener('click', () => {
+            App.mediaEngine.unlockAudioSync();
             const bgmStyle = document.getElementById('vs-bgm')?.value || 'upbeat';
             if (bgmStyle === 'none') {
                 App.toast.show('Bạn đang chọn "Chỉ Giọng Đọc" (không có nhạc nền).', 'info');
@@ -749,6 +789,7 @@
         });
         document.getElementById('btn-preview-play')?.addEventListener('click', handleTogglePlayPause);
         document.getElementById('btn-preview-replay')?.addEventListener('click', () => {
+            App.mediaEngine.unlockAudioSync();
             const bgmStyle = document.getElementById('vs-bgm')?.value || 'upbeat';
             App.mediaEngine.startPlayback({ startAt: 0, bgmStyle, recordMode: false });
         });
