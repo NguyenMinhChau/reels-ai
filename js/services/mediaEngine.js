@@ -833,92 +833,96 @@
             }
         }
 
-        // 3b. Dynamic Beat Callout Pill in Photo mode (so every synced cut feels fresh)
-        if (!isCleanSubtitle && currentScene.motionCue && (activeIdx > 0 || precomputedTitleLines.length === 0)) {
-            const badgeText =
-                currentScene.motionCue.accentBadge ||
-                currentScene.motionCue.topBadge ||
-                (currentScene.motionCue.items && currentScene.motionCue.items[0]);
-            if (badgeText) {
-                const badgeAlpha = sceneProgress < 0.15 ? sceneProgress / 0.15 : 1;
+        // 3b & 3c & 4. Render optional text/subtitles ONLY when explicitly enabled (disabled by default for clean 2D animation)
+        const showSubtitles = Boolean(currentScene.showSubtitles);
+        if (showSubtitles) {
+            // Dynamic Beat Callout Pill in Photo mode
+            if (!isCleanSubtitle && currentScene.motionCue && (activeIdx > 0 || precomputedTitleLines.length === 0)) {
+                const badgeText =
+                    currentScene.motionCue.accentBadge ||
+                    currentScene.motionCue.topBadge ||
+                    (currentScene.motionCue.items && currentScene.motionCue.items[0]);
+                if (badgeText) {
+                    const badgeAlpha = sceneProgress < 0.15 ? sceneProgress / 0.15 : 1;
+                    ctx.save();
+                    ctx.globalAlpha = badgeAlpha;
+                    ctx.font = '800 17px Inter, sans-serif';
+                    const tw = ctx.measureText(badgeText).width;
+                    const pw = Math.min(360, Math.max(100, tw + 34));
+                    ctx.fillStyle = 'rgba(250, 204, 21, 0.92)';
+                    ctx.beginPath();
+                    ctx.roundRect(270 - pw / 2, 42, pw, 34, 17);
+                    ctx.fill();
+                    ctx.fillStyle = '#0f172a';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(badgeText, 270, 60, pw - 16);
+                    ctx.restore();
+                }
+            }
+
+            // Top Hook Title Banner during first beat in Photo mode
+            if (!isCleanSubtitle && activeIdx === 0 && precomputedTitleLines.length > 0) {
+                const boxH = precomputedTitleLines.length * 28 + 22;
+                const fadeOut = sceneProgress > 0.85 ? Math.max(0, 1 - (sceneProgress - 0.85) / 0.15) : 1;
                 ctx.save();
-                ctx.globalAlpha = badgeAlpha;
-                ctx.font = '800 17px Inter, sans-serif';
-                const tw = ctx.measureText(badgeText).width;
-                const pw = Math.min(360, Math.max(100, tw + 34));
-                ctx.fillStyle = 'rgba(250, 204, 21, 0.92)';
+                ctx.globalAlpha = fadeOut;
+                ctx.fillStyle = 'rgba(250, 204, 21, 0.95)';
                 ctx.beginPath();
-                ctx.roundRect(270 - pw / 2, 42, pw, 34, 17);
+                ctx.roundRect(38, 46, CANVAS_W - 76, boxH, 16);
                 ctx.fill();
+
                 ctx.fillStyle = '#0f172a';
+                ctx.font = '900 21px Inter, sans-serif';
                 ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(badgeText, 270, 60, pw - 16);
+                precomputedTitleLines.forEach((line, idx) => {
+                    ctx.fillText(line, 270, 74 + idx * 28);
+                });
                 ctx.restore();
             }
-        }
 
-        // 3c. Top Hook Title Banner during first beat in Photo mode
-        if (!isCleanSubtitle && activeIdx === 0 && precomputedTitleLines.length > 0) {
-            const boxH = precomputedTitleLines.length * 28 + 22;
-            const fadeOut = sceneProgress > 0.85 ? Math.max(0, 1 - (sceneProgress - 0.85) / 0.15) : 1;
-            ctx.save();
-            ctx.globalAlpha = fadeOut;
-            ctx.fillStyle = 'rgba(250, 204, 21, 0.95)';
-            ctx.beginPath();
-            ctx.roundRect(38, 46, CANVAS_W - 76, boxH, 16);
-            ctx.fill();
+            // Precomputed dynamic subtitles aligned to actual speech span
+            const chunks = currentScene.precomputedChunks;
+            if (chunks && chunks.length > 0) {
+                const speechNorm = Math.min(0.9999, sceneProgress / 0.92);
+                const chunkIdx = Math.min(chunks.length - 1, Math.floor(speechNorm * chunks.length));
+                const chunkLocalProgress = speechNorm * chunks.length - chunkIdx;
+                const chunk = chunks[chunkIdx];
+                const popScale = chunkLocalProgress < 0.16 ? 0.9 + (chunkLocalProgress / 0.16) * 0.1 : 1.0;
 
-            ctx.fillStyle = '#0f172a';
-            ctx.font = '900 21px Inter, sans-serif';
-            ctx.textAlign = 'center';
-            precomputedTitleLines.forEach((line, idx) => {
-                ctx.fillText(line, 270, 74 + idx * 28);
-            });
-            ctx.restore();
-        }
+                ctx.font = `900 ${chunk.fontSize}px Inter, sans-serif`;
+                ctx.save();
+                ctx.translate(270, chunk.startY);
+                ctx.scale(popScale, popScale);
+                ctx.translate(-270, -chunk.startY);
 
-        // 4. Precomputed dynamic subtitles aligned to actual speech span (finishes slightly before 0.18s scene breath gap)
-        const chunks = currentScene.precomputedChunks;
-        if (chunks && chunks.length > 0) {
-            const speechNorm = Math.min(0.9999, sceneProgress / 0.92);
-            const chunkIdx = Math.min(chunks.length - 1, Math.floor(speechNorm * chunks.length));
-            const chunkLocalProgress = speechNorm * chunks.length - chunkIdx;
-            const chunk = chunks[chunkIdx];
-            const popScale = chunkLocalProgress < 0.16 ? 0.9 + (chunkLocalProgress / 0.16) * 0.1 : 1.0;
-
-            ctx.font = `900 ${chunk.fontSize}px Inter, sans-serif`;
-            ctx.save();
-            ctx.translate(270, chunk.startY);
-            ctx.scale(popScale, popScale);
-            ctx.translate(-270, -chunk.startY);
-
-            if (!isCleanSubtitle) {
-                const boxTop = chunk.startY - chunk.fontSize - 4;
-                const boxHeight = chunk.lines.length * chunk.lineHeight + 12;
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
-                ctx.beginPath();
-                ctx.roundRect(28, boxTop, CANVAS_W - 56, boxHeight, 16);
-                ctx.fill();
-            }
-
-            ctx.textAlign = 'center';
-            ctx.lineJoin = 'round';
-            ctx.strokeStyle = isCleanSubtitle ? '#0f172a' : 'rgba(0, 0, 0, 0.95)';
-            ctx.lineWidth = isCleanSubtitle ? 8 : 7;
-
-            chunk.lines.forEach((line, i) => {
-                const ly = chunk.startY + i * chunk.lineHeight;
-                ctx.strokeText(line, 270, ly);
-                if (isCleanSubtitle) {
-                    ctx.fillStyle = '#ffffff';
-                } else {
-                    const isHighlight = activeIdx === 0 || (activeIdx === 4 && i === 0);
-                    ctx.fillStyle = isHighlight ? '#fde047' : '#ffffff';
+                if (!isCleanSubtitle) {
+                    const boxTop = chunk.startY - chunk.fontSize - 4;
+                    const boxHeight = chunk.lines.length * chunk.lineHeight + 12;
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
+                    ctx.beginPath();
+                    ctx.roundRect(28, boxTop, CANVAS_W - 56, boxHeight, 16);
+                    ctx.fill();
                 }
-                ctx.fillText(line, 270, ly);
-            });
-            ctx.restore();
+
+                ctx.textAlign = 'center';
+                ctx.lineJoin = 'round';
+                ctx.strokeStyle = isCleanSubtitle ? '#0f172a' : 'rgba(0, 0, 0, 0.95)';
+                ctx.lineWidth = isCleanSubtitle ? 8 : 7;
+
+                chunk.lines.forEach((line, i) => {
+                    const ly = chunk.startY + i * chunk.lineHeight;
+                    ctx.strokeText(line, 270, ly);
+                    if (isCleanSubtitle) {
+                        ctx.fillStyle = '#ffffff';
+                    } else {
+                        const isHighlight = activeIdx === 0 || (activeIdx === 4 && i === 0);
+                        ctx.fillStyle = isHighlight ? '#fde047' : '#ffffff';
+                    }
+                    ctx.fillText(line, 270, ly);
+                });
+                ctx.restore();
+            }
         }
 
         updateTimerText(elapsed);

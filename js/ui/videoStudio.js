@@ -346,13 +346,12 @@
                       prevProp
                   })
                 : {
-                      layout: 'center-hero',
+                      layout: 'character-action',
                       backdrop: 'cream-room',
+                      action: 'pointing',
+                      effect: 'sparkles',
                       props: ['lightbulb'],
                       characterMood: 'happy',
-                      topBadge: `NHỊP ${idx + 1}`,
-                      items: [beat.text.slice(0, 20).toUpperCase()],
-                      accentBadge: 'REELS',
                       crossOut: false,
                       sceneText: beat.text,
                       videoTitle
@@ -380,11 +379,10 @@
                 finalCue = {
                     layout: lay,
                     backdrop: bd,
+                    action: aiItem.action || localCue.action,
+                    effect: aiItem.effect || localCue.effect,
                     props: chosenProps,
                     characterMood: aiItem.characterMood || localCue.characterMood,
-                    topBadge: aiItem.topBadge !== undefined ? aiItem.topBadge : localCue.topBadge,
-                    items: aiItem.items && aiItem.items.length > 0 ? aiItem.items : localCue.items,
-                    accentBadge: aiItem.accentBadge !== undefined ? aiItem.accentBadge : localCue.accentBadge,
                     crossOut: Boolean(aiItem.crossOut),
                     sceneText: beat.text,
                     videoTitle
@@ -424,7 +422,8 @@
         const ttsEngine = document.getElementById('vs-tts-engine')?.value || 'live-3.8';
         const speedRate = parseFloat(document.getElementById('vs-speed')?.value || '1.0') || 1.0;
         const bgmStyle = document.getElementById('vs-bgm')?.value || 'upbeat';
-        const visualStyle = document.getElementById('vs-visual-style')?.value || 'ai-svg';
+        const visualStyle = document.getElementById('vs-visual-style')?.value || 'motion';
+        const showSubtitles = document.getElementById('vs-subtitles')?.value === 'on';
         const scenePacing = document.getElementById('vs-scene-pacing')?.value || 'balanced';
         const imageSourceMode = document.getElementById('vs-image-source')?.value || 'stock';
         const hasApiKey = Boolean((App.store.getState().apiKey || '').trim());
@@ -472,6 +471,8 @@
                           layouts: App.motionGraphics?.LAYOUT_NAMES,
                           backdrops: App.motionGraphics?.BACKDROP_NAMES,
                           props: App.motionGraphics?.PROP_NAMES,
+                          actions: App.motionGraphics?.ACTION_NAMES,
+                          effects: App.motionGraphics?.EFFECT_NAMES,
                           signal
                       })
                     : Promise.resolve(null);
@@ -817,6 +818,7 @@
                             ? visualPrompts[beatIdx] || beat.text
                             : visualPrompts[beat.chapterIdx] || beat.text,
                     visualStyle: sceneStyleOverrides[beatIdx],
+                    showSubtitles,
                     motionCue: motionCues[beatIdx],
                     imageObj: sceneImageObjs[beatIdx],
                     audioBuffer,
@@ -1227,6 +1229,17 @@
         };
         visualStyleEl?.addEventListener('change', syncStyleControls);
         syncStyleControls();
+
+        document.getElementById('vs-subtitles')?.addEventListener('change', (e) => {
+            const enabled = e.target.value === 'on';
+            const list = App.mediaEngine.getScenes();
+            if (!list || list.length === 0) return;
+            list.forEach((sc) => {
+                sc.showSubtitles = enabled;
+            });
+            const st = App.mediaEngine.getPlaybackState();
+            App.mediaEngine.renderFrameAtTime(st.currentTime || 0);
+        });
     }
 
     App.videoStudio = {

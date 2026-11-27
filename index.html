@@ -1251,14 +1251,14 @@
 									id="vs-visual-style"
 									class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-amber-300 dark:border-amber-500/40 bg-amber-50/70 dark:bg-amber-500/10 text-amber-950 dark:text-amber-200 text-xs font-bold focus:outline-none focus:border-amber-500 truncate"
 								>
-									<option value="ai-svg" selected>
-										🎨 AI Vẽ Minh Họa Độc Bản (Free • Khớp 100%)
+									<option value="motion" selected>
+										🎬 Hoạt Hình 2D AI (Khớp Âm Thanh &amp; Hành Động)
+									</option>
+									<option value="ai-svg">
+										🎨 Tranh Vector AI (Không Chữ)
 									</option>
 									<option value="ai-image">
 										🖼️ Ảnh AI Chân Thực (Nano Banana 2.1)
-									</option>
-									<option value="motion">
-										🎬 Hoạt Hình 2D Offline (Nhanh)
 									</option>
 									<option value="photo">📷 Ảnh Cá Nhân / Stock</option>
 								</select>
@@ -1368,6 +1368,23 @@
 									</button>
 								</div>
 							</div>
+						</div>
+
+						<div class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/70">
+							<label
+								for="vs-subtitles"
+								class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5"
+							>
+								<i class="fa-solid fa-closed-captioning text-indigo-600 dark:text-indigo-400"></i>
+								<span>Chữ / Phụ đề trên video</span>
+							</label>
+							<select
+								id="vs-subtitles"
+								class="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
+							>
+								<option value="off" selected>🚫 Tắt phụ đề (Video sạch đẹp)</option>
+								<option value="on">💬 Hiện phụ đề dưới video</option>
+							</select>
 						</div>
 
 						<!-- Photo Options Row (shown only when Phong cách Video = Ảnh Thật / Ảnh AI) -->
