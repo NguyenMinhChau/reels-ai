@@ -17,6 +17,7 @@
     let lastChapterAudioMeta = [];
     let cachedChapterAudios = [];
     const beatAudioCache = new Map();
+    let lastVoiceSessionKey = '';
     let generationAbortController = null;
     let rewriteAbortController = null;
     let exportAbortController = null;
@@ -471,10 +472,17 @@
             const flatAudioSlices = new Array(totalBeats).fill(null);
             const beatHasRealTts = new Array(totalBeats).fill(false);
 
+            // Reset per-beat audio cache whenever voice/engine changes so two different sessions' voices never mix
+            const currentVoiceSessionKey = `${ttsEngine}|${voiceName}|${hashString(videoTitle)}`;
+            if (lastVoiceSessionKey && lastVoiceSessionKey !== currentVoiceSessionKey) {
+                beatAudioCache.clear();
+            }
+            lastVoiceSessionKey = currentVoiceSessionKey;
+
             // Check per-beat cache first (1-to-1 voice-to-scene lock when using Live API)
             const uncachedBeatIndices = [];
             for (let b = 0; b < totalBeats; b++) {
-                const beatSig = hashString(`${flatBeats[b].text}|${voiceName}|${ttsEngine}`);
+                const beatSig = hashString(`${flatBeats[b].text}|${voiceName}|${ttsEngine}|${currentVoiceSessionKey}`);
                 if (beatAudioCache.has(beatSig)) {
                     flatAudioSlices[b] = beatAudioCache.get(beatSig);
                     beatHasRealTts[b] = true;
@@ -508,10 +516,10 @@
                             const targetIdx = pendingIndices[m];
                             if (liveRes.buffers[m]) {
                                 const decoded = await App.mediaEngine.decodeTtsToAudioBuffer(liveRes.buffers[m], audioCtx, 24000);
-                                if (decoded) {
+                                if (decoded && decoded.duration >= 0.25) {
                                     flatAudioSlices[targetIdx] = decoded;
                                     beatHasRealTts[targetIdx] = true;
-                                    const beatSig = hashString(`${flatBeats[targetIdx].text}|${voiceName}|${ttsEngine}`);
+                                    const beatSig = hashString(`${flatBeats[targetIdx].text}|${voiceName}|${ttsEngine}|${currentVoiceSessionKey}`);
                                     beatAudioCache.set(beatSig, decoded);
                                 }
                             }

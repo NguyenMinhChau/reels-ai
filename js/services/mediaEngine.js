@@ -225,15 +225,23 @@
     function normalizeVoiceBuffer(audioBuffer) {
         if (!audioBuffer || audioBuffer.length === 0) return audioBuffer;
         const data = audioBuffer.getChannelData(0);
+        let sumSq = 0;
         let peak = 0;
         for (let i = 0; i < data.length; i++) {
-            const abs = Math.abs(data[i]);
+            const v = data[i];
+            sumSq += v * v;
+            const abs = Math.abs(v);
             if (abs > peak) peak = abs;
         }
-        if (peak > 0.02 && peak < 0.78) {
-            const gain = Math.min(2.6, 0.85 / peak);
-            for (let i = 0; i < data.length; i++) {
-                data[i] = Math.max(-0.98, Math.min(0.98, data[i] * gain));
+        const rms = Math.sqrt(sumSq / data.length);
+        // Consistent RMS loudness across all scenes prevents sudden quiet/loud jumps or perceived voice shifts
+        if (rms > 0.008 && peak > 0.02) {
+            const desiredGain = Math.max(0.85, Math.min(1.75, 0.14 / rms));
+            const safePeakGain = Math.min(desiredGain, 0.94 / peak);
+            if (Math.abs(safePeakGain - 1.0) > 0.06) {
+                for (let i = 0; i < data.length; i++) {
+                    data[i] = Math.max(-0.96, Math.min(0.96, data[i] * safePeakGain));
+                }
             }
         }
         return audioBuffer;

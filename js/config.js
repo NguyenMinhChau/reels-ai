@@ -8,8 +8,8 @@
 
     App.CONFIG = {
         STORAGE_KEYS: {
-            TEMPLATES: 'reels_studio_templates_v5',
-            LEGACY_TEMPLATES_V2: 'reels_studio_templates_v4',
+            TEMPLATES: 'reels_studio_templates_v6',
+            LEGACY_TEMPLATES_V2: 'reels_studio_templates_v5',
             ROTATION_HISTORY: 'reels_studio_rotation_history',
             SCRIPTS: 'reels_studio_scripts',
             GOALS: 'reels_studio_goals',
@@ -17,7 +17,7 @@
             THEME: 'reels_studio_theme',
             AUTO_DUMP_ON_BOOT: 'reels_studio_auto_dump_boot'
         },
-        MAX_TEMPLATES: 75,
+        MAX_TEMPLATES: 120,
 
         GOAL_TARGETS: {
             VIEWS: 1000000,
@@ -48,6 +48,18 @@
         },
 
         CATEGORY_BADGES: {
+            office: {
+                label: '🏢 Công sở & Drama',
+                cls: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30'
+            },
+            career: {
+                label: '💼 IT / MKT / Sale',
+                cls: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30'
+            },
+            finance: {
+                label: '💰 Tài chính',
+                cls: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30'
+            },
             humor: {
                 label: '😂 Hài hước',
                 cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30'

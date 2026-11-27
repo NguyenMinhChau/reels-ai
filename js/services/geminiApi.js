@@ -249,50 +249,71 @@
         return true;
     }
 
+    const CREATIVE_DOMAINS = [
+        'Drama công sở: sếp giao việc sát giờ tan tầm, đồng nghiệp thảo mai, tin nhắn lúc 10h đêm, họp dài không hồi kết, xin tăng lương',
+        'Ngành IT & Lập trình: bug production tối thứ 6, PM đổi requirement phút chót, "chỉ sửa 1 dòng code thôi mà", OT fix server',
+        'Ngành Marketing & Content: chạy Ads đốt tiền không ra đơn, khách chê đắt đòi KPI X10, sếp bắt trend muộn 3 tuần, viết 10 bản sửa chọn bản 1',
+        'Ngành Sale & Kinh doanh: khách hẹn mai chốt rồi mất tích, nghệ thuật xử lý từ chối trong 5 giây, chạy số cuối tháng, giữ chân khách cũ',
+        'Tài chính cá nhân & Tiền bạc: lương 15tr vẫn hết tiền cuối tháng, cái bẫy trả góp 0%, quỹ dự phòng 3 tháng, lạm phát ngầm khi đi siêu thị',
+        'Kinh doanh tự do, Freelancer & Chủ shop: khách bom hàng, làm việc quán cafe 4 tiếng thực hư ra sao, cân bằng dòng tiền khi mới mở quán',
+        'Nhân sự, Kế toán & Văn phòng: câu chuyện phỏng vấn xin việc, KPI đánh giá cuối năm, hóa đơn chứng từ sát deadline, văn hóa giữ người',
+        'Tâm lý học hành vi & Giao tiếp: hiệu ứng tâm lý khi nói chuyện, cách từ chối khéo không mất lòng, đọc vị người đối diện, vượt qua trì hoãn',
+        'Cảnh báo an toàn đời sống & Công nghệ: chiêu lừa đảo OTP/link lạ mới, an toàn ổ điện cháy nổ, bảo mật tài khoản ngân hàng & Facebook',
+        'Nhắc nhở thói quen tốt, Sức khỏe & Giấc ngủ: uống nước, giãn cơ văn phòng, ngủ sâu giấc ban đêm, cai nghiện lướt điện thoại sáng sớm',
+        'Chủ đề Nhạc Chill, Lo-Fi & Chữa lành: playlist làm việc tập trung, âm thanh giảm stress sau giờ làm, tâm sự tuổi 25–30',
+        'Mẹo vặt đời thường, Nhà bếp, Dọn nhà & Tiết kiệm chi phí hằng ngày'
+    ];
+
     const CREATIVE_ANGLES = [
-        'cảnh báo an toàn đời sống, lừa đảo online/tin nhắn giả mạo, an toàn điện nước hoặc thực phẩm',
-        'nhắc nhở nhẹ nhàng thói quen tốt hằng ngày: uống nước, giãn cơ, gọi về cho gia đình, nghỉ ngơi',
-        'chủ đề nhạc chill, tạo mood thư giãn làm việc, âm thanh chữa lành dễ ngủ và chọn nhạc nền Reels',
-        'mẹo quản lý tài chính cá nhân, chi tiêu thông minh và tiết kiệm cuối tháng',
-        'mẹo vặt nhà bếp, bảo quản thực phẩm và nấu ăn nhanh 15 phút',
-        'tình huống hài hước chốn công sở, sinh viên và gia đình Việt Nam',
-        'công nghệ đời thường: mẹo điện thoại, bảo mật, tối ưu pin và làm việc từ xa',
-        'dọn dẹp nhà cửa tối giản, decor góc làm việc và hậu trường sáng tạo nội dung'
+        'Sự thật phũ phàng ít ai dám nói thẳng (POV người trong cuộc)',
+        'Sai lầm 90% người mới vào nghề hoặc người đi làm hay mắc phải',
+        'Kịch bản tình huống đối đáp cực gắt / xử lý thông minh trong 1 câu nói',
+        'So sánh giữa kỳ vọng màu hồng vs thực tế phũ phàng (gây đồng cảm mạnh)',
+        'Bóc tách con số tiền bạc / thời gian mất đi mà không ai nhận ra',
+        'Danh sách Top 3 dấu hiệu cảnh báo sớm ai nghe xong cũng phải giật mình'
     ];
 
     const TONE_GUIDES = {
-        viral: 'Phong cách TRIỆU VIEW BẮT TREND: Hook cực gắt dưới 15 từ đánh thẳng vào sai lầm/bí mật/con số sốc; văn nói đời thường gãy gọn ("Khoan đã...", "Nghe vô lý nhưng...", "90% người làm sai..."); có bước ngoặt bất ngờ ở cảnh 4; CTA đặt câu hỏi kích thích bình luận tranh luận nhẹ.',
+        viral: 'Phong cách TRIỆU VIEW BẮT TREND: Hook cực gắt dưới 15 từ đánh thẳng vào sai lầm/bí mật/con số sốc; văn nói đời thường gãy gọn ("Khoan đã...", "Nghe vô lý nhưng...", "90% người làm sai..."); có bước ngoặt bất ngờ ở cảnh cuối; CTA đặt câu hỏi kích thích bình luận tranh luận nhẹ.',
         funny: 'Phong cách HÀI XÉO XẮT / GEN Z: Tự trào, lầy lội, hơi phũ nhưng đúng tim đen; câu ngắn tung hứng duyên dáng kiểu nói chuyện với bạn thân; CTA rủ bạn bè vào điểm danh hoặc tag nhau.',
-        drama: 'Phong cách CẢNH BÁO / KỊCH TÍNH: Mở đầu khẩn cấp gây chú ý ngay ("Dừng lại 3 giây nếu bạn đang..."); chỉ rõ rủi ro mất tiền/hại sức khỏe; giải pháp dứt khoát; CTA nhắc gửi ngay cho người thân.',
-        healing: 'Phong cách TÂM SỰ / CHỮA LÀNH: Thủ thỉ gần gũi, chạm đúng nỗi lòng người trẻ/người đi làm; hình ảnh đời thường ấm áp; CTA tạo cảm giác được lắng nghe và muốn lưu lại.'
+        drama: 'Phong cách CẢNH BÁO / KỊCH TÍNH: Mở đầu khẩn cấp gây chú ý ngay ("Dừng lại 3 giây nếu bạn đang..."); chỉ rõ rủi ro mất tiền/hại sự nghiệp/hại sức khỏe; giải pháp dứt khoát; CTA nhắc gửi ngay cho đồng nghiệp hoặc người thân.',
+        healing: 'Phong cách TÂM SỰ / CHỮA LÀNH: Thủ thỉ gần gũi, chạm đúng nỗi lòng người đi làm/người trẻ; hình ảnh đời thường ấm áp; CTA tạo cảm giác được lắng nghe và muốn lưu lại.'
     };
 
-    async function dumpFreshScripts({ existingTitles, category, categoryLabel, tone = 'viral', signal }) {
-        return dedupedCall('dumpScripts', async () => {
+    async function dumpFreshScripts({ existingTitles, category, categoryLabel, customTopic = '', tone = 'viral', count = 5, signal }) {
+        return dedupedCall(`dumpScripts:${category}:${hashString(customTopic)}`, async () => {
             checkCooldown('dumpScripts', API_POLICY.DUMP_COOLDOWN_MS);
 
+            const targetCount = Math.max(3, Math.min(6, parseInt(count, 10) || 5));
+            const pickedDomains = [...CREATIVE_DOMAINS]
+                .sort(() => Math.random() - 0.5)
+                .slice(0, 4)
+                .join(' | ');
             const pickedAngles = [...CREATIVE_ANGLES]
                 .sort(() => Math.random() - 0.5)
                 .slice(0, 3)
                 .join('; ');
 
             const toneRule = TONE_GUIDES[tone] || TONE_GUIDES.viral;
-            const categoryContext =
-                category !== 'all'
-                    ? `Tập trung chủ yếu vào ngách "${categoryLabel || category}".`
-                    : `Hãy khai thác 3 góc nhìn/chủ đề hoàn toàn mới mẻ sau đây để đa dạng nội dung: (${pickedAngles}).`;
+            const cleanCustom = String(customTopic || '').trim();
 
-            const prompt = `Bạn là Creative Director chuyên viết kịch bản Facebook Reels triệu view tại Việt Nam.
-Hãy sáng tạo 3 kịch bản Reels đời sống CỰC CUỐN, ĐỌC LÊN NGHE NHƯ NGƯỜI THẬT NÓI CHUYỆN (tuyệt đối CẤM văn phong sách giáo khoa, báo chí hay dạy đời sáo rỗng).
+            const categoryContext = cleanCustom
+                ? `CHỦ ĐỀ TRỌNG TÂM DO NGƯỜI DÙNG YÊU CẦU: "${cleanCustom}". Hãy khai thác ${targetCount} góc nhìn hoàn toàn khác nhau xoay quanh chủ đề này (${pickedAngles}).`
+                : category !== 'all'
+                    ? `Tập trung khai thác sâu và mới lạ trong ngách "${categoryLabel || category}", kết hợp các góc tiếp cận: (${pickedAngles}).`
+                    : `Hãy chọn ngẫu nhiên các ngách đa dạng từ những lĩnh vực đời sống & nghề nghiệp sau để KHÔNG BAO GIỜ bị lặp: [${pickedDomains}], kết hợp góc khai thác: (${pickedAngles}).`;
+
+            const prompt = `Bạn là Creative Director chuyên viết kịch bản Facebook Reels / TikTok triệu view tại Việt Nam với nguồn ý tưởng vô tận.
+Hãy sáng tạo ĐÚNG ${targetCount} kịch bản Reels hoàn toàn MỚI LẠ, ĐỜI THỰC, ĐỌC LÊN NGHE NHƯ NGƯỜI THẬT KỂ CHUYỆN (tuyệt đối CẤM văn phong sách giáo khoa hay sáo rỗng).
 ${toneRule}
 ${categoryContext}
 QUY TẮC BẮT BUỘC:
-- Tuyệt đối KHÔNG trùng ý tưởng với các tiêu đề đã có: [${existingTitles.slice(0, 45).join('; ')}].
-- Hook (3 giây đầu): Tối đa 16 từ, đánh thẳng vào tò mò, sai lầm phổ biến, mất tiền/tiết kiệm hoặc POV ai cũng dính.
-- Body: Đúng 4 ý ngắn (mỗi ý 12–22 từ, dùng ký tự "• " đầu dòng), nhịp nhanh, có cao trào hoặc chi tiết bất ngờ ở ý thứ 3–4.
-- CTA: Không xin follow kiểu công nghiệp; hãy hỏi một câu khiến người xem muốn comment ngay hoặc nhắc tag người thân.
-- category: Chỉ chọn 1 trong 7 giá trị: "humor", "lifehack", "warning", "reminder", "music", "vlog", "bts".
-- duration: Ví dụ "22s", "25s".
+- Tuyệt đối KHÔNG trùng ý tưởng hoặc mô-típ với các tiêu đề đã có: [${existingTitles.slice(0, 80).join('; ')}].
+- Hook (3 giây đầu): Tối đa 16 từ, đánh thẳng vào tình huống đời thật, drama nghề nghiệp, sai lầm mất tiền hoặc POV ai cũng từng dính.
+- Body: Đúng 5–6 ý ngắn (mỗi ý 12–20 từ, dùng ký tự "• " đầu dòng), nhịp cuốn, có cao trào hoặc bước ngoặt bất ngờ ở cuối.
+- CTA: Đặt câu hỏi mở kích thích đồng nghiệp/người cùng ngành/người xem vào bình luận hoặc tag nhau.
+- category: Chọn đúng 1 trong 10 giá trị: "office", "career", "finance", "humor", "lifehack", "warning", "reminder", "music", "vlog", "bts".
+- duration: Ví dụ "28s", "32s".
 - viralScore: Từ "94%" đến "99%".
 - hashtags: 4-5 hashtag tiếng Việt không dấu.`;
 
@@ -838,6 +859,7 @@ Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho 
             let ws = null;
             let settled = false;
             let setupDone = false;
+            let awaitingTurn = false;
             let queuePos = 0;
             let turnChunks = [];
             let turnTimer = null;
@@ -883,9 +905,17 @@ Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho 
 
                 const sceneIdx = missingIndices[queuePos];
                 turnChunks = [];
+                awaitingTurn = true;
 
                 if (turnTimer) clearTimeout(turnTimer);
                 turnTimer = setTimeout(() => {
+                    awaitingTurn = false;
+                    if (results.some(Boolean)) {
+                        settled = true;
+                        cleanup();
+                        resolve({ buffers: results, errorReason: `Cảnh ${sceneIdx + 1} quá thời gian chờ.` });
+                        return;
+                    }
                     finishWithError(new ApiError('TIMEOUT', `Gemini Live phản hồi quá lâu ở cảnh ${sceneIdx + 1}.`));
                 }, 25000);
 
@@ -897,7 +927,7 @@ Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho 
                                     role: 'user',
                                     parts: [
                                         {
-                                            text: `Đọc thành tiếng chính xác nguyên văn câu tiếng Việt sau (không chào hỏi, không trả lời câu hỏi, không thêm bớt bất kỳ từ nào):\n"${cleanTexts[sceneIdx]}"`
+                                            text: `[Cảnh ${sceneIdx + 1}] Chỉ đọc nguyên văn đúng 1 lần câu sau:\n${cleanTexts[sceneIdx]}`
                                         }
                                     ]
                                 }
@@ -939,7 +969,7 @@ Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho 
                             systemInstruction: {
                                 parts: [
                                     {
-                                        text: 'Bạn là diễn viên lồng tiếng Việt chuyên nghiệp cho Facebook Reels. Khi nhận được bất kỳ câu văn bản nào từ người dùng, bạn PHẢI đọc nguyên văn đúng từng chữ câu đó bằng tiếng Việt với giọng tự nhiên, truyền cảm, rõ chữ, nhịp độ vừa phải dễ nghe (không đọc quá nhanh hay nuốt chữ, ngắt nghỉ tự nhiên theo dấu câu). TUYỆT ĐỐI KHÔNG chào hỏi, KHÔNG trả lời, KHÔNG giải thích, KHÔNG nói thêm bất kỳ từ nào ngoài văn bản được gửi.'
+                                        text: `Bạn là MỘT diễn viên lồng tiếng Việt duy nhất xuyên suốt toàn bộ video (mã giọng: ${voice}). BẮT BUỘC giữ NGUYÊN MỘT CHẤT GIỌNG, CAO ĐỘ VÀ ÂM LƯỢNG ĐỒNG NHẤT từ cảnh đầu đến cảnh cuối — TUYỆT ĐỐI KHÔNG đổi giọng sang người khác hay thêm lời thoại thừa. Khi nhận được câu nào, chỉ đọc chính xác nguyên văn đúng 1 lần, không lặp lại câu cũ, không chào hỏi, không bình luận.`
                                     }
                                 ]
                             }
@@ -977,6 +1007,8 @@ Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho 
                     return;
                 }
 
+                if (!awaitingTurn) return;
+
                 const sc = msg.serverContent;
                 if (sc?.modelTurn?.parts) {
                     for (const part of sc.modelTurn.parts) {
@@ -987,7 +1019,9 @@ Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho 
                     }
                 }
 
-                if (sc?.turnComplete || msg.interactionStatus === 'IDLE') {
+                const turnDone = Boolean(sc?.turnComplete) || (msg.interactionStatus === 'IDLE' && turnChunks.length > 0);
+                if (turnDone) {
+                    awaitingTurn = false;
                     if (turnTimer) {
                         clearTimeout(turnTimer);
                         turnTimer = null;
@@ -995,10 +1029,13 @@ Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho 
                     const sceneIdx = missingIndices[queuePos];
                     if (turnChunks.length > 0) {
                         const combined = concatUint8Arrays(turnChunks);
-                        const cacheKey = `live:${liveModel}:${voice}:${hashString(cleanTexts[sceneIdx])}`;
-                        caches.ttsPcm.set(cacheKey, combined);
-                        results[sceneIdx] = combined;
-                        if (onSceneDone) onSceneDone(sceneIdx, combined, false);
+                        turnChunks = [];
+                        if (combined.byteLength >= 2400) {
+                            const cacheKey = `live:${liveModel}:${voice}:${hashString(cleanTexts[sceneIdx])}`;
+                            caches.ttsPcm.set(cacheKey, combined);
+                            results[sceneIdx] = combined;
+                            if (onSceneDone) onSceneDone(sceneIdx, combined, false);
+                        }
                     }
                     queuePos++;
                     sendNextScene();

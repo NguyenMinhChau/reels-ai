@@ -160,11 +160,14 @@
 
         try {
             const tone = document.getElementById('library-tone')?.value || 'viral';
+            const customTopic = document.getElementById('library-custom-topic')?.value.trim() || '';
             const generatedList = await App.geminiApi.dumpFreshScripts({
                 existingTitles: state.templates.map((s) => s.title),
                 category: state.currentCategory,
                 categoryLabel: CATEGORY_BADGES[state.currentCategory]?.label,
+                customTopic,
                 tone,
+                count: 5,
                 signal: dumpAbortController.signal
             });
 
@@ -258,6 +261,16 @@
         });
 
         document.getElementById('btn-dump-scripts')?.addEventListener('click', () => handleDumpFreshScripts({ isAuto: false }));
+        document.getElementById('library-niche-chips')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-niche]');
+            if (!btn) return;
+            const input = document.getElementById('library-custom-topic');
+            if (input) {
+                input.value = btn.dataset.niche || '';
+                input.focus();
+            }
+            handleDumpFreshScripts({ isAuto: false });
+        });
         document.getElementById('btn-shuffle-topics')?.addEventListener('click', () => {
             App.store.rotateCuratedTemplates();
             App.toast.show('Đã làm mới danh sách chủ đề lên đầu trang!');

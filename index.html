@@ -336,15 +336,15 @@
 							class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
 						>
 							<i class="fa-solid fa-sparkles"></i>
-							<span>Dump Thêm 3 Ý Tưởng Mới</span>
+							<span>Dump Thêm 5 Ý Tưởng Mới</span>
 						</button>
 					</div>
 
-					<!-- Row 2: Search, Tone & Shuffle Controls -->
+					<!-- Row 2: Custom Infinite Topic, Search, Tone & Shuffle Controls -->
 					<div
 						class="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800"
 					>
-						<div class="relative sm:col-span-6 min-w-0">
+						<div class="relative sm:col-span-4 min-w-0">
 							<i
 								class="fa-solid fa-magnifying-glass text-slate-400 text-xs absolute left-3 top-1/2 -translate-y-1/2"
 							></i>
@@ -355,7 +355,18 @@
 								class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
 							/>
 						</div>
-						<div class="grid grid-cols-2 sm:col-span-6 gap-2 min-w-0">
+						<div class="relative sm:col-span-4 min-w-0">
+							<i
+								class="fa-solid fa-wand-magic-sparkles text-amber-500 text-xs absolute left-3 top-1/2 -translate-y-1/2"
+							></i>
+							<input
+								type="text"
+								id="library-custom-topic"
+								placeholder="Nhập ngách bất kỳ để AI đẻ ý tưởng (VD: IT, Sale, Cafe...)"
+								class="w-full pl-8 pr-3 py-2 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/10 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500"
+							/>
+						</div>
+						<div class="grid grid-cols-2 sm:col-span-4 gap-2 min-w-0">
 							<select
 								id="library-tone"
 								class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-indigo-500 truncate"
@@ -378,6 +389,18 @@
 						</div>
 					</div>
 
+					<!-- Infinite Quick Niche Chips -->
+					<div id="library-niche-chips" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+						<span class="text-[11px] font-bold text-slate-400 shrink-0 mr-1">Gợi ý vô tận:</span>
+						<button type="button" data-niche="Drama công sở: sếp, đồng nghiệp, OT và tăng lương" class="shrink-0 px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-500/15 hover:bg-sky-100 text-sky-700 dark:text-sky-300 text-[11px] font-bold cursor-pointer">🏢 Drama Công Sở</button>
+						<button type="button" data-niche="Ngành IT Lập trình viên, Tester, PM và câu chuyện deploy code" class="shrink-0 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/15 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold cursor-pointer">💻 Ngành IT</button>
+						<button type="button" data-niche="Ngành Marketing, chạy Ads, làm Content và KPI khách hàng" class="shrink-0 px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-500/15 hover:bg-purple-100 text-purple-700 dark:text-purple-300 text-[11px] font-bold cursor-pointer">📣 Marketing / Ads</button>
+						<button type="button" data-niche="Ngành Sale bán hàng, B2B, gọi điện chốt đơn và xử lý từ chối" class="shrink-0 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-500/15 hover:bg-amber-100 text-amber-800 dark:text-amber-300 text-[11px] font-bold cursor-pointer">🤝 Sale / Chốt đơn</button>
+						<button type="button" data-niche="Tài chính cá nhân, quản lý chi tiêu, thẻ tín dụng và đầu tư từ 0đ" class="shrink-0 px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-500/15 hover:bg-teal-100 text-teal-700 dark:text-teal-300 text-[11px] font-bold cursor-pointer">💰 Tài chính 0đ</button>
+						<button type="button" data-niche="Chủ shop kinh doanh nhỏ, F&B quán cafe, bán hàng online" class="shrink-0 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold cursor-pointer">🏪 Chủ shop / F&amp;B</button>
+						<button type="button" data-niche="Tâm lý học hành vi, đọc vị giao tiếp và tình cảm tuổi trẻ" class="shrink-0 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-500/15 hover:bg-rose-100 text-rose-700 dark:text-rose-300 text-[11px] font-bold cursor-pointer">🧠 Tâm lý học</button>
+					</div>
+
 					<!-- Category Filter Pills -->
 					<div
 						id="category-filter-bar"
@@ -388,7 +411,28 @@
 							class="cat-btn active shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white transition cursor-pointer"
 							data-cat="all"
 						>
-							Tất cả (45)
+							Tất cả (63)
+						</button>
+						<button
+							type="button"
+							class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer"
+							data-cat="office"
+						>
+							🏢 Công sở &amp; Drama
+						</button>
+						<button
+							type="button"
+							class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer"
+							data-cat="career"
+						>
+							💼 IT / MKT / Sale
+						</button>
+						<button
+							type="button"
+							class="cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 transition cursor-pointer"
+							data-cat="finance"
+						>
+							💰 Tài chính
 						</button>
 						<button
 							type="button"
@@ -1584,17 +1628,17 @@
 								class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold focus:outline-none focus:border-amber-500"
 							/>
 							<div class="flex flex-wrap gap-1.5 mt-2" id="series-quick-chips">
+								<button type="button" data-topic="Drama công sở thực tế: sếp khó tính, đồng nghiệp thảo mai, OT và bí quyết tăng lương" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-amber-400 text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
+									🏢 Drama công sở &amp; tăng lương
+								</button>
+								<button type="button" data-topic="Chuyện nghề IT, Marketing và Sale thực chiến: từ cú sốc KPI đến bí quyết sống sót với nghề" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-amber-400 text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
+									💼 Nghề IT / MKT / Sale
+								</button>
 								<button type="button" data-topic="Hành trình thoát nợ và tích lũy 100 triệu đầu tiên từ lương văn phòng" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-amber-400 text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
-									💰 Thoát nợ &amp; tiết kiệm 100tr
+									💰 Tài chính &amp; tiết kiệm 100tr
 								</button>
 								<button type="button" data-topic="Chuỗi cảnh báo các chiêu lừa đảo công nghệ mới ai cũng dễ sập bẫy" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-amber-400 text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
 									⚠️ Chuỗi cảnh báo lừa đảo
-								</button>
-								<button type="button" data-topic="5 ngày đổi thói quen buổi sáng giúp hết mệt mỏi và làm việc gấp đôi" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-amber-400 text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
-									🌿 Đổi thói quen sống khỏe
-								</button>
-								<button type="button" data-topic="Nhật ký đi làm xa quê tự lập: những sự thật ít ai kể trước khi dọn lên thành phố" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-amber-400 text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
-									🏙️ Tự lập nơi thành phố
 								</button>
 							</div>
 						</div>

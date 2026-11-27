@@ -165,7 +165,7 @@
         prependTemplates(newItems) {
             if (!Array.isArray(newItems) || newItems.length === 0) return 0;
             const existingTitles = new Set(state.templates.map((t) => t.title.trim().toLowerCase()));
-            const validCategories = ['humor', 'lifehack', 'warning', 'reminder', 'music', 'vlog', 'bts'];
+            const validCategories = ['office', 'career', 'finance', 'humor', 'lifehack', 'warning', 'reminder', 'music', 'vlog', 'bts'];
             const toAdd = [];
 
             newItems.forEach((item, idx) => {

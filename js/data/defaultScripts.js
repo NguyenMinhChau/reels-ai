@@ -502,6 +502,204 @@
             body: '• Tạm rời mắt khỏi bảng tính và những tin nhắn giục giã đang khiến bạn đau đầu.\n• Nhắm mắt lại 15 giây, lắng nghe từng hợp âm chuyển nhịp chậm rãi như một khoảng nghỉ ngắn.\n• Nghiên cứu cho thấy chỉ cần 1 phút nghe nhạc êm dịu cũng giúp giảm đáng kể áp lực tâm lý.\n• Nạp lại chút bình tĩnh rồi quay lại công việc với tinh thần sáng suốt và nhẹ nhàng hơn.',
             cta: 'Gửi ngay video nhạc chill ngắn này cho đồng nghiệp đang chạy deadline cùng bạn nhé!',
             hashtags: '#giambotcangthang #nhacthugian #chill #vanphong #reelsvietnam'
+        },
+        {
+            id: 'tpl-46',
+            category: 'office',
+            title: 'Drama tin nhắn "Em ơi rảnh không?" lúc 10 giờ đêm của sếp',
+            duration: '28s',
+            viralScore: '99%',
+            hook: 'Cứ 10 giờ đêm thấy tin nhắn sếp "Em ơi ngủ chưa, mai họp gấp..." là tim rớt ra ngoài luôn!',
+            body: '• Cả ngày ở công ty im ru, đúng lúc đắp mặt nạ chuẩn bị đi ngủ thì điện thoại sáng màn hình.\n• Không trả lời thì sáng mai nhìn mặt nhau khó xử, mà trả lời thì xác định thức tới 1 giờ sáng.\n• Kinh nghiệm xương máu: Tắt trạng thái đang hoạt động sau 8h tối và để thông báo im lặng.\n• Sáng 8h30 hôm sau vào việc xử lý gọn gàng, vừa giữ ranh giới cá nhân vừa vẫn chuyên nghiệp.',
+            cta: 'Ai từng bị tag tên lúc nửa đêm vào điểm danh cái coi nào!',
+            hashtags: '#dramacongso #dilam #vanphong #kynaanggiaotiep #reelsvn'
+        },
+        {
+            id: 'tpl-47',
+            category: 'office',
+            title: '5 dấu hiệu đồng nghiệp đang "bắn tin" sau lưng bạn với sếp',
+            duration: '30s',
+            viralScore: '98%',
+            hook: 'Coi chừng người lúc nào cũng cười nói thân thiết với bạn ở pantry lại là người báo cáo sếp nhanh nhất!',
+            body: '• Dấu hiệu 1: Hỏi thăm tiến độ công việc của bạn quá chi tiết dù chẳng làm chung dự án.\n• Dấu hiệu 2: Luôn nói "Cái này dễ mà" trước mặt sếp nhưng sau lưng lại than khó với bạn.\n• Dấu hiệu 3: Tin nhắn riêng tư chỉ gửi bằng miệng, nhưng trao đổi lỗi sai thì luôn CC đủ sếp tổng.\n• Cách bảo vệ mình đơn giản nhất: Mọi thống nhất công việc đều chốt lại bằng email hoặc tin nhắn nhóm rõ ràng.',
+            cta: 'Đi làm sợ nhất kiểu đồng nghiệp nào? Comment kể nhẹ cho mọi người né với!',
+            hashtags: '#congso #dramavanphong #kynangdilam #tamsudilam #reels'
+        },
+        {
+            id: 'tpl-48',
+            category: 'office',
+            title: 'Tại sao người OT tới 9h tối lại ít khi được tăng lương nhất?',
+            duration: '29s',
+            viralScore: '99%',
+            hook: 'Càng chăm chỉ ngồi lại tới 9 giờ tối, sếp càng dễ mặc định bạn xử lý việc chậm hơn người khác!',
+            body: '• Nhiều bạn nghĩ ngồi lì ở công ty thể hiện sự cống hiến nhưng sự thật phũ phàng lại ngược lại.\n• Người biết ưu tiên việc tạo ra doanh thu và báo cáo đúng số liệu mới là người dễ lên lương.\n• Nếu bạn ôm đồm cả việc không tên mà quên ghi nhận kết quả, cuối năm đánh giá vẫn trắng tay.\n• Hãy học cách tổng hợp 3 thành tích đo được bằng con số gửi sếp mỗi cuối tháng.',
+            cta: 'Lưu ngay mẹo này trước kỳ đánh giá KPI sắp tới nhé!',
+            hashtags: '#tangluong #congso #kinhnghiemdilam #phattrienbanthan #reelsvn'
+        },
+        {
+            id: 'tpl-49',
+            category: 'office',
+            title: 'Cách từ chối nhận thêm việc quá tải mà sếp vẫn gật đầu nể phục',
+            duration: '27s',
+            viralScore: '97%',
+            hook: 'Đừng nói "Em bận lắm không làm được đâu" khi sếp giao thêm việc, hãy đổi đúng câu nói này!',
+            body: '• Nói thẳng từ chối dễ khiến sếp nghĩ bạn thiếu hợp tác và đẩy việc.\n• Thay vào đó hãy trả lời: "Hiện em đang làm A và B cần xong lúc 4h, sếp muốn em ưu tiên việc mới lên trước việc nào ạ?"\n• Câu hỏi này đưa quyền chọn mức độ ưu tiên về cho sếp mà vẫn cho thấy bạn làm việc có kế hoạch.\n• Sếp tự nhận ra khối lượng việc hiện tại và bớt giao dồn ngay lập tức.',
+            cta: 'Thử áp dụng ngay tuần này và quay lại comment kết quả nha!',
+            hashtags: '#giaotiepcongso #kynangmem #sepvanhanvien #vanphong #reels'
+        },
+        {
+            id: 'tpl-50',
+            category: 'office',
+            title: 'Họp 2 tiếng không ra nổi kết luận: Căn bệnh chung của dân văn phòng',
+            duration: '26s',
+            viralScore: '96%',
+            hook: '90 phần trăm các cuộc họp kéo dài 2 tiếng thực ra có thể chốt gọn trong một tin nhắn 5 dòng!',
+            body: '• Bắt đầu họp lúc 2 giờ, hết 40 phút đầu chỉ để chờ đủ người và mở slide.\n• 1 tiếng tiếp theo ai cũng góp ý vòng vo nhưng không chốt ai là người chịu trách nhiệm.\n• Cuối buổi ra về vẫn câu quen thuộc: "Để buổi sau họp bàn tiếp nha mọi người".\n• Mẹo cứu cả team: Luôn ghi trước 3 gạch đầu dòng mục tiêu và người chốt trước khi bấm nút mời họp.',
+            cta: 'Tag ngay người hay kéo dài cuộc họp nhất team bạn vào đây nào!',
+            hashtags: '#haicongso #dilam #meetings #vanphongvietnam #reelsvn'
+        },
+        {
+            id: 'tpl-51',
+            category: 'career',
+            title: 'IT & Dev: Cú lừa "Chỉ sửa 1 dòng code nhỏ thôi mà" tối thứ 6',
+            duration: '29s',
+            viralScore: '99%',
+            hook: 'Câu nói đáng sợ nhất đời dân IT không phải deadline, mà là "Anh ơi sửa giúp em đúng 1 dòng nhỏ lúc 5h chiều thứ 6"!',
+            body: '• Nghe nhẹ nhàng vậy thôi chứ sửa xong 1 dòng là 3 service khác rủ nhau sập dây chuyền.\n• Cả team đang chuẩn bị đi ăn tối bỗng quay xe mở laptop ngồi debug tới 11 giờ đêm.\n• Bài học xương máu trong nghề: Tuyệt đối nói KHÔNG với deploy production vào chiều thứ 6.\n• Luôn viết test tự động và giữ nguyên tắc đóng băng code trước cuối tuần để cứu lấy giấc ngủ.',
+            cta: 'Anh em Dev, Tester hay PM vào điểm danh xem từng dính quả này chưa!',
+            hashtags: '#itvietnam #developer #laptrinhvien #dramait #reelsvn'
+        },
+        {
+            id: 'tpl-52',
+            category: 'career',
+            title: 'Marketing: Khách đòi ngân sách 2 triệu nhưng KPI phải ra 500 đơn',
+            duration: '28s',
+            viralScore: '98%',
+            hook: 'Làm Marketing sợ nhất câu: "Ngân sách chạy thử 2 triệu thôi em, nhưng tuần này phải ra đều 500 đơn nhé!"',
+            body: '• Tiền quảng cáo chưa đủ cắn hết tệp test mà KPI vẽ ra y như ngân sách 200 triệu.\n• Chưa kể gửi mẫu thiết kế 5 lần vẫn nhận câu: "Thấy thiếu thiếu cái gì đó, làm lại màu sang hơn xíu".\n• Bí quyết sống sót của dân MKT giỏi là bóc tách rõ chi phí trên mỗi đơn hàng ngay từ hợp đồng.\n• Không nhận KPI ảo khi sản phẩm và ngân sách chưa test thị trường thực tế.',
+            cta: 'Dân Content, Ads hay Agency nghe có thấy bóng dáng mình trong này không?',
+            hashtags: '#marketing #chayads #agency #contentcreator #nghemarketing'
+        },
+        {
+            id: 'tpl-53',
+            category: 'career',
+            title: 'Sale: Câu mở đầu 5 giây khiến khách sắp cúp máy phải nghe tiếp',
+            duration: '27s',
+            viralScore: '98%',
+            hook: 'Gọi điện cho khách mà mở miệng "Em gọi từ bên công ty X giới thiệu sản phẩm..." là 95% bị cúp máy ngang!',
+            body: '• Khách hàng không quan tâm bạn bán gì, họ chỉ quan tâm vấn đề của họ đang tốn bao nhiêu tiền.\n• Hãy đổi câu đầu sang đúng 1 vấn đề cụ thể: "Chào anh, bên anh tháng này có đang bị tốn phí A như nhiều shop cùng ngành không ạ?"\n• Nói thẳng vào nỗi đau trong 5 giây đầu giúp khách dừng lại tò mò nghe tiếp.\n• Chốt hẹn thành công hay không nằm ở 2 câu đầu tiên chứ không phải bài thuyết trình dài 10 phút.',
+            cta: 'Anh em làm Sale thử đổi ngay câu mở đầu sáng mai và kiểm chứng tỷ lệ chốt đơn nhé!',
+            hashtags: '#sale #kynangbanhang #chotdon #kinhdoanh #reelsvn'
+        },
+        {
+            id: 'tpl-54',
+            category: 'career',
+            title: 'Freelancer: Sự thật đằng sau chiếc laptop ngồi quán cafe 4 tiếng',
+            duration: '29s',
+            viralScore: '97%',
+            hook: 'Nhìn ảnh Freelancer ngồi quán cafe chill vậy thôi chứ sự thật bên trong có 3 áp lực ít ai kể!',
+            body: '• Áp lực 1: Khách nhắn sửa file lúc 11h đêm vẫn phải bật máy vì sợ trễ lịch thanh toán.\n• Áp lực 2: Không có lương cứng, tháng nhiều job dư tiền nhưng tháng vắng khách là lo thắt ruột.\n• Áp lực 3: Tự làm từ kiếm khách, báo giá, sản xuất tới đòi công nợ cuối tháng.\n• Muốn sống khỏe với nghề tự do, bắt buộc phải giữ quỹ dự phòng 6 tháng và hợp đồng cọc trước 50%.',
+            cta: 'Bạn đang làm toàn thời gian hay ấp ủ nhảy ra làm Freelancer? Comment chia sẻ nha!',
+            hashtags: '#freelancer #lamviecchutudo #nghenghiep #kiemtien #reelsvietnam'
+        },
+        {
+            id: 'tpl-55',
+            category: 'career',
+            title: 'Nhân sự & Kế toán: 3 câu trả lời phỏng vấn khiến HR đánh rớt ngay',
+            duration: '28s',
+            viralScore: '98%',
+            hook: 'Hồ sơ đẹp đến mấy mà lỡ buột miệng 3 câu này trước mặt HR là coi như rớt từ vòng gửi xe!',
+            body: '• Câu 1: Nói xấu sếp cũ và công ty cũ thậm tệ khi được hỏi lý do nghỉ việc.\n• Câu 2: "Việc gì em cũng làm được hết" nhưng hỏi thành tích cụ thể lại không nêu được con số.\n• Câu 3: Đi phỏng vấn mà không biết công ty đang kinh doanh sản phẩm gì.\n• Chuẩn bị sẵn 2 câu chuyện thực tế chứng minh cách bạn giải quyết vấn đề là ăn điểm tuyệt đối.',
+            cta: 'Lưu video này cho mùa nhảy việc và gửi cho đứa bạn sắp đi phỏng vấn nhé!',
+            hashtags: '#phongvan #tuyendung #nhansu #timviec #reelsvn'
+        },
+        {
+            id: 'tpl-56',
+            category: 'career',
+            title: 'Chủ shop & Kinh doanh nhỏ: Bán chạy ầm ầm nhưng cuối tháng không thấy tiền đâu',
+            duration: '30s',
+            viralScore: '99%',
+            hook: 'Khách vào nườm nượp cả tháng mà cộng sổ xong không thấy tiền lãi đâu — lỗi nằm ở đúng 3 chỗ này!',
+            body: '• Lỗi 1: Nhập nhằng tiền hàng của quán với tiền chi tiêu ăn uống cá nhân mỗi ngày.\n• Lỗi 2: Quên cộng chi phí hoàn đơn, hỏng hóc, phí sàn và tiền công chính bản thân mình làm.\n• Lỗi 3: Nhìn tồn kho chất đống tưởng lãi nhưng thực ra vốn đang kẹt cứng trong hàng chậm bán.\n• Tách ngay tài khoản riêng và kiểm kê biên lợi nhuận ròng hàng tuần trước khi nhập thêm hàng.',
+            cta: 'Ai đang tự bán hàng online hay mở quán nhỏ từng gặp cảnh này comment xác nhận cái nhé!',
+            hashtags: '#kinhdoanh #chushop #quanlytaichinh #banhangonline #reels'
+        },
+        {
+            id: 'tpl-57',
+            category: 'finance',
+            title: 'Lương 15 triệu nhưng cuối tháng vẫn vay bạn 500k: 3 lỗ hổng ngầm',
+            duration: '30s',
+            viralScore: '99%',
+            hook: 'Tại sao lương tăng lên 15 triệu mà cuối tháng vẫn sạch túi còn nhanh hơn hồi lương 7 triệu?!',
+            body: '• Lỗ hổng 1: Lạm phát lối sống — thu nhập vừa tăng là lập tức nâng đời phòng trọ, điện thoại và quán ăn.\n• Lỗ hổng 2: Những khoản nhỏ vô hình 50k trà sữa, 80k ship hàng cộng lại thành 4 triệu mỗi tháng.\n• Lỗ hổng 3: Tiêu xong mới tiết kiệm, thay vì trích riêng 20 phần trăm ngay giây phút lương vừa về.\n• Hãy tạo ngay một tài khoản không dùng thẻ ATM để khóa phần tiền tiết kiệm đầu tháng.',
+            cta: 'Tháng vừa rồi khoản chi nào làm bạn hết hồn nhất khi mở app ngân hàng? Comment chia sẻ đi!',
+            hashtags: '#taichinhcanhan #quanlychitieu #tietkiem #luongthang #reelsvn'
+        },
+        {
+            id: 'tpl-58',
+            category: 'finance',
+            title: 'Cái bẫy "Trả góp 0%": Chiêu tâm lý khiến bạn mất kiểm soát ví tiền',
+            duration: '28s',
+            viralScore: '98%',
+            hook: 'Nghe "Trả góp 0% mỗi tháng chỉ có mấy trăm nghìn" tưởng hời, ai ngờ chính nó làm bạn nghèo đi âm thầm!',
+            body: '• Não bộ bị đánh lừa rằng món đồ 20 triệu chỉ đáng giá 1 triệu rưỡi tháng này.\n• Thế là bạn quẹt liền 3–4 món cùng lúc: điện thoại, tai nghe, đồ gia dụng trả góp.\n• Tới tháng thứ 3, tổng tiền góp cố định đã nuốt mất 40 phần trăm tiền lương trước khi bạn kịp ăn cơm.\n• Quy tắc vàng: Nếu chưa đủ tiền mặt mua đứt món đồ giải trí đó, nghĩa là bạn chưa nên mua.',
+            cta: 'Bạn đang trả góp bao nhiêu món rồi? Thành thật khai báo dưới bình luận xem nào!',
+            hashtags: '#tragop #thetindung #taichinh #tietkiemtien #reelsvietnam'
+        },
+        {
+            id: 'tpl-59',
+            category: 'finance',
+            title: 'Quy tắc 24 giờ trước khi bấm "Thanh toán ngay" cứu hàng triệu mỗi năm',
+            duration: '25s',
+            viralScore: '97%',
+            hook: 'Chỉ một thao tác dừng đúng 24 giờ trước khi bấm đặt hàng sẽ giúp bạn giữ lại cả triệu đồng mỗi tháng!',
+            body: '• 80 phần trăm món đồ bạn mua lúc 11 giờ đêm sau 1 tuần đều nằm phủ bụi trong góc tủ.\n• Cảm giác thích thú lúc bấm thanh toán chỉ đến từ dopamine nhất thời chứ không phải nhu cầu thật.\n• Lần tới khi ưng món gì trên sàn, cứ thêm vào giỏ hàng rồi tắt app đi ngủ.\n• Nếu 24 giờ sau mở lại vẫn thấy thực sự cần mới mua — 7/10 lần bạn sẽ tự xóa khỏi giỏ.',
+            cta: 'Đêm qua bạn có lỡ chốt đơn gì lúc nửa đêm không? Tag ngay cạ cứng nghiện săn sale vào đây!',
+            hashtags: '#sansale #tietkiem #chitieu #taichinhcanhan #reelsvn'
+        },
+        {
+            id: 'tpl-60',
+            category: 'finance',
+            title: 'Quỹ dự phòng 3 tháng: Tấm khiên bắt buộc trước khi nghĩ tới đầu tư',
+            duration: '29s',
+            viralScore: '98%',
+            hook: 'Đừng vội bỏ hết tiền vào chứng khoán hay kinh doanh khi bạn chưa có nổi 3 tháng tiền sinh hoạt dự phòng!',
+            body: '• Rủi ro mất việc, ốm đau hay gia đình có chuyện gấp có thể xảy ra bất cứ lúc nào.\n• Không có quỹ dự phòng, bạn sẽ buộc phải bán cắt lỗ tài sản đúng lúc thị trường xuống đáy.\n• Hoặc tệ hơn là phải đi vay lãi cao chỉ để xoay xở chi phí sinh hoạt ngắn hạn.\n• Xây ngay quỹ dự phòng bằng 3 đến 6 tháng chi phí tối thiểu ở sổ tiết kiệm rút linh hoạt.',
+            cta: 'Bạn đã tích lũy được quỹ dự phòng cho mấy tháng rồi? Lưu lại đặt mục tiêu ngay nhé!',
+            hashtags: '#quyduphong #dautu #taichinhthongminh #kienthuctaichinh #reels'
+        },
+        {
+            id: 'tpl-61',
+            category: 'bts',
+            title: 'Tâm lý học giao tiếp: Mẹo 3 giây khiến người đối diện tự mở lòng tin bạn',
+            duration: '27s',
+            viralScore: '97%',
+            hook: 'Người khéo giao tiếp không phải người nói nhiều nhất, mà là người biết dùng đúng mẹo 3 giây này!',
+            body: '• Khi người khác vừa nói xong một câu quan trọng, đừng vội ngắt lời cướp diễn đàn ngay.\n• Hãy gật đầu nhẹ, giữ ánh mắt ấm áp khoảng 2–3 giây rồi lặp lại từ khóa cuối cùng họ vừa nói.\n• Kỹ thuật "Mirroring" trong tâm lý học khiến người nghe có cảm giác được thấu hiểu sâu sắc.\n• Họ sẽ tự động kể thêm thông tin quan trọng và cực kỳ có thiện cảm với bạn.',
+            cta: 'Thử ngay kỹ thuật này trong cuộc hẹn hoặc buổi gặp đối tác ngày mai nhé!',
+            hashtags: '#tamlyhoc #giaotiep #kynangsong #phattrienbanthan #reelsvn'
+        },
+        {
+            id: 'tpl-62',
+            category: 'warning',
+            title: 'Cảnh báo chiêu giả danh shipper & nhân viên ngân hàng đọc đúng 3 thông tin của bạn',
+            duration: '28s',
+            viralScore: '99%',
+            hook: 'Cẩn thận! Kẻ gian giờ đọc vanh vách họ tên, địa chỉ và đúng đơn hàng bạn vừa đặt để lừa chuyển khoản!',
+            body: '• Chúng giả làm shipper gọi báo giao hàng rồi gửi link hủy đơn hoặc thu hồi tiền cọc.\n• Thậm chí giả làm nhân viên ngân hàng dọa khóa thẻ nếu bạn không bấm vào đường link xác minh.\n• Nguyên tắc sống còn: Tuyệt đối KHÔNG bấm link lạ qua tin nhắn SMS, Zalo hay Messenger.\n• Không chuyển tiền trước khi kiểm tra trực tiếp hàng và không bao giờ đọc mã OTP cho bất kỳ ai.',
+            cta: 'Bấm gửi ngay cảnh báo này cho bố mẹ và người thân lớn tuổi ở nhà phòng tránh nhé!',
+            hashtags: '#canhbaoluadao #antoanmang #luadaoonline #doisong #reelsvn'
+        },
+        {
+            id: 'tpl-63',
+            category: 'reminder',
+            title: 'Nhắc nhẹ tuổi 25–30: Đừng đợi rảnh mới chăm sóc bản thân và gọi về cho mẹ',
+            duration: '26s',
+            viralScore: '98%',
+            hook: 'Công việc lúc nào cũng có thể làm bù vào ngày mai, nhưng sức khỏe và thời gian bên bố mẹ thì không!',
+            body: '• Chúng ta thường tự nhủ cố cày nốt dự án này rồi sẽ đi khám tổng quát và về thăm nhà.\n• Thế nhưng hết dự án này lại tới KPI khác nối đuôi nhau cả năm trời.\n• Tối nay hãy đặt điện thoại xuống sớm 30 phút, gọi một cuộc video ngắn hỏi thăm bố mẹ.\n• Tuần này cũng đừng quên uống đủ nước, ngủ trước 11 giờ và lắng nghe cơ thể mình lên tiếng.',
+            cta: 'Đã bao lâu rồi bạn chưa gọi về nhà nói chuyện hơn 5 phút? Hôm nay gọi một cuộc nhé!',
+            hashtags: '#nhacnhe #giadinh #tuoi25 #chualanh #reelsvietnam'
         }
     ];
 })(window);

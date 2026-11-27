@@ -67,7 +67,11 @@
         'calendar',
         'lightbulb',
         'music_bars',
-        'sleep_bed'
+        'sleep_bed',
+        'laptop',
+        'megaphone',
+        'target_kpi',
+        'speech_drama'
     ];
 
     // ---- Math & Easing ----
@@ -112,6 +116,10 @@
     }
 
     const SEMANTIC_RULES = [
+        { regex: /code|it|dev|bug|server|deploy|lập trình|phần mềm|service|laptop/, backdrop: 'city-skyline', layout: 'character-left', props: ['laptop', 'fire_flame', 'clock'], mood: 'shocked', badge: '💻 DÂN IT' },
+        { regex: /marketing|ads|content|viral|chiến dịch|quảng cáo|thu hút|follower/, backdrop: 'sunset-warm', layout: 'action-flow', props: ['megaphone', 'chart_bars', 'laptop'], mood: 'happy', badge: '📣 MARKETING' },
+        { regex: /sale|chốt đơn|khách hàng|tư vấn|doanh số|kpi|mục tiêu|bán hàng/, backdrop: 'mint-fresh', layout: 'split-compare', props: ['target_kpi', 'phone', 'cash_stack'], mood: 'happy', badge: '🎯 SALE / KPI' },
+        { regex: /drama|sếp|đồng nghiệp|thảo mai|họp|ot|tăng lương|phỏng vấn|hr|báo cáo/, backdrop: 'alert-tint', layout: 'character-left', props: ['speech_drama', 'card_doc', 'clock'], mood: 'shocked', badge: '🏢 CÔNG SỞ' },
         { regex: /lừa đảo|link lạ|otp|giả mạo|tin nhắn lạ|bẫy/, backdrop: 'alert-tint', layout: 'character-left', props: ['phone', 'scam_link', 'warning_triangle'], mood: 'shocked', badge: '⚠️ CẢNH BÁO', crossOut: true },
         { regex: /ổ điện|cháy|nổ|quá tải|giật điện|nóng máy|cắm sạc/, backdrop: 'alert-tint', layout: 'split-compare', props: ['plug_socket', 'fire_flame', 'battery'], mood: 'shocked', badge: '🔥 NGUY HIỂM', crossOut: true },
         { regex: /điện thoại|màn hình|lướt|thông báo|app|reels|mạng/, backdrop: 'city-skyline', layout: 'center-hero', props: ['phone', 'lightbulb'], mood: 'thinking', badge: '📱 MẸO SỐ' },
@@ -1013,6 +1021,74 @@
                 ctx.stroke();
                 drawOutlinedRect(ctx, -26, 36, 52, 30, 8, '#94a3b8', '#1e293b', 3, false);
                 if (label) drawPillBadge(ctx, label, 0, 92, '#ffffff', '#0f172a', 1, 16);
+                break;
+            }
+            case 'laptop': {
+                drawOutlinedRect(ctx, -92, -78, 184, 114, 12, '#334155', '#0f172a', 3.5, true);
+                drawOutlinedRect(ctx, -80, -66, 160, 90, 6, '#e0f2fe', '#334155', 2, false);
+                ctx.fillStyle = '#0ea5e9';
+                ctx.fillRect(-66, -50, 74, 10);
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(-66, -32, 118, 10);
+                ctx.fillStyle = '#10b981';
+                ctx.fillRect(-66, -14, 92, 10);
+                drawOutlinedRect(ctx, -112, 36, 224, 24, 8, '#94a3b8', '#1e293b', 3, true);
+                if (label) drawPillBadge(ctx, label, 0, 86, '#2563eb', '#ffffff', 1, 15);
+                break;
+            }
+            case 'megaphone': {
+                ctx.save();
+                ctx.rotate(-0.18);
+                ctx.fillStyle = '#f97316';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.moveTo(-64, -18);
+                ctx.lineTo(54, -64);
+                ctx.lineTo(54, 64);
+                ctx.lineTo(-64, 18);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                drawOutlinedRect(ctx, -82, -22, 26, 44, 8, '#ffffff', '#1e293b', 3, false);
+                drawOutlinedRect(ctx, -56, 18, 18, 44, 6, '#334155', '#1e293b', 3, false);
+                ctx.restore();
+                if (label) drawPillBadge(ctx, label, 0, 94, '#fbbf24', '#0f172a', 1, 16);
+                break;
+            }
+            case 'target_kpi': {
+                [88, 60, 32].forEach((r, idx) => {
+                    ctx.fillStyle = idx % 2 === 0 ? '#ef4444' : '#ffffff';
+                    ctx.strokeStyle = '#1e293b';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, r, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                });
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.arc(0, 0, 12, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.moveTo(4, -4);
+                ctx.lineTo(74, -64);
+                ctx.stroke();
+                if (label) drawPillBadge(ctx, label, 0, 108, '#059669', '#ffffff', 1, 16);
+                break;
+            }
+            case 'speech_drama': {
+                drawOutlinedRect(ctx, -110, -78, 150, 74, 18, '#fef2f2', '#1e293b', 3.5, true);
+                ctx.fillStyle = '#dc2626';
+                ctx.font = '900 22px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('EM ƠI?!', -35, -34);
+                drawOutlinedRect(ctx, -20, 6, 140, 72, 18, '#fef3c7', '#1e293b', 3.5, true);
+                ctx.fillStyle = '#0f172a';
+                ctx.fillText('LẠI GÌ NỮA...', 50, 48, 124);
+                if (label) drawPillBadge(ctx, label, 0, 104, '#e11d48', '#ffffff', 1, 15);
                 break;
             }
             case 'music_bars': {
