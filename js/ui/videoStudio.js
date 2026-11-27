@@ -395,7 +395,7 @@
         const ttsEngine = document.getElementById('vs-tts-engine')?.value || 'live-3.8';
         const speedRate = parseFloat(document.getElementById('vs-speed')?.value || '1.0') || 1.0;
         const bgmStyle = document.getElementById('vs-bgm')?.value || 'upbeat';
-        const visualStyle = document.getElementById('vs-visual-style')?.value || 'motion';
+        const visualStyle = document.getElementById('vs-visual-style')?.value || 'ai-svg';
         const scenePacing = document.getElementById('vs-scene-pacing')?.value || 'balanced';
         const imageSourceMode = document.getElementById('vs-image-source')?.value || 'stock';
         const hasApiKey = Boolean((App.store.getState().apiKey || '').trim());
@@ -434,26 +434,32 @@
                     : `Đang chuẩn bị ${flatBeats.length} nhịp chuyển cảnh đa dạng...`
             );
 
-            // Launch 1 single Free Gemini AI Storyboard call in parallel with TTS when API Key is available
-            const storyboardPromise = hasApiKey
-                ? App.geminiApi.generateMultiBeatStoryboard({
-                      title: videoTitle,
-                      beatTexts: flatBeats.map((b) => b.text),
-                      layouts: App.motionGraphics?.LAYOUT_NAMES,
-                      backdrops: App.motionGraphics?.BACKDROP_NAMES,
-                      props: App.motionGraphics?.PROP_NAMES,
-                      signal
-                  })
-                : Promise.resolve(null);
+            // Launch 1 Free Gemini AI Storyboard call in parallel with TTS for motion/photo/offline-fallback metadata
+            const storyboardPromise =
+                hasApiKey && (visualStyle === 'motion' || visualStyle === 'photo')
+                    ? App.geminiApi.generateMultiBeatStoryboard({
+                          title: videoTitle,
+                          beatTexts: flatBeats.map((b) => b.text),
+                          layouts: App.motionGraphics?.LAYOUT_NAMES,
+                          backdrops: App.motionGraphics?.BACKDROP_NAMES,
+                          props: App.motionGraphics?.PROP_NAMES,
+                          signal
+                      })
+                    : Promise.resolve(null);
 
-            const needAnyAiImages = hasApiKey && visualStyle === 'photo' && imageSourceMode !== 'stock';
-            const visualPromptsPromise = needAnyAiImages
+            const needAiImagePrompts =
+                hasApiKey && (visualStyle === 'ai-image' || (visualStyle === 'photo' && imageSourceMode !== 'stock'));
+            const visualPromptsPromise = needAiImagePrompts
                 ? App.geminiApi.generateRealisticVisualPrompts({
                       title: videoTitle,
-                      sceneTexts: texts,
+                      sceneTexts: visualStyle === 'ai-image' ? flatBeats.map((b) => b.text) : texts,
                       signal
                   })
-                : Promise.resolve(texts.map((t, idx) => `${videoTitle} ${idx + 1}`));
+                : Promise.resolve(
+                      (visualStyle === 'ai-image' ? flatBeats.map((b) => b.text) : texts).map(
+                          (t, idx) => `${videoTitle} - ${idx + 1}: ${t}`
+                      )
+                  );
 
             const isLiveEngine = ttsEngine === 'live-3.8' || ttsEngine === 'live-3-flash';
             const liveModelId = ttsEngine === 'live-3-flash' ? App.CONFIG.MODELS.LIVE_3_FLASH : App.CONFIG.MODELS.LIVE_38;
@@ -604,18 +610,108 @@
             const [aiStoryboard, visualPrompts] = await Promise.all([storyboardPromise, visualPromptsPromise]);
             const motionCues = buildSyncedCueSequence(flatBeats, aiStoryboard, videoTitle);
 
-            updateStudioProgress(64, `Đang ghép ${flatBeats.length} cảnh chuyển động khớp từng nhịp âm thanh...`);
+            const sceneImageObjs = new Array(flatBeats.length).fill(null);
+            const sceneStyleOverrides = new Array(flatBeats.length).fill(visualStyle);
+            const loadSvgBatchIntoIndices = async (targetIndices, svgUrls) => {
+                await Promise.all(
+                    targetIndices.map(async (targetIdx, pos) => {
+                        const url = svgUrls[pos];
+                        if (!url) return;
+                        try {
+                            sceneImageObjs[targetIdx] = await App.mediaEngine.loadImageFromUrl(url);
+                            sceneStyleOverrides[targetIdx] = 'ai-svg';
+                        } catch (_) {
+                            sceneImageObjs[targetIdx] = null;
+                        }
+                    })
+                );
+            };
 
-            let completedCount = 0;
-            const builtScenes = new Array(flatBeats.length);
-            const usedPhotoIds = new Set();
+            if (visualStyle === 'ai-svg') {
+                if (hasApiKey) {
+                    updateStudioProgress(62, `AI đang vẽ ${flatBeats.length} tranh minh họa độc bản khớp từng câu nói...`);
+                    const svgUrls = await App.geminiApi.generateCustomSceneSvgs({
+                        title: videoTitle,
+                        scenes: flatBeats.map((b) => b.text),
+                        tone: bgmStyle,
+                        signal,
+                        onProgress: (done, total) => {
+                            const pct = 62 + Math.round((done / Math.max(1, total)) * 30);
+                            updateStudioProgress(pct, `AI đang vẽ minh họa độc bản cảnh ${done}/${total}...`);
+                        }
+                    });
+                    await loadSvgBatchIntoIndices(
+                        flatBeats.map((_, idx) => idx),
+                        svgUrls
+                    );
+                    if (sceneImageObjs.every((img) => !img)) {
+                        App.toast.show('AI SVG tạm quá tải → tự động dựng hoạt hình 2D khớp lời thoại.', 'warning');
+                    }
+                } else {
+                    updateStudioProgress(72, `Chưa có API Key → dùng Hoạt hình 2D Offline cho ${flatBeats.length} cảnh...`);
+                }
+            } else if (visualStyle === 'ai-image') {
+                if (hasApiKey) {
+                    let hitRateLimit = false;
+                    for (let b = 0; b < flatBeats.length; b++) {
+                        if (b > 0) await App.utils.sleep(800, signal);
+                        const pct = 62 + Math.round((b / Math.max(1, flatBeats.length)) * 22);
+                        updateStudioProgress(pct, `Đang tạo ảnh AI cảnh ${b + 1}/${flatBeats.length} khớp lời thoại...`);
+                        const promptText =
+                            visualPrompts[b] || visualPrompts[flatBeats[b].chapterIdx] || `${videoTitle}: ${flatBeats[b].text}`;
+                        const imgRes = await App.geminiApi.fetchSceneImageDataUrl({ promptText, signal });
+                        if (imgRes.dataUrl) {
+                            try {
+                                sceneImageObjs[b] = await App.mediaEngine.loadImageFromUrl(imgRes.dataUrl);
+                            } catch (_) {
+                                sceneImageObjs[b] = null;
+                            }
+                        }
+                        if (imgRes.rateLimited) {
+                            hitRateLimit = true;
+                            break;
+                        }
+                    }
 
-            await Promise.all(
-                flatBeats.map(async (beat, beatIdx) => {
-                    const cue = motionCues[beatIdx];
-                    let imgObj = null;
-
-                    if (visualStyle === 'photo') {
+                    const missingIndices = [];
+                    for (let b = 0; b < flatBeats.length; b++) {
+                        if (!sceneImageObjs[b]) missingIndices.push(b);
+                    }
+                    if (missingIndices.length > 0) {
+                        if (hitRateLimit && missingIndices.length === flatBeats.length) {
+                            App.toast.show(
+                                'Model ảnh AI Nano Banana đang giới hạn Free → tự động chuyển sang AI Vẽ Minh Họa Độc Bản khớp ngữ cảnh!',
+                                'warning',
+                                { duration: 6000 }
+                            );
+                        } else if (hitRateLimit) {
+                            App.toast.show(
+                                `Có ${missingIndices.length} cảnh ảnh AI chạm hạn mức → AI tự vẽ minh họa độc bản bù đúng ngữ cảnh.`,
+                                'info'
+                            );
+                        }
+                        const fallbackSvgs = await App.geminiApi.generateCustomSceneSvgs({
+                            title: videoTitle,
+                            scenes: missingIndices.map((idx) => flatBeats[idx].text),
+                            tone: bgmStyle,
+                            signal,
+                            onProgress: (done, total) => {
+                                const pct = 84 + Math.round((done / Math.max(1, total)) * 11);
+                                updateStudioProgress(pct, `Đang vẽ minh họa bù ${done}/${total} cảnh khớp lời thoại...`);
+                            }
+                        });
+                        await loadSvgBatchIntoIndices(missingIndices, fallbackSvgs);
+                    }
+                } else {
+                    updateStudioProgress(72, `Chưa có API Key → dùng Hoạt hình 2D Offline cho ${flatBeats.length} cảnh...`);
+                }
+            } else if (visualStyle === 'photo') {
+                updateStudioProgress(64, `Đang ghép ${flatBeats.length} ảnh nền khớp từng nhịp âm thanh...`);
+                let completedCount = 0;
+                const usedPhotoIds = new Set();
+                await Promise.all(
+                    flatBeats.map(async (beat, beatIdx) => {
+                        let imgObj = null;
                         // Use uploaded custom photo ONLY once for its chapter's opening beat (never repeat on every beat!)
                         if (beat.beatInChapter === 0 && customImages[beat.chapterIdx]) {
                             imgObj = customImages[beat.chapterIdx];
@@ -623,7 +719,7 @@
 
                         const allowAiImage =
                             !imgObj &&
-                            needAnyAiImages &&
+                            needAiImagePrompts &&
                             beat.beatInChapter === 0 &&
                             (imageSourceMode === 'ai' || (imageSourceMode === 'hybrid' && (beat.chapterIdx === 0 || beat.chapterIdx === 2)));
 
@@ -644,29 +740,37 @@
                         if (!imgObj) {
                             imgObj = await App.mediaEngine.loadRealLifeStockPhoto(beatIdx, videoTitle, beat.text, usedPhotoIds);
                         }
-                    }
 
-                    completedCount++;
-                    const pct = 64 + Math.round((completedCount / flatBeats.length) * 32);
-                    updateStudioProgress(pct, `Đã dựng ${completedCount}/${flatBeats.length} phân cảnh khớp âm thanh...`);
+                        sceneImageObjs[beatIdx] = imgObj;
+                        completedCount++;
+                        const pct = 64 + Math.round((completedCount / flatBeats.length) * 32);
+                        updateStudioProgress(pct, `Đã dựng ${completedCount}/${flatBeats.length} phân cảnh khớp âm thanh...`);
+                    })
+                );
+            } else {
+                updateStudioProgress(80, `Đang dựng ${flatBeats.length} cảnh hoạt hình 2D khớp từng nhịp âm thanh...`);
+            }
 
-                    const audioBuffer = flatAudioSlices[beatIdx];
-                    const rawAudioDur = audioBuffer && Number.isFinite(audioBuffer.duration) ? audioBuffer.duration : 2.5;
-                    const effectiveAudioDur = rawAudioDur / speedRate;
+            const builtScenes = flatBeats.map((beat, beatIdx) => {
+                const audioBuffer = flatAudioSlices[beatIdx];
+                const rawAudioDur = audioBuffer && Number.isFinite(audioBuffer.duration) ? audioBuffer.duration : 2.5;
+                const effectiveAudioDur = rawAudioDur / speedRate;
 
-                    builtScenes[beatIdx] = {
-                        text: beat.text,
-                        visualPrompt: visualPrompts[beat.chapterIdx],
-                        visualStyle,
-                        motionCue: cue,
-                        imageObj: imgObj,
-                        audioBuffer,
-                        playbackRate: speedRate,
-                        duration: Math.max(1.2, effectiveAudioDur + 0.18),
-                        motionType: MOTION_TYPES[beatIdx % MOTION_TYPES.length]
-                    };
-                })
-            );
+                return {
+                    text: beat.text,
+                    visualPrompt:
+                        visualStyle === 'ai-image'
+                            ? visualPrompts[beatIdx] || beat.text
+                            : visualPrompts[beat.chapterIdx] || beat.text,
+                    visualStyle: sceneStyleOverrides[beatIdx],
+                    motionCue: motionCues[beatIdx],
+                    imageObj: sceneImageObjs[beatIdx],
+                    audioBuffer,
+                    playbackRate: speedRate,
+                    duration: Math.max(1.2, effectiveAudioDur + 0.18),
+                    motionType: MOTION_TYPES[beatIdx % MOTION_TYPES.length]
+                };
+            });
 
             App.mediaEngine.setScenes(builtScenes, videoTitle);
             const totalSec = Math.round(App.mediaEngine.getTotalDuration());

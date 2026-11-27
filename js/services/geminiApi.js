@@ -525,27 +525,27 @@ Trả về đúng 1 JSON object có:
     }
 
     async function generateRealisticVisualPrompts({ title, sceneTexts, signal }) {
-        const cacheKey = `prompts:${hashString(title + '|' + sceneTexts.join('|'))}`;
+        const cleanTexts = (sceneTexts || []).map((t) => String(t || '').trim()).filter(Boolean);
+        const cacheKey = `prompts-v2:${hashString(title + '|' + cleanTexts.join('|'))}`;
         if (caches.prompts.has(cacheKey)) {
             return caches.prompts.get(cacheKey);
         }
 
         const fallback = () =>
-            sceneTexts.map(
+            cleanTexts.map(
                 (t, i) =>
-                    `Raw candid iPhone photo in an ordinary Vietnamese home kitchen or living room, natural window daylight, authentic daily life scene depicting: ${title} step ${i + 1}, realistic textures, unedited smartphone photography, vertical 9:16, no text`
+                    `Realistic candid editorial scene in Vietnam depicting specifically: "${t}", natural authentic lighting, vertical 9:16 framing, rich detail, no watermark`
             );
 
         return dedupedCall(cacheKey, async () => {
             try {
-                const prompt = `You are a candid lifestyle smartphone photographer in Vietnam. Given a vertical 9:16 Facebook Reels video titled "${title}" and its 5 Vietnamese narration segments, write 5 ultra-realistic English photo prompts that look like raw unedited photos shot on an iPhone 15 Pro in an ordinary Vietnamese apartment, home kitchen, bedroom, or local street.
-CRITICAL REALISM RULES:
-- Must look 100% like real candid smartphone photography, NOT AI art, NOT 3D render, NOT studio lighting.
-- Include authentic Vietnamese daily life details: tiled kitchen counter, stainless steel utensils, plastic food containers, warm natural daylight coming through a window, slight natural imperfections, candid first-person POV hands doing the action.
-- Vertical 9:16 framing, natural depth of field, realistic skin tones and textures.
-- NEVER include any text, letters, watermarks, captions, or UI overlays in the image.
+                const prompt = `You are a Viral Reels Visual Director in Vietnam. Given a vertical 9:16 video titled "${title}" and ${cleanTexts.length} Vietnamese narration segments, write ${cleanTexts.length} distinct English image prompts (1 per segment).
+CRITICAL RULES:
+- Every prompt MUST visually depict the EXACT specific situation, objects, setting, emotion, and action described in its corresponding narration segment!
+- Vary camera angles (extreme close-up POV hands, over-the-shoulder desk view, wide atmospheric room, moody night lighting, sunlit cafe, bustling office) so NO two consecutive scenes look repetitive!
+- Include authentic Vietnamese daily life / office / street details. Vertical 9:16 framing, crisp clarity, NO random text/watermarks.
 Narration segments:
-${sceneTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
+${cleanTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
 
                 const payload = {
                     contents: [{ parts: [{ text: prompt }] }],
@@ -561,8 +561,8 @@ ${sceneTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
                 const result = await fetchTextWithFallback(payload, { signal });
                 const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
                 const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed) && parsed.length >= 5) {
-                    const sliced = parsed.slice(0, 5);
+                if (Array.isArray(parsed) && parsed.length >= cleanTexts.length) {
+                    const sliced = parsed.slice(0, cleanTexts.length);
                     caches.prompts.set(cacheKey, sliced);
                     return sliced;
                 }
@@ -572,6 +572,135 @@ ${sceneTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
             }
             return fallback();
         });
+    }
+
+    function sanitizeAndWrapSvg(rawSvg) {
+        let s = String(rawSvg || '')
+            .replace(/^```(?:svg|xml)?\s*/i, '')
+            .replace(/```$/i, '')
+            .trim();
+        const match = s.match(/<svg[\s\S]*<\/svg>/i);
+        if (!match) return '';
+        s = match[0];
+
+        // Strip anything that can execute JS or taint HTML5 <canvas>
+        s = s
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, '')
+            .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+            .replace(/<image\b[^>]*\/?>/gi, '')
+            .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+            .replace(/(?:href|xlink:href)\s*=\s*["']\s*(?:https?:|javascript:)[^"']*["']/gi, '')
+            .replace(/url\(\s*["']?\s*(?:https?:|javascript:)[^)]*\)/gi, 'none');
+
+        // Escape bare ampersands so SVG XML never fails to parse
+        s = s.replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+
+        if (!/\bxmlns=/.test(s)) {
+            s = s.replace(/^<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+        }
+        if (!/\bviewBox=/.test(s)) {
+            s = s.replace(/^<svg\b/i, '<svg viewBox="0 0 540 960"');
+        }
+        if (!/\bwidth=/.test(s)) {
+            s = s.replace(/^<svg\b/i, '<svg width="540" height="960"');
+        }
+        return s;
+    }
+
+    async function generateCustomSceneSvgs({ title, scenes, tone = 'viral', onProgress = null, signal } = {}) {
+        const cleanScenes = (scenes || []).map((t) => String(t || '').trim()).filter(Boolean);
+        if (cleanScenes.length === 0) return [];
+
+        const results = new Array(cleanScenes.length).fill('');
+        const missingIndices = [];
+        cleanScenes.forEach((sc, idx) => {
+            const key = `svg:${tone}:${hashString(title + '|' + idx + '|' + sc)}`;
+            if (caches.images.has(key)) {
+                results[idx] = caches.images.get(key);
+            } else {
+                missingIndices.push(idx);
+            }
+        });
+
+        if (missingIndices.length === 0) {
+            if (onProgress) onProgress(cleanScenes.length, cleanScenes.length);
+            return results;
+        }
+
+        const BATCH_SIZE = 2;
+        let doneCount = cleanScenes.length - missingIndices.length;
+        if (onProgress) onProgress(doneCount, cleanScenes.length);
+
+        const palettes = [
+            'Warm Cream & Emerald (#fef3c7, #10b981, #1e293b)',
+            'Midnight Indigo & Neon Amber (#0f172a, #312e81, #fbbf24)',
+            'Soft Sage Mint & Terracotta (#dcfce7, #ea580c, #0f172a)',
+            'Sky Blue & Coral Red (#e0f2fe, #e11d48, #1e293b)',
+            'Warm Sunset Peach & Deep Purple (#ffedd5, #7c3aed, #1e293b)',
+            'Crisp Editorial Slate & Gold (#f1f5f9, #eab308, #0f172a)'
+        ];
+
+        for (let b = 0; b < missingIndices.length; b += BATCH_SIZE) {
+            if (signal && signal.aborted) {
+                throw new DOMException('Aborted', 'AbortError');
+            }
+            const chunkIndices = missingIndices.slice(b, b + BATCH_SIZE);
+            const sceneSpecs = chunkIndices
+                .map((idx) => {
+                    const prevHint = idx > 0 ? `(Cảnh trước: "${cleanScenes[idx - 1].slice(0, 60)}")` : '';
+                    return `- Cảnh ${idx + 1}/${cleanScenes.length} [Bảng màu gợi ý: ${palettes[idx % palettes.length]}]: "${cleanScenes[idx]}" ${prevHint}`;
+                })
+                .join('\n');
+
+            const prompt = `Bạn là họa sĩ minh họa Vector 2D chuyên nghiệp (phong cách Editorial Flat Illustration hiện đại, sinh động như video giải thích triệu view).
+Tiêu đề video: "${title}" (Phong cách: ${tone}).
+Hãy vẽ ${chunkIndices.length} bức tranh SVG ĐỘC BẢN, KHÁC BIỆT HOÀN TOÀN VỀ BỐ CỤC, GÓC MÁY VÀ MÀU SẮC, minh họa CHÍNH XÁC từng chi tiết câu nói dưới đây:
+${sceneSpecs}
+
+YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
+1. Mỗi phần tử trả về là 1 chuỗi <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 960" width="540" height="960">...</svg> hợp lệ XML.
+2. Vẽ CHI TIẾT & SÁT NGỮ CẢNH: Vẽ đúng bối cảnh (phòng ngủ tối có điện thoại, màn hình code sập server, tô cơm nhà, chai nhựa đựng hành trong ngăn đá, tin nhắn sếp, ví tiền, quầy cafe, biểu đồ sụt giảm...), có chiều sâu (nền gradient, ánh sáng, đổ bóng mềm, nhân vật biểu cảm rõ nét, chữ chú thích ngắn tiếng Việt đặt trong thẻ SVG để làm rõ ý!).
+3. MỖI CẢNH PHẢI ĐỔI GÓC MÁY & Ý TƯỞNG: Ví dụ cảnh 1 cận cảnh màn hình điện thoại POV, cảnh 2 toàn cảnh căn phòng, cảnh 3 bảng phân tích so sánh, cảnh 4 nhân vật phản ứng... TUYỆT ĐỐI KHÔNG lặp 1 kiểu hình hộp chung chung!
+4. Vùng y từ 690 đến 940 hãy giữ nền gọn/êm mắt để dành chỗ cho phụ đề video hiển thị phía dưới.
+5. TUYỆT ĐỐI KHÔNG dùng <image>, <foreignObject>, <script>, URL ngoài hay CSS phức tạp; mọi ký tự "&" trong chữ phải viết là "&amp;".`;
+
+            try {
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: 'ARRAY',
+                            items: { type: 'STRING' }
+                        }
+                    }
+                };
+                const res = await fetchTextWithFallback(payload, { signal });
+                const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
+                const parsed = JSON.parse(raw);
+                const svgList = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.svgs) ? parsed.svgs : null;
+                if (Array.isArray(svgList)) {
+                    chunkIndices.forEach((sceneIdx, pos) => {
+                        const clean = sanitizeAndWrapSvg(svgList[pos]);
+                        if (clean) {
+                            const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clean)}`;
+                            results[sceneIdx] = dataUrl;
+                            const key = `svg:${tone}:${hashString(title + '|' + sceneIdx + '|' + cleanScenes[sceneIdx])}`;
+                            caches.images.set(key, dataUrl);
+                        }
+                    });
+                }
+            } catch (err) {
+                if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+                console.warn('Batch SVG generation fallback:', err.message);
+            }
+
+            doneCount += chunkIndices.length;
+            if (onProgress) onProgress(doneCount, cleanScenes.length);
+        }
+
+        return results;
     }
 
     async function generateMultiBeatStoryboard({ title, beatTexts, layouts, backdrops, props, signal }) {
@@ -1089,6 +1218,7 @@ Thiết kế ĐÚNG ${cleanBeats.length} cảnh (mỗi nhịp 1 cảnh) sao cho 
         generateConnectedSeries,
         generateNextSeriesEpisode,
         generateRealisticVisualPrompts,
+        generateCustomSceneSvgs,
         generateMultiBeatStoryboard,
         fetchSceneTtsPcm,
         fetchCombinedTtsPcm,

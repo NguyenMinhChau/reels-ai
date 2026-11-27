@@ -604,7 +604,10 @@
 
         studioScenes = (scenes || []).map((scene) => ({
             ...scene,
-            precomputedChunks: precomputeSceneSubtitles(scene.text, scene.visualStyle === 'motion'),
+            precomputedChunks: precomputeSceneSubtitles(
+                scene.text,
+                scene.visualStyle === 'motion' || scene.visualStyle === 'ai-svg'
+            ),
             audioEnvelope: computeAudioEnvelope(scene.audioBuffer)
         }));
         totalDuration = studioScenes.reduce((sum, s) => sum + (Number.isFinite(s.duration) ? s.duration : 2.0), 0);
@@ -750,7 +753,9 @@
         }
 
         const currentScene = studioScenes[activeIdx];
-        const isMotionStyle = currentScene.visualStyle === 'motion' && Boolean(App.motionGraphics);
+        const isSvgVisual = currentScene.visualStyle === 'ai-svg' && Boolean(currentScene.imageObj);
+        const isPhotoVisual = (currentScene.visualStyle === 'photo' || currentScene.visualStyle === 'ai-image') && Boolean(currentScene.imageObj);
+        const isMotionStyle = !isSvgVisual && !isPhotoVisual && Boolean(App.motionGraphics);
         ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
         if (isMotionStyle) {
@@ -766,11 +771,11 @@
             }
             App.motionGraphics.drawMotionScene(ctx, currentScene, sceneProgress, activeIdx, elapsed, prevScene, audioLevel);
         } else {
-            // 1. Photo background + smooth crossfade
+            // 1. Custom AI SVG Illustration OR Real/AI Photo background + whip/crossfade motion
             if (currentScene.imageObj) {
                 drawImageWithMotion(currentScene.imageObj, sceneProgress, currentScene.motionType, 1);
-                if (sceneProgress < 0.12 && activeIdx > 0 && studioScenes[activeIdx - 1].imageObj) {
-                    const fadeOutAlpha = 1 - sceneProgress / 0.12;
+                if (sceneProgress < 0.14 && activeIdx > 0 && studioScenes[activeIdx - 1].imageObj) {
+                    const fadeOutAlpha = 1 - sceneProgress / 0.14;
                     drawImageWithMotion(
                         studioScenes[activeIdx - 1].imageObj,
                         1,
@@ -788,23 +793,26 @@
                 ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
             }
 
-            // 2. Cached top/bottom gradient overlay
-            if (!cachedOverlayGrad) {
-                cachedOverlayGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
-                cachedOverlayGrad.addColorStop(0, 'rgba(0,0,0,0.45)');
-                cachedOverlayGrad.addColorStop(0.2, 'rgba(0,0,0,0.0)');
-                cachedOverlayGrad.addColorStop(0.62, 'rgba(0,0,0,0.05)');
-                cachedOverlayGrad.addColorStop(1, 'rgba(0,0,0,0.78)');
+            // 2. Subtle gradient overlay (light touch for crisp AI SVGs, cinematic vignette for photos)
+            if (!isSvgVisual) {
+                if (!cachedOverlayGrad) {
+                    cachedOverlayGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+                    cachedOverlayGrad.addColorStop(0, 'rgba(0,0,0,0.45)');
+                    cachedOverlayGrad.addColorStop(0.2, 'rgba(0,0,0,0.0)');
+                    cachedOverlayGrad.addColorStop(0.62, 'rgba(0,0,0,0.05)');
+                    cachedOverlayGrad.addColorStop(1, 'rgba(0,0,0,0.78)');
+                }
+                ctx.fillStyle = cachedOverlayGrad;
+                ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
             }
-            ctx.fillStyle = cachedOverlayGrad;
-            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
         }
 
-        // 3. Top Story Progress Bars (adapts cleanly for dark night backdrop & photo mode)
+        // 3. Top Story Progress Bars (adapts cleanly for dark backdrops & photo mode)
         const count = studioScenes.length;
         const barGap = count > 8 ? 4 : 6;
         const barWidth = (CANVAS_W - 48 - (count - 1) * barGap) / count;
-        const useLightBar = !isMotionStyle || currentScene.motionCue?.backdrop === 'night-calm';
+        const useLightBar = isPhotoVisual || (isMotionStyle && currentScene.motionCue?.backdrop === 'night-calm');
+        const isCleanSubtitle = isMotionStyle || isSvgVisual;
         for (let i = 0; i < count; i++) {
             const bx = 24 + i * (barWidth + barGap);
             ctx.fillStyle = useLightBar ? 'rgba(255,255,255,0.32)' : 'rgba(15,23,42,0.18)';
@@ -826,7 +834,7 @@
         }
 
         // 3b. Dynamic Beat Callout Pill in Photo mode (so every synced cut feels fresh)
-        if (!isMotionStyle && currentScene.motionCue && (activeIdx > 0 || precomputedTitleLines.length === 0)) {
+        if (!isCleanSubtitle && currentScene.motionCue && (activeIdx > 0 || precomputedTitleLines.length === 0)) {
             const badgeText =
                 currentScene.motionCue.accentBadge ||
                 currentScene.motionCue.topBadge ||
@@ -851,7 +859,7 @@
         }
 
         // 3c. Top Hook Title Banner during first beat in Photo mode
-        if (!isMotionStyle && activeIdx === 0 && precomputedTitleLines.length > 0) {
+        if (!isCleanSubtitle && activeIdx === 0 && precomputedTitleLines.length > 0) {
             const boxH = precomputedTitleLines.length * 28 + 22;
             const fadeOut = sceneProgress > 0.85 ? Math.max(0, 1 - (sceneProgress - 0.85) / 0.15) : 1;
             ctx.save();
@@ -885,7 +893,7 @@
             ctx.scale(popScale, popScale);
             ctx.translate(-270, -chunk.startY);
 
-            if (!isMotionStyle) {
+            if (!isCleanSubtitle) {
                 const boxTop = chunk.startY - chunk.fontSize - 4;
                 const boxHeight = chunk.lines.length * chunk.lineHeight + 12;
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
@@ -896,13 +904,13 @@
 
             ctx.textAlign = 'center';
             ctx.lineJoin = 'round';
-            ctx.strokeStyle = isMotionStyle ? '#0f172a' : 'rgba(0, 0, 0, 0.95)';
-            ctx.lineWidth = isMotionStyle ? 8 : 7;
+            ctx.strokeStyle = isCleanSubtitle ? '#0f172a' : 'rgba(0, 0, 0, 0.95)';
+            ctx.lineWidth = isCleanSubtitle ? 8 : 7;
 
             chunk.lines.forEach((line, i) => {
                 const ly = chunk.startY + i * chunk.lineHeight;
                 ctx.strokeText(line, 270, ly);
-                if (isMotionStyle) {
+                if (isCleanSubtitle) {
                     ctx.fillStyle = '#ffffff';
                 } else {
                     const isHighlight = activeIdx === 0 || (activeIdx === 4 && i === 0);
