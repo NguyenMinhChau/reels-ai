@@ -946,7 +946,7 @@
         }
     }
 
-    async function prepareDownloadAndShare(blob, mimeType, bgmStyle = 'upbeat', hasAudio = true) {
+    async function prepareDownloadAndShare(blob, mimeType, bgmStyle = 'upbeat', hasAudio = true, engineLabel = '') {
         revokeLastExport();
 
         const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
@@ -968,13 +968,16 @@
         const shareBtn = document.getElementById('btn-share-video');
         const previewVid = document.getElementById('vs-exported-preview');
 
+        const tagInfo = engineLabel ? `${engineLabel} • ` : '';
         if (infoEl) {
             infoEl.textContent = hasAudio
-                ? `File .${ext.toUpperCase()} (${sizeMB} MB • Có âm thanh) sẵn sàng`
-                : `File .${ext.toUpperCase()} (${sizeMB} MB — nếu máy mất tiếng hãy tải thêm .WAV bên cạnh)`;
+                ? `File .${ext.toUpperCase()} (${tagInfo}${sizeMB} MB • Có âm thanh) sẵn sàng`
+                : `File .${ext.toUpperCase()} (${tagInfo}${sizeMB} MB — nếu máy mất tiếng hãy tải thêm .WAV bên cạnh)`;
         }
         if (previewVid) {
             previewVid.src = url;
+            previewVid.muted = false;
+            previewVid.volume = 1.0;
             previewVid.classList.remove('hidden');
         }
         if (manualLink) {
@@ -1098,9 +1101,15 @@
                 })
                 .then(async (fastResult) => {
                     if (fastResult && fastResult.blob) {
-                        const ext = await prepareDownloadAndShare(fastResult.blob, fastResult.mimeType, bgmStyle, fastResult.hasAudio !== false);
+                        const ext = await prepareDownloadAndShare(
+                            fastResult.blob,
+                            fastResult.mimeType,
+                            bgmStyle,
+                            fastResult.hasAudio !== false,
+                            fastResult.engineLabel || ''
+                        );
                         restoreButtons();
-                        updateStudioProgress(100, `Hoàn tất! Đã tạo file video .${ext.toUpperCase()} có âm thanh (bấm Tải hoặc Lưu vào Ảnh).`, 'done');
+                        updateStudioProgress(100, `Hoàn tất! Đã tạo file video .${ext.toUpperCase()} (${fastResult.engineLabel || 'H.264 + AAC'}) có âm thanh.`, 'done');
                         App.toast.show(`Đã xuất video .${ext.toUpperCase()} có âm thanh thành công!`);
                         return;
                     }

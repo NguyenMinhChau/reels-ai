@@ -181,7 +181,7 @@
     }
 
     // Must be invoked SYNCHRONOUSLY inside tap/click handlers for mobile iOS & Android
-    function unlockAudioSync() {
+    function unlockAudioSync({ skipHtmlAudio = false } = {}) {
         try {
             if (global.navigator?.audioSession && global.navigator.audioSession.type !== 'playback') {
                 global.navigator.audioSession.type = 'playback';
@@ -200,24 +200,26 @@
             src.start(0);
         } catch (_) {}
 
-        const audioEl = getOrCreatePreviewAudioEl();
-        if (audioEl && !isPlaying && (!isAudioUnlocked || (audioEl.paused && audioEl.dataset?.kind !== 'mixed'))) {
-            try {
-                audioEl.muted = false;
-                audioEl.volume = 1.0;
-                if (!audioEl.src || audioEl.dataset?.kind !== 'mixed') {
-                    audioEl.src = getSilentUnlockWavUrl();
-                    if (audioEl.dataset) audioEl.dataset.kind = 'silent';
-                    const p = audioEl.play();
-                    if (p && typeof p.then === 'function') {
-                        p.then(() => {
+        if (!skipHtmlAudio) {
+            const audioEl = getOrCreatePreviewAudioEl();
+            if (audioEl && !isPlaying && (!isAudioUnlocked || (audioEl.paused && audioEl.dataset?.kind !== 'mixed'))) {
+                try {
+                    audioEl.muted = false;
+                    audioEl.volume = 1.0;
+                    if (!audioEl.src || audioEl.dataset?.kind !== 'mixed') {
+                        audioEl.src = getSilentUnlockWavUrl();
+                        if (audioEl.dataset) audioEl.dataset.kind = 'silent';
+                        const p = audioEl.play();
+                        if (p && typeof p.then === 'function') {
+                            p.then(() => {
+                                isAudioUnlocked = true;
+                            }).catch(() => {});
+                        } else {
                             isAudioUnlocked = true;
-                        }).catch(() => {});
-                    } else {
-                        isAudioUnlocked = true;
+                        }
                     }
-                }
-            } catch (_) {}
+                } catch (_) {}
+            }
         }
         return ctxAudio;
     }
@@ -1120,7 +1122,7 @@
     let cachedRecordMix = { key: '', buffer: null };
 
     function prepareForExportSync() {
-        const ctxAudio = unlockAudioSync();
+        const ctxAudio = unlockAudioSync({ skipHtmlAudio: true });
         let keepOsc = null;
         let keepGain = null;
         try {
@@ -1146,14 +1148,17 @@
         };
     }
 
-    async function renderMixedOfflineAudioBuffer(bgmStyle, targetSampleRate = 44100) {
+    let cachedMediabunny = undefined;
+
+    async function renderMixedOfflineAudioBuffer(bgmStyle, targetSampleRate = 44100, numChannels = 1) {
         const OfflineCtx = global.OfflineAudioContext || global.webkitOfflineAudioContext;
         if (typeof OfflineCtx === 'undefined' || studioScenes.length === 0 || totalDuration <= 0) {
             return null;
         }
         const sr = Math.max(22050, parseInt(targetSampleRate, 10) || 44100);
+        const channels = numChannels === 2 ? 2 : 1;
         const totalSamples = Math.max(1, Math.ceil(totalDuration * sr));
-        const offlineCtx = new OfflineCtx(1, totalSamples, sr);
+        const offlineCtx = new OfflineCtx(channels, totalSamples, sr);
 
         let sceneStart = 0;
         studioScenes.forEach((scene) => {
@@ -1178,8 +1183,161 @@
         return offlineCtx.startRendering();
     }
 
+    function bufferHasAudibleAudio(audioBuffer) {
+        if (!audioBuffer || audioBuffer.length === 0) return false;
+        const ch = audioBuffer.getChannelData(0);
+        const step = Math.max(1, Math.floor(ch.length / 4000));
+        for (let i = 0; i < ch.length; i += step) {
+            if (Math.abs(ch[i]) > 0.0005) return true;
+        }
+        return false;
+    }
+
+    async function loadMediabunnyTools() {
+        if (cachedMediabunny !== undefined) return cachedMediabunny;
+        if (typeof global.VideoEncoder === 'undefined' || typeof global.OfflineAudioContext === 'undefined') {
+            cachedMediabunny = null;
+            return null;
+        }
+
+        let mb = global.Mediabunny || null;
+        let aacExt = global.MediabunnyAacEncoder || null;
+
+        if (!mb || typeof mb.Output !== 'function') {
+            try {
+                mb = await import('https://cdn.jsdelivr.net/npm/mediabunny/+esm');
+            } catch (_) {
+                mb = null;
+            }
+        }
+        if (!mb || typeof mb.Output !== 'function') {
+            cachedMediabunny = null;
+            return null;
+        }
+
+        try {
+            const canAvc = await mb.canEncodeVideo('avc');
+            if (!canAvc) {
+                cachedMediabunny = null;
+                return null;
+            }
+            let canNativeAac = false;
+            try {
+                canNativeAac = await mb.canEncodeAudio('aac');
+            } catch (_) {
+                canNativeAac = false;
+            }
+            let usedWasmAac = false;
+            if (!canNativeAac) {
+                if (!aacExt || typeof aacExt.registerAacEncoder !== 'function') {
+                    try {
+                        aacExt = await import('https://cdn.jsdelivr.net/npm/@mediabunny/aac-encoder/+esm');
+                    } catch (_) {
+                        aacExt = null;
+                    }
+                }
+                if (aacExt && typeof aacExt.registerAacEncoder === 'function') {
+                    aacExt.registerAacEncoder();
+                    usedWasmAac = true;
+                    canNativeAac = await mb.canEncodeAudio('aac').catch(() => false);
+                }
+            }
+            if (!canNativeAac) {
+                cachedMediabunny = null;
+                return null;
+            }
+            cachedMediabunny = { mb, usedWasmAac };
+            return cachedMediabunny;
+        } catch (err) {
+            console.warn('Mediabunny init failed:', err);
+            cachedMediabunny = null;
+            return null;
+        }
+    }
+
+    async function exportWithMediabunny({ bgmStyle = 'upbeat', onProgress = null, signal = null } = {}) {
+        const tools = await loadMediabunnyTools();
+        if (!tools || studioScenes.length === 0 || !canvasEl) return null;
+        const { mb, usedWasmAac } = tools;
+
+        stopPlayback({ resetToZero: false });
+        isRecording = true;
+        if (callbacks.onStateChange) callbacks.onStateChange(getPlaybackState());
+
+        try {
+            if (onProgress) onProgress(5, 'Đang trộn âm thanh Stereo & chuẩn bị bộ mã hóa MP4 AAC...');
+            const mixedStereo = await renderMixedOfflineAudioBuffer(bgmStyle, 48000, 2);
+            if (!mixedStereo) throw new Error('Không khởi tạo được luồng âm thanh Stereo.');
+            if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+            const hasAudioSignal = bufferHasAudibleAudio(mixedStereo);
+
+            const output = new mb.Output({
+                format: new mb.Mp4OutputFormat({ fastStart: 'in-memory' }),
+                target: new mb.BufferTarget()
+            });
+
+            const videoSource = new mb.CanvasSource(canvasEl, {
+                codec: 'avc',
+                bitrate: mb.QUALITY_HIGH || 2_500_000
+            });
+            const audioSource = new mb.AudioBufferSource({
+                codec: 'aac',
+                bitrate: mb.QUALITY_HIGH || 128_000
+            });
+
+            output.addVideoTrack(videoSource);
+            output.addAudioTrack(audioSource);
+            await output.start();
+
+            if (onProgress) onProgress(12, usedWasmAac ? 'Đang nén AAC Audio chuẩn Mobile (WASM)...' : 'Đang nén AAC Audio...');
+            await audioSource.add(mixedStereo);
+            audioSource.close();
+
+            const fps = 30;
+            const frameDur = 1 / fps;
+            const totalFrames = Math.max(1, Math.ceil(totalDuration * fps));
+
+            for (let f = 0; f < totalFrames; f++) {
+                if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+                const t = Math.min(Math.max(0, totalDuration - 0.001), f * frameDur);
+                renderFrameAtTime(t);
+                await videoSource.add(t, frameDur);
+
+                if (f % 8 === 0) {
+                    const pct = 18 + Math.round(((f + 1) / totalFrames) * 77);
+                    if (onProgress) onProgress(pct, `Đang xuất MP4 + AAC (${f + 1}/${totalFrames} khung hình)...`);
+                }
+            }
+
+            videoSource.close();
+            if (onProgress) onProgress(97, 'Đang đóng gói file .MP4 chuẩn Mobile...');
+            await output.finalize();
+            renderFrameAtTime(0);
+
+            return {
+                blob: new Blob([output.target.buffer], { type: 'video/mp4' }),
+                mimeType: 'video/mp4',
+                hasAudio: hasAudioSignal,
+                engineLabel: usedWasmAac ? 'MP4 H.264 + AAC WASM' : 'MP4 H.264 + AAC'
+            };
+        } finally {
+            isRecording = false;
+            if (callbacks.onStateChange) callbacks.onStateChange(getPlaybackState());
+        }
+    }
+
     async function probeFastExportFormat() {
         if (cachedFastFormat !== undefined) return cachedFastFormat;
+
+        // Priority 1: Mediabunny MP4 (supports BOTH native AAC & @mediabunny/aac-encoder WASM AAC on Android Chrome & iOS Safari!)
+        const mbTools = await loadMediabunnyTools();
+        if (mbTools) {
+            cachedFastFormat = {
+                container: 'mediabunny-mp4',
+                mimeType: 'video/mp4'
+            };
+            return cachedFastFormat;
+        }
 
         const OfflineCtx = global.OfflineAudioContext || global.webkitOfflineAudioContext;
         if (
@@ -1327,9 +1485,24 @@
         }
 
         const fps = 30;
-        const chosenFormat = await probeFastExportFormat();
+        let chosenFormat = await probeFastExportFormat();
         if (!chosenFormat) {
             return null;
+        }
+
+        if (chosenFormat.container === 'mediabunny-mp4') {
+            try {
+                const mbRes = await exportWithMediabunny({ bgmStyle, onProgress, signal });
+                if (mbRes && mbRes.blob) return mbRes;
+            } catch (mbErr) {
+                if (mbErr?.name === 'AbortError') throw mbErr;
+                console.warn('Mediabunny MP4 export failed, trying fallback:', mbErr);
+                // Re-probe without Mediabunny cleanly
+                cachedMediabunny = null;
+                cachedFastFormat = undefined;
+                chosenFormat = await probeFastExportFormat();
+                if (!chosenFormat) return null;
+            }
         }
 
         stopPlayback({ resetToZero: false });
@@ -1525,7 +1698,7 @@
         const runId = ++playbackRunId;
         currentBgmStyle = bgmStyle;
 
-        const ctxAudio = unlockAudioSync();
+        const ctxAudio = unlockAudioSync({ skipHtmlAudio: true });
         isPlaying = true;
         isRecording = true;
         useHtmlAudioClock = false;
@@ -1588,7 +1761,8 @@
         try {
             const keepAliveOsc = ctxAudio.createOscillator();
             const keepAliveGain = ctxAudio.createGain();
-            keepAliveGain.gain.value = 0.0002;
+            keepAliveOsc.frequency.value = 40;
+            keepAliveGain.gain.value = 0.0004;
             keepAliveOsc.connect(keepAliveGain);
             keepAliveGain.connect(destNode);
             if (recordMonitorGain) keepAliveGain.connect(recordMonitorGain);
@@ -1912,7 +2086,7 @@
     function previewBgmSample(style = 'upbeat', durationSec = 3.5) {
         clearScheduledAudio();
         if (style === 'none') return;
-        const ctxAudio = unlockAudioSync();
+        const ctxAudio = unlockAudioSync({ skipHtmlAudio: true });
         const buf = getCachedBgmBuffer(ctxAudio, style, durationSec);
         if (!buf) return;
 
