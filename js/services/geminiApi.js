@@ -979,7 +979,7 @@ Trả về 1 đối tượng JSON gồm:
                 stage2Mood: ['happy', 'shocked', 'thinking', 'sleepy'].includes(item.stage2Mood) ? item.stage2Mood : '',
                 crossOut: Boolean(item.crossOut)
             }));
-            const cacheKey = `storyboard-v10:${hashString(resolvedTitle + '|' + visualStyle + '|' + beatTexts.join('|'))}`;
+            const cacheKey = `storyboard-v11:${hashString(resolvedTitle + '|' + visualStyle + '|' + beatTexts.join('|'))}`;
             caches.prompts.set(cacheKey, normalizedBoard);
             return { title: resolvedTitle, scenes: beatTexts, storyboard: normalizedBoard };
         }
@@ -1230,7 +1230,7 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
         const cleanBeats = (beatTexts || []).map((b) => String(b || '').trim()).filter(Boolean);
         if (cleanBeats.length === 0) return null;
 
-        const cacheKey = `storyboard-v10:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
+        const cacheKey = `storyboard-v11:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
         if (caches.prompts.has(cacheKey)) {
             return caches.prompts.get(cacheKey);
         }
@@ -1307,7 +1307,7 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
 - characterMood: "happy", "shocked", "thinking", hoặc "sleepy".
 - effect: Hiệu ứng từ [${effectList.join(', ')}].
 - sfx: Âm thanh từ [${sfxOptions.join(', ')}].
-- props: Mảng 1-2 đạo cụ gần nhất từ [${propList.join(', ')}].
+- props: Mảng 1-2 đạo cụ vẽ trực tiếp vật được nhắc tới trong câu (hướng dẫn: scale_icon=cân so sánh, jar/locked_jar=hũ tiền tiết kiệm, hospital_card=bệnh viện/viện phí, bank_counter=quầy ngân hàng/rút tiền, speedometer=tốc độ, scissors_cut=cắt giảm, umbrella=ô che mưa, map_pin=lộ trình bản đồ, formula_chip=công thức/bit/mã, ergo_chair=ghế ngồi, spine_back=cột sống/đau lưng, empty_wallet=ví hết tiền, stretching_pose=giãn cơ, price_tag=giá tiền, shopping_bag=mua sắm, house=ngôi nhà, bus=xe buýt, scooter=xe máy, envelope=phong bì lương, cash_stack=tiền mặt, coin=đồng xu, card_doc=tài liệu/danh sách, chart_bars=biểu đồ, rice_bowl=bữa ăn, coffee_cup=cà phê/trà, water_glass=ly nước, heart=tim/cảm xúc, cake=sinh nhật, gift_box=quà tặng, phone=điện thoại/tin nhắn, scam_link=link lừa đảo, plug_socket=ổ điện, battery=pin, padlock=khóa bảo mật, fire_flame=cháy/khẩn cấp, warning_triangle=cảnh báo, clock=thời gian, calendar=lịch tháng/ngày, lightbulb=ý tưởng, music_bars=âm nhạc, sleep_bed=giường ngủ, laptop=máy tính/code, megaphone=quảng cáo/loa, target_kpi=mục tiêu, speech_drama=hội thoại) từ [${propList.join(', ')}].
 - crossOut: true chỉ khi câu nói mang ý sai lầm / gạch bỏ / cảnh báo cấm.`;
 
                 const payload = {

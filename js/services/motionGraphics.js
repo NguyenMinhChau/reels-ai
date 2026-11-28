@@ -656,27 +656,38 @@
 
     function analyzeSceneVisualCue(sceneText, beatIdx, videoTitle = '', state = {}, visualStyle = 'motion') {
         const beatLower = String(sceneText || '').toLowerCase();
-        const combinedLower = `${beatLower} ${String(videoTitle || '').toLowerCase()}`;
+        const titleLower = String(videoTitle || '').toLowerCase();
+        const combinedLower = `${beatLower} ${titleLower}`;
         const isUiMode = visualStyle === 'ui-motion';
         const prevLayout = state.prevLayout || '';
         const prevBackdrop = state.prevBackdrop || '';
         const prevProp = state.prevProp || '';
 
-        let bestRule = null;
-        let bestScore = 0;
+        let bestBeatRule = null;
+        let bestBeatScore = 0;
+        let bestTitleRule = null;
+        let bestTitleScore = 0;
         for (const r of SEMANTIC_RULES) {
             const globalRx = new RegExp(r.regex.source, 'gi');
             const beatHits = (beatLower.match(globalRx) || []).length;
-            const titleHits = (String(videoTitle || '').toLowerCase().match(globalRx) || []).length;
+            const titleHits = (titleLower.match(globalRx) || []).length;
             const w = Number(r.weight) || 1;
-            const score = (beatHits * 3 + titleHits) * w;
-            if (score > bestScore) {
-                bestScore = score;
-                bestRule = r;
+            const bScore = beatHits * 3 * w;
+            const tScore = (beatHits * 3 + titleHits) * w;
+            if (bScore > bestBeatScore) {
+                bestBeatScore = bScore;
+                bestBeatRule = r;
+            }
+            if (tScore > bestTitleScore) {
+                bestTitleScore = tScore;
+                bestTitleRule = r;
             }
         }
+        const bestRule = bestBeatRule || bestTitleRule;
 
-        const domain = inferDomainContext(combinedLower);
+        // Spoken beat topic overrides overall title topic when the sentence itself names a concrete world
+        const beatDomain = inferDomainContext(beatLower);
+        const domain = beatDomain.domainKey !== 'home' ? beatDomain : inferDomainContext(combinedLower);
         const poolLayouts = isUiMode ? UI_LAYOUTS : (domain.layouts || STORY_LAYOUTS_GENERAL);
 
         let layout = isUiMode
@@ -701,7 +712,7 @@
         }
 
         const candidateProps = bestRule ? [...bestRule.props] : [...domain.props];
-        if (candidateProps[0] === prevProp && candidateProps.length > 1) {
+        if (!bestBeatRule && candidateProps[0] === prevProp && candidateProps.length > 1) {
             candidateProps.push(candidateProps.shift());
         }
 
@@ -716,6 +727,7 @@
 
         return {
             domainKey: domain.domainKey || 'home',
+            beatRuleMatched: Boolean(bestBeatRule),
             layout,
             backdrop,
             transition,
@@ -3817,6 +3829,9 @@
                 });
                 if (scene?.customHeroImg) {
                     drawHeroSubject(ctx, scene, props[0], 0, 14, 0.86, progress, t, audioLevel, screenType, true);
+                } else if (activeProp && activeProp !== 'laptop' && activeProp !== 'card_doc') {
+                    drawRichScreenContent(ctx, -192, -102, 384, 234, screenType, progress, t, audioLevel);
+                    drawHeroSubject(ctx, scene, activeProp, 0, 18, 0.78 * propSwitchScale, progress, t, audioLevel, screenType, false);
                 } else {
                     drawRichScreenContent(ctx, -192, -102, 384, 234, screenType, progress, t, audioLevel);
                 }
@@ -4078,12 +4093,15 @@
                 ctx.translate(270, 415);
                 ctx.scale(pop1, pop1);
                 drawOutlinedRect(ctx, -168, -195, 336, 370, 24, '#ffffff', '#1e293b', 3.8, true);
-                if (scene?.customHeroImg) {
-                    drawHeroSubject(ctx, scene, props[0], 0, -10, 0.92, progress, t, audioLevel, screenType, true);
+                if (scene?.customHeroImg || (activeProp && activeProp !== 'card_doc')) {
+                    drawHeroSubject(ctx, scene, activeProp, 0, 0, 0.92 * propSwitchScale, progress, t, audioLevel, screenType, true);
                 } else {
                     drawRichScreenContent(ctx, -148, -172, 296, 324, 'checklist_done', progress, t, audioLevel);
                 }
                 ctx.restore();
+                if (focusTag) {
+                    drawShortPillBadge(ctx, focusTag, 270, 200, '#2563eb', '#ffffff', pop2);
+                }
                 break;
             }
 

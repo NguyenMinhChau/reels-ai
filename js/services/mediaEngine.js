@@ -340,6 +340,29 @@
     }
 
     // Split an AudioBuffer cleanly into N beat chunks at lowest-energy breath/silence valleys
+    function computeSpokenWeight(text) {
+        const clean = String(text || '').trim();
+        if (!clean) return 1;
+        const tokens = clean.split(/\s+/).filter(Boolean);
+        let weight = 0;
+        for (const rawTok of tokens) {
+            const core = rawTok.replace(/[.,!?;:()"'«»…—–-]+/g, '');
+            if (!core) continue;
+            if (/^\d+(?:[.,]\d+)?$/.test(core)) {
+                weight += 1.6 + Math.min(4, core.replace(/[.,]/g, '').length * 0.48);
+            } else if (/[A-Z]{2,}/.test(core) && core.length <= 6) {
+                weight += 0.9 + core.length * 0.55;
+            } else if (/(%|km|tr|triệu|nghìn|giờ|năm|tháng)/i.test(core)) {
+                weight += 1.8;
+            } else {
+                weight += Math.max(0.85, Math.min(1.5, core.length * 0.22));
+            }
+            if (/[.!?…]$/.test(rawTok)) weight += 2.8;
+            else if (/[,;:—–]$/.test(rawTok)) weight += 1.35;
+        }
+        return Math.max(1, weight);
+    }
+
     function splitAudioBufferIntoBeats(fullBuffer, texts, targetCtx) {
         if (!fullBuffer || !Array.isArray(texts) || texts.length <= 1) {
             return fullBuffer ? [fullBuffer] : [];
@@ -348,17 +371,17 @@
         const sr = fullBuffer.sampleRate;
         const data = fullBuffer.getChannelData(0);
         const totalSamples = data.length;
-        const minSegSamples = Math.floor(sr * 0.65);
+        const minSegSamples = Math.floor(sr * 0.55);
 
-        // If audio is too short to slice safely into N beats, divide proportionally
+        const weights = texts.map(computeSpokenWeight);
+        const totalWeight = weights.reduce((a, b) => a + b, 0);
+
         if (totalSamples < minSegSamples * count) {
-            const wordCounts = texts.map((t) => Math.max(1, String(t || '').split(/\s+/).filter(Boolean).length));
-            const totalWords = wordCounts.reduce((a, b) => a + b, 0);
             const cuts = [0];
             let accW = 0;
             for (let k = 0; k < count - 1; k++) {
-                accW += wordCounts[k];
-                cuts.push(Math.floor(totalSamples * (accW / totalWords)));
+                accW += weights[k];
+                cuts.push(Math.floor(totalSamples * (accW / totalWeight)));
             }
             cuts.push(totalSamples);
             return texts.map((_, idx) => {
@@ -372,33 +395,105 @@
             });
         }
 
-        const wordCounts = texts.map((t) => Math.max(1, String(t || '').split(/\s+/).filter(Boolean).length));
-        const totalWords = wordCounts.reduce((a, b) => a + b, 0);
+        // 1. Frame-level RMS profile (20ms step) to detect true speech span + genuine silence pauses
+        const winSamples = Math.max(1, Math.floor(sr * 0.025));
+        const hopSamples = Math.max(1, Math.floor(sr * 0.015));
+        const frameRms = [];
+        const frameCenter = [];
+        for (let s = 0; s + winSamples <= totalSamples; s += hopSamples) {
+            let sumSq = 0;
+            for (let j = 0; j < winSamples; j++) {
+                const v = data[s + j];
+                sumSq += v * v;
+            }
+            frameRms.push(Math.sqrt(sumSq / winSamples));
+            frameCenter.push(s + Math.floor(winSamples / 2));
+        }
 
-        const winSamples = Math.max(1, Math.floor(sr * 0.035)); // 35ms energy window
-        const searchRadius = Math.floor(sr * 0.85);
+        const sortedRms = frameRms.slice().sort((a, b) => a - b);
+        const noiseFloor = sortedRms[Math.floor(sortedRms.length * 0.12)] || 0.002;
+        const peakRms = sortedRms[Math.floor(sortedRms.length * 0.90)] || 0.05;
+        const quietThresh = Math.max(noiseFloor * 1.9, peakRms * 0.08);
+
+        let speechStart = 0;
+        let speechEnd = totalSamples;
+        for (let fi = 0; fi < frameRms.length; fi++) {
+            if (frameRms[fi] > quietThresh) {
+                speechStart = Math.max(0, frameCenter[fi] - Math.floor(sr * 0.06));
+                break;
+            }
+        }
+        for (let fi = frameRms.length - 1; fi >= 0; fi--) {
+            if (frameRms[fi] > quietThresh) {
+                speechEnd = Math.min(totalSamples, frameCenter[fi] + Math.floor(sr * 0.12));
+                break;
+            }
+        }
+        if (speechEnd - speechStart < minSegSamples * count) {
+            speechStart = 0;
+            speechEnd = totalSamples;
+        }
+        const activeSpan = speechEnd - speechStart;
+
+        // Collect all genuine pause intervals (>= 45ms of low RMS) so cuts snap to natural breaths/clauses
+        const pauses = [];
+        let runStart = -1;
+        for (let fi = 0; fi < frameRms.length; fi++) {
+            if (frameRms[fi] <= quietThresh) {
+                if (runStart === -1) runStart = fi;
+            } else if (runStart !== -1) {
+                const durFrames = fi - runStart;
+                if (durFrames >= 3) {
+                    const midIdx = Math.floor((runStart + fi - 1) / 2);
+                    const minRmsInRun = Math.min(...frameRms.slice(runStart, fi));
+                    pauses.push({
+                        sample: frameCenter[midIdx],
+                        durFrames,
+                        quietScore: durFrames / (minRmsInRun + 0.002)
+                    });
+                }
+                runStart = -1;
+            }
+        }
+
+        const avgBeatSamples = activeSpan / count;
+        const searchRadius = Math.max(Math.floor(sr * 1.35), Math.floor(avgBeatSamples * 0.58));
         const cutSamples = [0];
-        let cumWords = 0;
+        let cumW = 0;
 
         for (let k = 0; k < count - 1; k++) {
-            cumWords += wordCounts[k];
-            const expectedSample = Math.floor(totalSamples * (cumWords / totalWords));
+            cumW += weights[k];
+            const expectedSample = speechStart + Math.floor(activeSpan * (cumW / totalWeight));
             const minSample = Math.max(cutSamples[k] + minSegSamples, expectedSample - searchRadius);
             const maxSample = Math.min(totalSamples - minSegSamples * (count - k - 1), expectedSample + searchRadius);
 
             let bestSample = Math.min(Math.max(expectedSample, cutSamples[k] + minSegSamples), totalSamples - 1);
-            let minEnergy = Infinity;
 
-            if (maxSample > minSample + winSamples) {
-                for (let s = minSample; s < maxSample - winSamples; s += Math.floor(winSamples / 2)) {
-                    let energy = 0;
-                    for (let j = 0; j < winSamples; j++) {
-                        const v = data[s + j];
-                        energy += v * v;
+            if (maxSample > minSample) {
+                let bestScore = -Infinity;
+                for (const p of pauses) {
+                    if (p.sample < minSample || p.sample > maxSample) continue;
+                    const distNorm = Math.abs(p.sample - expectedSample) / Math.max(1, searchRadius);
+                    const score = p.quietScore * Math.exp(-1.8 * distNorm * distNorm);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestSample = p.sample;
                     }
-                    if (energy < minEnergy) {
-                        minEnergy = energy;
-                        bestSample = s + Math.floor(winSamples / 2);
+                }
+                if (bestScore === -Infinity) {
+                    // Fallback fine energy minimum search inside [minSample, maxSample]
+                    let minE = Infinity;
+                    const fineStep = Math.max(1, Math.floor(winSamples / 2));
+                    for (let s = minSample; s < maxSample - winSamples; s += fineStep) {
+                        let e = 0;
+                        for (let j = 0; j < winSamples; j++) {
+                            const v = data[s + j];
+                            e += v * v;
+                        }
+                        if (e < minE) {
+                            minE = e;
+                            bestSample = s + Math.floor(winSamples / 2);
+                        }
                     }
                 }
             }

@@ -651,8 +651,13 @@
                     cast = localCue.cast;
                 }
 
-                let chosenProps = Array.isArray(aiItem.props) && aiItem.props.length > 0 ? aiItem.props : localCue.props;
-                if (chosenProps[0] === prevProp && chosenProps.length > 1) {
+                let chosenProps = Array.isArray(aiItem.props) && aiItem.props.length > 0 ? [...aiItem.props] : [...localCue.props];
+                if (localCue.beatRuleMatched && Array.isArray(localCue.props) && localCue.props.length > 0) {
+                    const matchedPrimary = localCue.props[0];
+                    if (!chosenProps.includes(matchedPrimary)) {
+                        chosenProps = [matchedPrimary, ...chosenProps].slice(0, 3);
+                    }
+                } else if (chosenProps[0] === prevProp && chosenProps.length > 1) {
                     chosenProps = [...chosenProps.slice(1), chosenProps[0]];
                 }
 
