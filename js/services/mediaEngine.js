@@ -936,6 +936,194 @@
         return { audioLevel, audioViseme };
     }
 
+    function drawLayeredParticles(ctx, particleFx, t, audioLevel, sceneIdx) {
+        if (!particleFx || particleFx === 'none') return;
+        ctx.save();
+        if (particleFx === 'rain') {
+            ctx.strokeStyle = 'rgba(186, 230, 253, 0.36)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 18; i++) {
+                const rx = (i * 37 + Math.floor(t * 140)) % CANVAS_W;
+                const ry = (i * 79 + Math.floor(t * 420)) % CANVAS_H;
+                ctx.beginPath();
+                ctx.moveTo(rx, ry);
+                ctx.lineTo(rx - 8, ry + 26);
+                ctx.stroke();
+            }
+        } else if (particleFx === 'bubbles' || particleFx === 'embers') {
+            const isBub = particleFx === 'bubbles';
+            for (let i = 0; i < 12; i++) {
+                const bx = 42 + ((i * 53 + Math.sin(t * 2 + i) * 18) % (CANVAS_W - 84));
+                const by = CANVAS_H - ((t * (isBub ? 85 : 115) + i * 95) % (CANVAS_H + 60));
+                const r = (isBub ? 6 : 3.5) + (i % 4) * 2.5 + audioLevel * 3;
+                ctx.fillStyle = isBub ? 'rgba(186, 230, 253, 0.34)' : `rgba(251, 146, 60, ${0.45 + audioLevel * 0.3})`;
+                ctx.beginPath();
+                ctx.arc(bx, by, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        } else if (particleFx === 'petals' || particleFx === 'confetti') {
+            const cols = particleFx === 'petals' ? ['#fda4af', '#fecdd3', '#fbcfe8'] : ['#facc15', '#38bdf8', '#4ade80', '#f43f5e'];
+            for (let i = 0; i < 14; i++) {
+                const x = (i * 44 + Math.sin(t * 2.4 + i) * 28) % CANVAS_W;
+                const y = (t * 95 + i * 74) % CANVAS_H;
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(t * 2.6 + i);
+                ctx.fillStyle = cols[i % cols.length];
+                ctx.globalAlpha = 0.72;
+                ctx.fillRect(-6, -3, 12, 6);
+                ctx.restore();
+            }
+        } else if (particleFx === 'code') {
+            ctx.fillStyle = `rgba(56, 189, 248, ${0.28 + audioLevel * 0.25})`;
+            ctx.font = '700 14px monospace';
+            const glyphs = ['01', '{}', '=>', '</>', '[]'];
+            for (let i = 0; i < 10; i++) {
+                const gx = 36 + (i * 51) % (CANVAS_W - 72);
+                const gy = CANVAS_H - ((t * 72 + i * 110) % CANVAS_H);
+                ctx.fillText(glyphs[(i + sceneIdx) % glyphs.length], gx, gy);
+            }
+        } else {
+            // sparkles / stars
+            for (let i = 0; i < 12; i++) {
+                const sx = 34 + ((i * 47 + sceneIdx * 19) % (CANVAS_W - 68));
+                const sy = 90 + ((i * 73) % (CANVAS_H - 220));
+                const tw = 0.35 + Math.abs(Math.sin(t * 3.2 + i * 1.3)) * 0.65;
+                ctx.fillStyle = `rgba(254, 240, 138, ${tw * (0.55 + audioLevel * 0.45)})`;
+                ctx.beginPath();
+                ctx.arc(sx, sy, 2.5 + tw * 3.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.restore();
+    }
+
+    function computeLayeredTransform(motionType, p, t, audioLevel, pivot, isStage2 = false) {
+        const easeOut = (v) => 1 - Math.pow(1 - Math.max(0, Math.min(1, v)), 3);
+        const popIn = isStage2
+            ? easeOut(Math.max(0, Math.min(1, (p - pivot) / 0.16)))
+            : easeOut(Math.max(0, Math.min(1, p / 0.16)));
+
+        let dx = 0;
+        let dy = 0;
+        let scale = popIn * (1 + audioLevel * 0.055);
+        let rot = 0;
+        let alpha = Math.max(0, Math.min(1, popIn * 1.15));
+
+        if (!isStage2) {
+            if (motionType === 'bounce') {
+                dy = -Math.abs(Math.sin(t * 4.2)) * (12 + audioLevel * 18);
+            } else if (motionType === 'slide-in') {
+                dx = (1 - easeOut(Math.min(1, p / 0.24))) * -160;
+            } else if (motionType === 'zoom-pop') {
+                scale *= 0.92 + easeOut(Math.min(1, p * 1.4)) * 0.14;
+            } else if (motionType === 'tilt-swing') {
+                rot = Math.sin(t * 2.8) * 0.09;
+            } else if (motionType === 'shake') {
+                dx = Math.sin(t * 26) * (3 + audioLevel * 7);
+            } else if (motionType === 'rocket-rise') {
+                dy = (1 - easeOut(Math.min(1, p / 0.45))) * 95 - p * 28;
+            } else {
+                // float
+                dy = Math.sin(t * 2.5) * 9;
+                rot = Math.sin(t * 1.7) * 0.025;
+            }
+        } else {
+            const sp = Math.max(0, p - pivot);
+            if (motionType === 'fly-in-right') {
+                dx = (1 - popIn) * 180;
+            } else if (motionType === 'drop-slam') {
+                dy = (1 - popIn) * -170;
+            } else if (motionType === 'orbit') {
+                dx = Math.cos(sp * 5) * 24;
+                dy = Math.sin(sp * 5) * 16;
+            } else if (motionType === 'slide-up') {
+                dy = (1 - popIn) * 130;
+            } else {
+                // pop-burst
+                scale *= 0.85 + Math.sin(Math.min(1, sp * 5) * Math.PI) * 0.22;
+            }
+        }
+        return { dx, dy, scale, rot, alpha };
+    }
+
+    function drawAiLayeredScene(scene, sceneProgress, activeIdx, elapsed, prevScene, audioLevel, audioViseme) {
+        const layer = scene.layeredAiScene;
+        if (!layer) return;
+        const pivot = Number.isFinite(scene.speechPivot) ? scene.speechPivot : 0.52;
+        const afterPivot = sceneProgress >= pivot;
+
+        // 1. Background World (540x960 bespoke AI environment) with varied camera motion
+        const camMode = layer.cameraMove || 'zoomIn';
+        if (layer.bgImg) {
+            drawImageWithMotion(layer.bgImg, sceneProgress, camMode === 'sway' ? 'zoomIn' : camMode, 1);
+        } else {
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        }
+
+        // Cross-transition from previous scene seamlessly
+        if (activeIdx > 0 && prevScene && sceneProgress < 0.14) {
+            const pNorm = 1 - Math.pow(1 - Math.max(0, Math.min(1, sceneProgress / 0.14)), 3);
+            if (activeIdx % 3 === 1 && prevScene.layeredAiScene?.bgImg) {
+                drawImageWithMotion(prevScene.layeredAiScene.bgImg, 1, 'zoomIn', 1 - pNorm);
+            }
+        }
+
+        // 2. Topic-matched kinetic atmospheric particles
+        drawLayeredParticles(ctx, layer.particleFx, elapsed, audioLevel, activeIdx);
+
+        // 3. Foreground Hero Layer (moves smoothly + breathes with voice)
+        if (layer.heroImg) {
+            const heroShiftX = afterPivot && layer.stage2Img ? -72 * Math.min(1, (sceneProgress - pivot) * 5) : 0;
+            const tr = computeLayeredTransform(layer.heroMotion, sceneProgress, elapsed, audioLevel, pivot, false);
+            if (tr.alpha > 0.02) {
+                ctx.save();
+                ctx.globalAlpha = tr.alpha;
+                ctx.translate(270 + heroShiftX + tr.dx, 415 + tr.dy);
+                ctx.rotate(tr.rot);
+                ctx.scale(tr.scale, tr.scale);
+                ctx.drawImage(layer.heroImg, -180, -180, 360, 360);
+                ctx.restore();
+            }
+        }
+
+        // 4. Phase-2 Reaction / Payoff Layer (enters right on speechPivot!)
+        if (layer.stage2Img && afterPivot) {
+            const tr2 = computeLayeredTransform(layer.stage2Motion, sceneProgress, elapsed, audioLevel, pivot, true);
+            if (tr2.alpha > 0.02) {
+                ctx.save();
+                ctx.globalAlpha = tr2.alpha;
+                ctx.translate((layer.heroImg ? 356 : 270) + tr2.dx, 355 + tr2.dy);
+                ctx.rotate(tr2.rot);
+                ctx.scale(tr2.scale, tr2.scale);
+                ctx.drawImage(layer.stage2Img, -155, -155, 310, 310);
+                ctx.restore();
+            }
+        }
+
+        // 5. Sleek Audio-Driven Bottom Waveform Bars (reacts live at 30Hz to speech!)
+        ctx.save();
+        const barCount = 14;
+        const startX = 270 - ((barCount - 1) * 14) / 2;
+        for (let b = 0; b < barCount; b++) {
+            const amp = 4 + Math.abs(Math.sin(elapsed * 9 + b * 0.7)) * (8 + audioLevel * 24);
+            ctx.fillStyle = layer.isDarkBg ? 'rgba(56, 189, 248, 0.72)' : 'rgba(15, 23, 42, 0.52)';
+            ctx.beginPath();
+            ctx.roundRect(startX + b * 14 - 3, 916 - amp, 6, amp, 3);
+            ctx.fill();
+        }
+        ctx.restore();
+
+        // 6. Optional emphasis tag & selective host cameo ONLY when scene requests it (no forced clone per scene!)
+        if (layer.emphasisWords && App.motionGraphics?.drawShortPillBadge) {
+            App.motionGraphics.drawShortPillBadge(ctx, layer.emphasisWords, 270, 142, '#0f172a', '#fde047', 1, scene.artTheme || 'comic-pop');
+        }
+        if (layer.showHost && scene.motionCue?.cast && App.motionGraphics?.drawNarratorCameo) {
+            App.motionGraphics.drawNarratorCameo(ctx, 468, 862, elapsed, scene.motionCue.characterMood || 'happy', audioLevel, scene.motionCue.cast, audioViseme, scene.artTheme || 'comic-pop');
+        }
+    }
+
     function renderFrameAtTime(elapsed) {
         if (!ctx || studioScenes.length === 0) return;
 
@@ -958,13 +1146,18 @@
         }
 
         const currentScene = studioScenes[activeIdx];
+        const isLayeredAi2d = currentScene.visualStyle === 'ai-layered-2d' && Boolean(currentScene.layeredAiScene);
         const isSvgVisual = currentScene.visualStyle === 'ai-svg' && Boolean(currentScene.imageObj);
         const isCartoonAiVisual = currentScene.visualStyle === 'ai-cartoon' && Boolean(currentScene.imageObj);
         const isPhotoVisual = (currentScene.visualStyle === 'photo' || currentScene.visualStyle === 'ai-image') && Boolean(currentScene.imageObj);
-        const isMotionStyle = !isSvgVisual && !isPhotoVisual && !isCartoonAiVisual && Boolean(App.motionGraphics);
+        const isMotionStyle = !isLayeredAi2d && !isSvgVisual && !isPhotoVisual && !isCartoonAiVisual && Boolean(App.motionGraphics);
         ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-        if (isMotionStyle) {
+        if (isLayeredAi2d) {
+            const prevScene = activeIdx > 0 ? studioScenes[activeIdx - 1] : null;
+            const { audioLevel, audioViseme } = sampleSceneAudioMetrics(currentScene, sceneProgress, 0.96);
+            drawAiLayeredScene(currentScene, sceneProgress, activeIdx, elapsed, prevScene, audioLevel, audioViseme);
+        } else if (isMotionStyle) {
             // 1. Composable 2D Motion Infographic Scene driven by 30Hz real speech envelope + visemes
             const prevScene = activeIdx > 0 ? studioScenes[activeIdx - 1] : null;
             const { audioLevel, audioViseme } = sampleSceneAudioMetrics(currentScene, sceneProgress, 0.96);
@@ -1086,6 +1279,7 @@
         const useLightBar =
             isPhotoVisual ||
             isCartoonAiVisual ||
+            (isLayeredAi2d && Boolean(currentScene.layeredAiScene?.isDarkBg)) ||
             (isMotionStyle &&
                 (bdName === 'night-calm' ||
                     bdName === 'bedroom-night' ||
@@ -1095,7 +1289,7 @@
                     bdName === 'bank-vault' ||
                     bdName === 'street-rain' ||
                     bdName === 'warning-stage'));
-        const isCleanSubtitle = isMotionStyle || isSvgVisual || isCartoonAiVisual;
+        const isCleanSubtitle = isLayeredAi2d || isMotionStyle || isSvgVisual || isCartoonAiVisual;
         for (let i = 0; i < count; i++) {
             const bx = 24 + i * (barWidth + barGap);
             ctx.fillStyle = useLightBar ? 'rgba(255,255,255,0.32)' : 'rgba(15,23,42,0.18)';

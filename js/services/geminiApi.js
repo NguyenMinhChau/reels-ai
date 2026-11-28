@@ -1166,6 +1166,157 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
         return results;
     }
 
+    // Generate completely bespoke, 3-layer animated 2D scenes per beat (100% unique environment, foreground & twist per topic)
+    async function generateLayeredAiScenes({ title, beats, tone = 'viral', onProgress = null, signal } = {}) {
+        const cleanBeats = (beats || []).map((b) => String(b?.text || b || '').trim()).filter(Boolean);
+        if (cleanBeats.length === 0) return [];
+
+        const results = new Array(cleanBeats.length).fill(null);
+        const missingIndices = [];
+        cleanBeats.forEach((sc, idx) => {
+            const key = `layered-2d-v1:${tone}:${hashString(title + '|' + idx + '|' + sc + '|' + cleanBeats.length)}`;
+            if (caches.images.has(key)) {
+                results[idx] = caches.images.get(key);
+            } else {
+                missingIndices.push(idx);
+            }
+        });
+
+        let doneCount = cleanBeats.length - missingIndices.length;
+        if (onProgress) onProgress(doneCount, cleanBeats.length);
+        if (missingIndices.length === 0) return results;
+
+        const artDirectives = [
+            'Editorial Storybook 2D với bảng màu điện ảnh ấm áp & chiều sâu nhiều lớp',
+            'Pop-Art Comic hiện đại với mảng hình chéo tương phản rực rỡ & đường nét đậm',
+            'Atmospheric Flat Vector không gian mở (bầu trời, ánh sáng, đổ bóng kiến trúc/thiên nhiên)',
+            'Tối giản hình học táo bạo (Bold Bauhaus & Paper-Cutout layered shadows)',
+            'Neon Synthwave / Futuristic Clean 2D với quầng sáng rực rỡ & đường nét sắc sảo',
+            'Cận cảnh điện ảnh (Cinematic Close-up) với điểm nhấn thị giác lớn ở tiền cảnh'
+        ];
+
+        const validHeroMotions = ['float', 'bounce', 'slide-in', 'zoom-pop', 'tilt-swing', 'shake', 'rocket-rise'];
+        const validStage2Motions = ['fly-in-right', 'drop-slam', 'orbit', 'pop-burst', 'slide-up'];
+        const validCameraMoves = ['zoomIn', 'zoomOut', 'panLeft', 'panRight', 'sway'];
+        const validParticles = ['sparkles', 'embers', 'bubbles', 'rain', 'stars', 'confetti', 'petals', 'code', 'none'];
+
+        const fetchSingleScene = async (idx) => {
+            if (signal && signal.aborted) {
+                throw new DOMException('Aborted', 'AbortError');
+            }
+            const beatText = cleanBeats[idx];
+            const prevHint = idx > 0 ? `Cảnh liền trước đã nói: "${cleanBeats[idx - 1].slice(0, 65)}" -> BẮT BUỘC đổi hẳn bối cảnh, màu sắc & góc nhìn!` : 'Cảnh mở đầu gây ấn tượng mạnh ngay lập tức!';
+            const styleGuide = artDirectives[(hashString(title) + idx * 2) % artDirectives.length];
+
+            const prompt = `Bạn là Họa sĩ & Đạo diễn Hoạt hình 2D ĐỘC BẢN. Hãy sáng tác RIÊNG cảnh ${idx + 1}/${cleanBeats.length} cho video "${title}" (Phong cách video: ${tone}).
+LỜI THOẠI CẢNH NÀY: "${beatText}"
+Định hướng mỹ thuật: ${styleGuide}
+${prevHint}
+
+YÊU CẦU TỐI THƯỢNG:
+- TUYỆT ĐỐI KHÔNG dùng lại kiểu phòng văn phòng/bàn làm việc/con người chibi giống các video khác trừ khi câu nói thực sự nhắc tới. Chủ đề gì thì vẽ ĐÚNG thế giới đó (ẩm thực, lịch sử, thể thao, vũ trụ, thiên nhiên, công nghệ, tài chính, động vật, phố xá...).
+- Tách làm 3 lớp SVG tách biệt để động cơ Canvas tự tạo chuyển động riêng cho từng lớp:
+  1. \`bgSvg\` (viewBox="0 0 540 960", width="540", height="960"): Bối cảnh toàn màn hình đặc trưng cho CẢNH NÀY (bầu trời/gradient, ánh sáng, cảnh vật nền 10-20 khối path sắc nét, KHÔNG có nhân vật chính, KHÔNG viết chữ).
+  2. \`heroSvg\` (viewBox="0 0 360 360", width="360", height="360", NỀN TRONG SUỐT 100%): Nhân vật/sinh vật/đối tượng trung tâm diễn tả VẾ ĐẦU của câu nói (12-24 path màu sắc sống động, viền #1e293b hoặc sáng tương phản, KHÔNG vẽ hình chữ nhật phủ nền, nằm gọn trong x:20..340, y:20..340).
+  3. \`stage2Svg\` (viewBox="0 0 320 320", width="320", height="320", NỀN TRONG SUỐT 100%): Vật thể/ẩn dụ chuyển biến hoặc cao trào của VẾ SAU câu nói sẽ bay vào giữa chừng (8-18 path rõ nét, nằm trong x:20..300, y:20..300).
+- TUYỆT ĐỐI KHÔNG dùng thẻ <text>, <image>, <foreignObject>, <script>; ký tự "&" viết là "&amp;".
+- Chọn chuyển động khớp ngữ cảnh:
+  + heroMotion: ${validHeroMotions.join(' | ')}
+  + stage2Motion: ${validStage2Motions.join(' | ')}
+  + cameraMove: ${validCameraMoves.join(' | ')}
+  + particleFx: ${validParticles.join(' | ')}
+  + emphasisWords: Từ khóa nhấn ngắn tối đa 16 ký tự (hoặc "" nếu không cần).
+  + isDarkBg: true nếu nền bgSvg tối màu, false nếu sáng màu.
+  + showHost: true CHỈ ở cảnh mở/kết cần người dẫn (còn lại để false để tranh toàn cảnh sạch đẹp).`;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: 'OBJECT',
+                        properties: {
+                            bgSvg: { type: 'STRING' },
+                            heroSvg: { type: 'STRING' },
+                            stage2Svg: { type: 'STRING' },
+                            heroMotion: { type: 'STRING', enum: validHeroMotions },
+                            stage2Motion: { type: 'STRING', enum: validStage2Motions },
+                            cameraMove: { type: 'STRING', enum: validCameraMoves },
+                            particleFx: { type: 'STRING', enum: validParticles },
+                            emphasisWords: { type: 'STRING' },
+                            isDarkBg: { type: 'BOOLEAN' },
+                            showHost: { type: 'BOOLEAN' }
+                        },
+                        required: ['bgSvg', 'heroSvg', 'stage2Svg', 'heroMotion', 'stage2Motion', 'cameraMove', 'particleFx', 'isDarkBg', 'showHost']
+                    }
+                }
+            };
+
+            const res = await fetchTextWithFallback(payload, { signal });
+            const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const parsed = safeExtractJsonFromText(raw);
+            if (!parsed || typeof parsed !== 'object') return null;
+
+            const cleanBg = sanitizeAndWrapSvg(parsed.bgSvg, '0 0 540 960', 540, 960);
+            const cleanHero = sanitizeAndWrapSvg(parsed.heroSvg, '0 0 360 360', 360, 360);
+            const cleanStage2 = sanitizeAndWrapSvg(parsed.stage2Svg, '0 0 320 320', 320, 320);
+            if (!cleanBg && !cleanHero) return null;
+
+            return {
+                bgUrl: cleanBg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanBg)}` : '',
+                heroUrl: cleanHero ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanHero)}` : '',
+                stage2Url: cleanStage2 ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanStage2)}` : '',
+                heroMotion: validHeroMotions.includes(parsed.heroMotion) ? parsed.heroMotion : 'float',
+                stage2Motion: validStage2Motions.includes(parsed.stage2Motion) ? parsed.stage2Motion : 'pop-burst',
+                cameraMove: validCameraMoves.includes(parsed.cameraMove) ? parsed.cameraMove : validCameraMoves[idx % validCameraMoves.length],
+                particleFx: validParticles.includes(parsed.particleFx) ? parsed.particleFx : 'none',
+                emphasisWords: String(parsed.emphasisWords || '').trim().slice(0, 18),
+                isDarkBg: Boolean(parsed.isDarkBg),
+                showHost: Boolean(parsed.showHost)
+            };
+        };
+
+        // Process 2 scenes concurrently per wave to honor API_POLICY without overflowing tokens
+        for (let i = 0; i < missingIndices.length; i += 2) {
+            const pair = missingIndices.slice(i, i + 2);
+            await Promise.all(
+                pair.map(async (sceneIdx) => {
+                    try {
+                        const built = await fetchSingleScene(sceneIdx);
+                        if (built) {
+                            results[sceneIdx] = built;
+                            const key = `layered-2d-v1:${tone}:${hashString(title + '|' + sceneIdx + '|' + cleanBeats[sceneIdx] + '|' + cleanBeats.length)}`;
+                            caches.images.set(key, built);
+                        }
+                    } catch (err) {
+                        if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+                        console.warn(`Layered 2D scene ${sceneIdx + 1} skipped for retry:`, err.message);
+                    } finally {
+                        doneCount++;
+                        if (onProgress) onProgress(doneCount, cleanBeats.length);
+                    }
+                })
+            );
+        }
+
+        // Single retry pass for any scene that didn't parse cleanly on the first wave
+        const stillMissing = missingIndices.filter((idx) => !results[idx]);
+        for (const idx of stillMissing) {
+            try {
+                const retryBuilt = await fetchSingleScene(idx);
+                if (retryBuilt) {
+                    results[idx] = retryBuilt;
+                    const key = `layered-2d-v1:${tone}:${hashString(title + '|' + idx + '|' + cleanBeats[idx] + '|' + cleanBeats.length)}`;
+                    caches.images.set(key, retryBuilt);
+                }
+            } catch (err) {
+                if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+            }
+        }
+
+        return results;
+    }
+
     async function generateCustomSceneSvgs({ title, scenes, tone = 'viral', onProgress = null, signal } = {}) {
         const cleanScenes = (scenes || []).map((t) => String(t || '').trim()).filter(Boolean);
         if (cleanScenes.length === 0) return [];
@@ -1292,6 +1443,157 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
                     results[idx] = dataUrl;
                     const key = `svg:${tone}:${hashString(title + '|' + idx + '|' + cleanScenes[idx])}`;
                     caches.images.set(key, dataUrl);
+                }
+            } catch (err) {
+                if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+            }
+        }
+
+        return results;
+    }
+
+    // Generate completely bespoke, 3-layer animated 2D scenes per beat (100% unique environment, foreground & twist per topic)
+    async function generateLayeredAiScenes({ title, beats, tone = 'viral', onProgress = null, signal } = {}) {
+        const cleanBeats = (beats || []).map((b) => String(b?.text || b || '').trim()).filter(Boolean);
+        if (cleanBeats.length === 0) return [];
+
+        const results = new Array(cleanBeats.length).fill(null);
+        const missingIndices = [];
+        cleanBeats.forEach((sc, idx) => {
+            const key = `layered-2d-v1:${tone}:${hashString(title + '|' + idx + '|' + sc + '|' + cleanBeats.length)}`;
+            if (caches.images.has(key)) {
+                results[idx] = caches.images.get(key);
+            } else {
+                missingIndices.push(idx);
+            }
+        });
+
+        let doneCount = cleanBeats.length - missingIndices.length;
+        if (onProgress) onProgress(doneCount, cleanBeats.length);
+        if (missingIndices.length === 0) return results;
+
+        const artDirectives = [
+            'Editorial Storybook 2D với bảng màu điện ảnh ấm áp & chiều sâu nhiều lớp',
+            'Pop-Art Comic hiện đại với mảng hình chéo tương phản rực rỡ & đường nét đậm',
+            'Atmospheric Flat Vector không gian mở (bầu trời, ánh sáng, đổ bóng kiến trúc/thiên nhiên)',
+            'Tối giản hình học táo bạo (Bold Bauhaus & Paper-Cutout layered shadows)',
+            'Neon Synthwave / Futuristic Clean 2D với quầng sáng rực rỡ & đường nét sắc sảo',
+            'Cận cảnh điện ảnh (Cinematic Close-up) với điểm nhấn thị giác lớn ở tiền cảnh'
+        ];
+
+        const validHeroMotions = ['float', 'bounce', 'slide-in', 'zoom-pop', 'tilt-swing', 'shake', 'rocket-rise'];
+        const validStage2Motions = ['fly-in-right', 'drop-slam', 'orbit', 'pop-burst', 'slide-up'];
+        const validCameraMoves = ['zoomIn', 'zoomOut', 'panLeft', 'panRight', 'sway'];
+        const validParticles = ['sparkles', 'embers', 'bubbles', 'rain', 'stars', 'confetti', 'petals', 'code', 'none'];
+
+        const fetchSingleScene = async (idx) => {
+            if (signal && signal.aborted) {
+                throw new DOMException('Aborted', 'AbortError');
+            }
+            const beatText = cleanBeats[idx];
+            const prevHint = idx > 0 ? `Cảnh liền trước đã nói: "${cleanBeats[idx - 1].slice(0, 65)}" -> BẮT BUỘC đổi hẳn bối cảnh, màu sắc & góc nhìn!` : 'Cảnh mở đầu gây ấn tượng mạnh ngay lập tức!';
+            const styleGuide = artDirectives[(hashString(title) + idx * 2) % artDirectives.length];
+
+            const prompt = `Bạn là Họa sĩ & Đạo diễn Hoạt hình 2D ĐỘC BẢN. Hãy sáng tác RIÊNG cảnh ${idx + 1}/${cleanBeats.length} cho video "${title}" (Phong cách video: ${tone}).
+LỜI THOẠI CẢNH NÀY: "${beatText}"
+Định hướng mỹ thuật: ${styleGuide}
+${prevHint}
+
+YÊU CẦU TỐI THƯỢNG:
+- TUYỆT ĐỐI KHÔNG dùng lại kiểu phòng văn phòng/bàn làm việc/con người chibi giống các video khác trừ khi câu nói thực sự nhắc tới. Chủ đề gì thì vẽ ĐÚNG thế giới đó (ẩm thực, lịch sử, thể thao, vũ trụ, thiên nhiên, công nghệ, tài chính, động vật, phố xá...).
+- Tách làm 3 lớp SVG tách biệt để động cơ Canvas tự tạo chuyển động riêng cho từng lớp:
+  1. \`bgSvg\` (viewBox="0 0 540 960", width="540", height="960"): Bối cảnh toàn màn hình đặc trưng cho CẢNH NÀY (bầu trời/gradient, ánh sáng, cảnh vật nền 10-20 khối path sắc nét, KHÔNG có nhân vật chính, KHÔNG viết chữ).
+  2. \`heroSvg\` (viewBox="0 0 360 360", width="360", height="360", NỀN TRONG SUỐT 100%): Nhân vật/sinh vật/đối tượng trung tâm diễn tả VẾ ĐẦU của câu nói (12-24 path màu sắc sống động, viền #1e293b hoặc sáng tương phản, KHÔNG vẽ hình chữ nhật phủ nền, nằm gọn trong x:20..340, y:20..340).
+  3. \`stage2Svg\` (viewBox="0 0 320 320", width="320", height="320", NỀN TRONG SUỐT 100%): Vật thể/ẩn dụ chuyển biến hoặc cao trào của VẾ SAU câu nói sẽ bay vào giữa chừng (8-18 path rõ nét, nằm trong x:20..300, y:20..300).
+- TUYỆT ĐỐI KHÔNG dùng thẻ <text>, <image>, <foreignObject>, <script>; ký tự "&" viết là "&amp;".
+- Chọn chuyển động khớp ngữ cảnh:
+  + heroMotion: ${validHeroMotions.join(' | ')}
+  + stage2Motion: ${validStage2Motions.join(' | ')}
+  + cameraMove: ${validCameraMoves.join(' | ')}
+  + particleFx: ${validParticles.join(' | ')}
+  + emphasisWords: Từ khóa nhấn ngắn tối đa 16 ký tự (hoặc "" nếu không cần).
+  + isDarkBg: true nếu nền bgSvg tối màu, false nếu sáng màu.
+  + showHost: true CHỈ ở cảnh mở/kết cần người dẫn (còn lại để false để tranh toàn cảnh sạch đẹp).`;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: 'OBJECT',
+                        properties: {
+                            bgSvg: { type: 'STRING' },
+                            heroSvg: { type: 'STRING' },
+                            stage2Svg: { type: 'STRING' },
+                            heroMotion: { type: 'STRING', enum: validHeroMotions },
+                            stage2Motion: { type: 'STRING', enum: validStage2Motions },
+                            cameraMove: { type: 'STRING', enum: validCameraMoves },
+                            particleFx: { type: 'STRING', enum: validParticles },
+                            emphasisWords: { type: 'STRING' },
+                            isDarkBg: { type: 'BOOLEAN' },
+                            showHost: { type: 'BOOLEAN' }
+                        },
+                        required: ['bgSvg', 'heroSvg', 'stage2Svg', 'heroMotion', 'stage2Motion', 'cameraMove', 'particleFx', 'isDarkBg', 'showHost']
+                    }
+                }
+            };
+
+            const res = await fetchTextWithFallback(payload, { signal });
+            const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const parsed = safeExtractJsonFromText(raw);
+            if (!parsed || typeof parsed !== 'object') return null;
+
+            const cleanBg = sanitizeAndWrapSvg(parsed.bgSvg, '0 0 540 960', 540, 960);
+            const cleanHero = sanitizeAndWrapSvg(parsed.heroSvg, '0 0 360 360', 360, 360);
+            const cleanStage2 = sanitizeAndWrapSvg(parsed.stage2Svg, '0 0 320 320', 320, 320);
+            if (!cleanBg && !cleanHero) return null;
+
+            return {
+                bgUrl: cleanBg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanBg)}` : '',
+                heroUrl: cleanHero ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanHero)}` : '',
+                stage2Url: cleanStage2 ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleanStage2)}` : '',
+                heroMotion: validHeroMotions.includes(parsed.heroMotion) ? parsed.heroMotion : 'float',
+                stage2Motion: validStage2Motions.includes(parsed.stage2Motion) ? parsed.stage2Motion : 'pop-burst',
+                cameraMove: validCameraMoves.includes(parsed.cameraMove) ? parsed.cameraMove : validCameraMoves[idx % validCameraMoves.length],
+                particleFx: validParticles.includes(parsed.particleFx) ? parsed.particleFx : 'none',
+                emphasisWords: String(parsed.emphasisWords || '').trim().slice(0, 18),
+                isDarkBg: Boolean(parsed.isDarkBg),
+                showHost: Boolean(parsed.showHost)
+            };
+        };
+
+        // Process 2 scenes concurrently per wave to honor API_POLICY without overflowing tokens
+        for (let i = 0; i < missingIndices.length; i += 2) {
+            const pair = missingIndices.slice(i, i + 2);
+            await Promise.all(
+                pair.map(async (sceneIdx) => {
+                    try {
+                        const built = await fetchSingleScene(sceneIdx);
+                        if (built) {
+                            results[sceneIdx] = built;
+                            const key = `layered-2d-v1:${tone}:${hashString(title + '|' + sceneIdx + '|' + cleanBeats[sceneIdx] + '|' + cleanBeats.length)}`;
+                            caches.images.set(key, built);
+                        }
+                    } catch (err) {
+                        if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+                        console.warn(`Layered 2D scene ${sceneIdx + 1} skipped for retry:`, err.message);
+                    } finally {
+                        doneCount++;
+                        if (onProgress) onProgress(doneCount, cleanBeats.length);
+                    }
+                })
+            );
+        }
+
+        // Single retry pass for any scene that didn't parse cleanly on the first wave
+        const stillMissing = missingIndices.filter((idx) => !results[idx]);
+        for (const idx of stillMissing) {
+            try {
+                const retryBuilt = await fetchSingleScene(idx);
+                if (retryBuilt) {
+                    results[idx] = retryBuilt;
+                    const key = `layered-2d-v1:${tone}:${hashString(title + '|' + idx + '|' + cleanBeats[idx] + '|' + cleanBeats.length)}`;
+                    caches.images.set(key, retryBuilt);
                 }
             } catch (err) {
                 if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
@@ -2512,6 +2814,7 @@ Trả về JSON object có đúng các trường:
         auditScriptPolicyAndFacts,
         generateCustomSceneSvgs,
         generateCustomPropSvgs,
+        generateLayeredAiScenes,
         generateMultiBeatStoryboard,
         buildLocalSocialCaption,
         generateSocialCaption,

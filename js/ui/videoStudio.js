@@ -422,7 +422,7 @@
 
         const titleEl = document.getElementById('vs-title');
         const mode = document.getElementById('vs-import-mode')?.value || 'preserve';
-        const visualStyle = document.getElementById('vs-visual-style')?.value || 'motion';
+        const visualStyle = document.getElementById('vs-visual-style')?.value || 'ai-layered-2d';
 
         if (btnDump) btnDump.disabled = true;
         if (btnAuto) btnAuto.disabled = true;
@@ -779,7 +779,7 @@
         const ttsEngine = document.getElementById('vs-tts-engine')?.value || 'live-3.8';
         const speedRate = parseFloat(document.getElementById('vs-speed')?.value || '1.0') || 1.0;
         const bgmStyle = document.getElementById('vs-bgm')?.value || 'upbeat';
-        const visualStyle = document.getElementById('vs-visual-style')?.value || 'motion';
+        const visualStyle = document.getElementById('vs-visual-style')?.value || 'ai-layered-2d';
         const showSubtitles = document.getElementById('vs-subtitles')?.value === 'on';
         const scenePacing = document.getElementById('vs-scene-pacing')?.value || 'balanced';
         const imageSourceMode = document.getElementById('vs-image-source')?.value || 'stock';
@@ -1099,6 +1099,7 @@
             const sceneImageObjs = new Array(flatBeats.length).fill(null);
             const sceneCustomHeroImgs = new Array(flatBeats.length).fill(null);
             const sceneCustomPhase2Imgs = new Array(flatBeats.length).fill(null);
+            const sceneLayeredData = new Array(flatBeats.length).fill(null);
             const sceneStyleOverrides = new Array(flatBeats.length).fill(visualStyle);
             const artThemePool = App.motionGraphics?.ART_THEMES || ['comic-pop', 'bauhaus-geo', 'paper-cutout', 'neon-grid', 'editorial-zine'];
             const videoArtTheme = artThemePool[hashString(`${videoTitle}|${storyTone}`) % artThemePool.length];
@@ -1117,7 +1118,65 @@
                 );
             };
 
-            if (visualStyle === 'ai-svg') {
+            if (visualStyle === 'ai-layered-2d') {
+                updateStudioProgress(60, `AI đang tự sáng tác thế giới hoạt hình 2D đa lớp riêng cho ${flatBeats.length} cảnh...`);
+                const layeredSpecs = await App.geminiApi.generateLayeredAiScenes({
+                    title: videoTitle,
+                    beats: flatBeats.map((b) => b.text),
+                    tone: storyTone,
+                    signal,
+                    onProgress: (done, total) => {
+                        const pct = 60 + Math.round((done / Math.max(1, total)) * 32);
+                        updateStudioProgress(pct, `AI đang vẽ bối cảnh & chuyển động riêng cảnh ${done}/${total}...`);
+                    }
+                });
+
+                await Promise.all(
+                    flatBeats.map(async (_, idx) => {
+                        const spec = Array.isArray(layeredSpecs) ? layeredSpecs[idx] : null;
+                        if (!spec || (!spec.bgUrl && !spec.heroUrl)) {
+                            sceneStyleOverrides[idx] = 'motion';
+                            return;
+                        }
+                        const safeLoad = async (url) => {
+                            if (!url) return null;
+                            try {
+                                return await App.mediaEngine.loadImageFromUrl(url);
+                            } catch (_) {
+                                return null;
+                            }
+                        };
+                        const [bgImg, heroImg, stage2Img] = await Promise.all([
+                            safeLoad(spec.bgUrl),
+                            safeLoad(spec.heroUrl),
+                            safeLoad(spec.stage2Url)
+                        ]);
+                        if (!bgImg && !heroImg) {
+                            sceneStyleOverrides[idx] = 'motion';
+                            return;
+                        }
+                        sceneLayeredData[idx] = {
+                            bgImg,
+                            heroImg,
+                            stage2Img,
+                            heroMotion: spec.heroMotion || 'float',
+                            stage2Motion: spec.stage2Motion || 'pop-burst',
+                            cameraMove: spec.cameraMove || 'zoomIn',
+                            particleFx: spec.particleFx || 'none',
+                            emphasisWords: spec.emphasisWords || '',
+                            isDarkBg: Boolean(spec.isDarkBg),
+                            showHost: Boolean(spec.showHost)
+                        };
+                    })
+                );
+
+                const aiOkCount = sceneLayeredData.filter(Boolean).length;
+                if (aiOkCount === 0) {
+                    App.toast.show('AI vẽ đa lớp tạm quá tải → tự động dựng Hoạt Hình 2D Đạo Diễn khớp giọng đọc.', 'warning');
+                } else if (aiOkCount < flatBeats.length) {
+                    App.toast.show(`AI đã vẽ độc bản ${aiOkCount}/${flatBeats.length} cảnh (${flatBeats.length - aiOkCount} cảnh dự phòng).`, 'info');
+                }
+            } else if (visualStyle === 'ai-svg') {
                 if (hasApiKey) {
                     updateStudioProgress(62, `AI đang vẽ ${flatBeats.length} tranh minh họa độc bản khớp từng câu nói...`);
                     const svgUrls = await App.geminiApi.generateCustomSceneSvgs({
@@ -1310,6 +1369,7 @@
                     imageObj: sceneImageObjs[beatIdx],
                     customHeroImg: sceneCustomHeroImgs[beatIdx],
                     customPhase2Img: sceneCustomPhase2Imgs[beatIdx],
+                    layeredAiScene: sceneLayeredData[beatIdx],
                     speechPivot,
                     audioBuffer,
                     playbackRate: speedRate,
