@@ -2733,20 +2733,56 @@
         ctx.restore();
     }
 
+    function drawNarratorCameo(ctx, cx, cy, t, mood = 'happy', audioLevel = 0, cast = 'narrator') {
+        const prof = CAST_PROFILES[cast] || CAST_PROFILES.narrator;
+        const talkBounce = 1 + audioLevel * 0.05;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(talkBounce, talkBounce);
+
+        // Soft shadow + speaking aura ring
+        if (audioLevel > 0.25) {
+            ctx.strokeStyle = `rgba(37, 99, 235, ${Math.min(0.6, audioLevel * 0.65)})`;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(0, 0, 56 + audioLevel * 7, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, 52, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(0, 0, 49, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.fillStyle = '#e0f2fe';
+        ctx.fillRect(-52, -52, 104, 104);
+        drawOutlinedRect(ctx, -32, 16, 64, 42, 16, prof.shirt, '#1e293b', 2.4, false);
+        drawCharacterHead(ctx, 0, 2, t, mood, audioLevel, cast);
+        ctx.restore();
+
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, 52, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+
     function drawHeroSubject(ctx, scene, propId, cx, cy, scale, progress, t, audioLevel, screenType, allowCustomHero = true) {
         if (scale <= 0.02) return;
         const customImg = allowCustomHero ? scene?.customHeroImg : null;
         if (customImg) {
             ctx.save();
             ctx.translate(cx, cy + Math.sin(t * 2.5) * 3.5);
-            const dynScale = scale * (1 + audioLevel * 0.045);
+            const dynScale = scale * (1 + audioLevel * 0.04);
             ctx.scale(dynScale, dynScale);
-            // Soft grounded studio halo behind custom AI vector prop
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
-            ctx.beginPath();
-            ctx.ellipse(0, 88, 110, 22, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.drawImage(customImg, -140, -140, 280, 280);
+            ctx.drawImage(customImg, -155, -185, 310, 370);
             ctx.restore();
             return;
         }
@@ -2836,6 +2872,32 @@
         const pop1 = stagePop(progress, 0.02, 0.18);
         const pop2 = stagePop(progress, 0.14, 0.18);
         const pop3 = stagePop(progress, 0.36, 0.18);
+
+        // Priority Stage: when AI generated an exact full-scene 2D illustration for this spoken sentence,
+        // showcase it prominently on center stage alongside a real-time lip-syncing narrator cameo!
+        if (visualStyle !== 'ui-motion' && scene?.customHeroImg) {
+            const camZoom = 1 + easeOutCubic(progress) * 0.045 + audioLevel * 0.015;
+            ctx.save();
+            ctx.translate(270, 420);
+            ctx.scale(pop1 * camZoom, pop1 * camZoom);
+            drawOutlinedRect(ctx, -236, -290, 472, 574, 28, '#ffffff', '#1e293b', 3.5, true);
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(-230, -284, 460, 562, 24);
+            ctx.clip();
+            ctx.drawImage(scene.customHeroImg, -230, -284, 460, 562);
+            ctx.restore();
+            ctx.restore();
+
+            if (cue.crossOut && progress > pivot * 0.7) {
+                drawRedCross(ctx, 270, 420, 128, stagePop(progress, pivot * 0.7, 0.16));
+            }
+            drawPhase2Overlay(ctx, phase2Effect, pivot, progress, t, audioLevel);
+            drawNarratorCameo(ctx, 456, 738, t, mood, audioLevel, cast);
+            drawComicReaction(ctx, 392, 690, mood, audioLevel, t);
+            drawAmbientEffects(ctx, effect, t, audioLevel);
+            return;
+        }
 
         switch (cue.layout) {
             case 'wide-team': {

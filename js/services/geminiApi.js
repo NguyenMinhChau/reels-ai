@@ -596,14 +596,27 @@ ${cleanTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
         // Escape bare ampersands so SVG XML never fails to parse
         s = s.replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
 
-        if (!/\bxmlns=/.test(s)) {
-            s = s.replace(/^<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
-        }
-        if (!/\bviewBox=/.test(s)) {
-            s = s.replace(/^<svg\b/i, `<svg viewBox="${defaultViewBox}"`);
-        }
-        if (!/\bwidth=/.test(s)) {
-            s = s.replace(/^<svg\b/i, `<svg width="${defaultW}" height="${defaultH}"`);
+        // Enforce explicit pixel dimensions on root <svg> (Safari/WebKit skips relative % SVGs in canvas.drawImage)
+        s = s.replace(/^(<svg\b[^>]*>)/i, (openTag) => {
+            let tag = openTag
+                .replace(/\s+(?:width|height)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+            if (!/\bxmlns=/.test(tag)) {
+                tag = tag.replace(/^<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+            }
+            if (!/\bviewBox=/.test(tag)) {
+                tag = tag.replace(/^<svg\b/i, `<svg viewBox="${defaultViewBox}"`);
+            }
+            return tag.replace(/^<svg\b/i, `<svg width="${defaultW}" height="${defaultH}"`);
+        });
+
+        // Reject malformed XML before turning into data:image/svg+xml
+        if (typeof global.DOMParser !== 'undefined') {
+            try {
+                const doc = new global.DOMParser().parseFromString(s, 'image/svg+xml');
+                if (doc.querySelector('parsererror')) return '';
+            } catch (_) {
+                return '';
+            }
         }
         return s;
     }
@@ -614,13 +627,13 @@ ${cleanTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
 
         const subjects = cleanBeats.map((text, idx) => {
             const sb = Array.isArray(storyboard) ? storyboard[idx] : null;
-            return (sb && sb.visualSubject) ? sb.visualSubject : text;
+            return sb && sb.visualSubject ? `${text} (Trọng tâm hình ảnh: ${sb.visualSubject})` : text;
         });
 
         const results = new Array(cleanBeats.length).fill('');
         const missingIndices = [];
         cleanBeats.forEach((sc, idx) => {
-            const key = `prop-svg-v1:${hashString(title + '|' + idx + '|' + sc + '|' + subjects[idx])}`;
+            const key = `scene-svg-v2:${hashString(title + '|' + idx + '|' + sc + '|' + subjects[idx])}`;
             if (caches.images.has(key)) {
                 results[idx] = caches.images.get(key);
             } else {
@@ -630,56 +643,75 @@ ${cleanTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
 
         if (missingIndices.length === 0) return results;
 
-        const BATCH_SIZE = 3;
+        const buildScenePrompt = (indices) => {
+            const itemLines = indices
+                .map((idx) => `- Cảnh ${idx + 1}: GIỌNG ĐỌC NÓI CHÍNH XÁC: "${cleanBeats[idx]}"\n  -> YÊU CẦU VẼ: ${subjects[idx]}`)
+                .join('\n');
+            return `Bạn là Đạo diễn Họa sĩ Hoạt Hình 2D chuyên vẽ minh họa truyện kể theo TỪNG CÂU NÓI (phong cách Flat Cel-Shaded Cartoon hiện đại, sắc nét như video giải thích triệu view).
+Tiêu đề video: "${title}".
+
+NHIỆM VỤ BẮT BUỘC: Giọng đọc nói gì, BẮT BUỘC PHẢI VẼ ĐÚNG BỐI CẢNH, NHÂN VẬT ĐANG HÀNH ĐỘNG VÀ ĐỒ VẬT ĐÓ LÊN TRANH! TUYỆT ĐỐI KHÔNG vẽ chung chung hay lệch sang đồ vật khác!
+${itemLines}
+
+YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
+1. Trả về mảng JSON đúng ${indices.length} chuỗi SVG theo đúng thứ tự, mỗi chuỗi là <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 560" width="460" height="560">...</svg> hợp lệ XML.
+2. MÔ TẢ CỤ THỂ ĐẦY KHUNG 460x560: Vẽ đầy đủ bối cảnh nền hài hòa, nhân vật đang làm ĐÚNG hành động trong câu nói (VD: đang ngồi gù lưng sát màn hình với cột sống cong đỏ đau nhói; đang giơ ví da rỗng tuếch có tiền bay ra; đang mở cửa ngăn đá tủ lạnh lấy chai nhựa đựng hành lá; đang đứng vươn vai giãn cơ bên cạnh ghế; đang đi xe máy dưới mưa kẹt xe), chi tiết rõ ràng với 15–30 hình khối/path cel-shaded, viền đậm stroke="#1e293b" stroke-width="4" stroke-linejoin="round".
+3. TUYỆT ĐỐI KHÔNG dùng thẻ <text> hay viết bất kỳ chữ tiếng Việt/ký tự chữ nào vào trong SVG; kể chuyện 100% bằng hình ảnh hành động và biểu tượng; mọi ký tự "&" viết là "&amp;".`;
+        };
+
+        const fetchSvgChunk = async (indices) => {
+            const payload = {
+                contents: [{ parts: [{ text: buildScenePrompt(indices) }] }],
+                generationConfig: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: 'ARRAY',
+                        items: { type: 'STRING' }
+                    }
+                }
+            };
+            const res = await fetchTextWithFallback(payload, { signal });
+            const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const parsed = JSON.parse(raw);
+            const svgList = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.svgs) ? parsed.svgs : null;
+            if (Array.isArray(svgList)) {
+                indices.forEach((sceneIdx, pos) => {
+                    const clean = sanitizeAndWrapSvg(svgList[pos], '0 0 460 560', 460, 560);
+                    if (clean) {
+                        const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clean)}`;
+                        results[sceneIdx] = dataUrl;
+                        const key = `scene-svg-v2:${hashString(title + '|' + sceneIdx + '|' + cleanBeats[sceneIdx] + '|' + subjects[sceneIdx])}`;
+                        caches.images.set(key, dataUrl);
+                    }
+                });
+            }
+        };
+
+        const BATCH_SIZE = 2;
         for (let b = 0; b < missingIndices.length; b += BATCH_SIZE) {
             if (signal && signal.aborted) {
                 throw new DOMException('Aborted', 'AbortError');
             }
             const chunkIndices = missingIndices.slice(b, b + BATCH_SIZE);
-            const itemLines = chunkIndices
-                .map((idx) => `- Cảnh ${idx + 1}: Lời nói "${cleanBeats[idx]}" -> Vật thể/hình ảnh chính cần vẽ: "${subjects[idx]}"`)
-                .join('\n');
-
-            const prompt = `Bạn là họa sĩ Vector 2D chuyên vẽ minh họa hoạt hình phẳng hiện đại (cel-shaded cartoon vector, viền đậm #1e293b).
-Chủ đề video: "${title}".
-Hãy vẽ ${chunkIndices.length} icon/cụm minh họa SVG TRONG SUỐT (KHÔNG nền chữ nhật bao ngoài) khắc họa CHÍNH XÁC từng câu nói sau:
-${itemLines}
-
-YÊU CẦU KỸ THUẬT:
-1. Mỗi phần tử trả về là 1 chuỗi <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" width="320" height="320">...</svg> hợp lệ XML.
-2. NỀN TRONG SUỐT 100%: TUYỆT ĐỐI không vẽ hình chữ nhật nền to kín 320x320; vật thể nằm cân đối ở giữa khung (vùng 35..285) với 8–20 path/circle/rect chi tiết, viền đậm stroke="#1e293b" stroke-width="4.5" stroke-linejoin="round", màu tươi tắn có bóng đổ & vệt sáng cel-shade.
-3. KHỚP TỪNG CHI TIẾT CÂU NÓI: Ví dụ nhắc "ghế công thái học 5 củ" phải vẽ đúng chiếc ghế lưới công thái học có tựa đầu + bánh xe + thẻ giá; nhắc "ví xẹp lép bay tiền" phải vẽ ví da rỗng mở toang + đồng xu bay; nhắc "cột sống cong/gù lưng" phải vẽ xương sống uốn cong cảnh báo đỏ + laptop; nhắc "vươn vai 5 phút" phải vẽ người đứng giơ tay giãn cơ + đồng hồ.
-4. TUYỆT ĐỐI KHÔNG dùng thẻ <text>, không viết chữ lên hình; mọi ký tự "&" viết là "&amp;".`;
-
             try {
-                const payload = {
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        responseMimeType: 'application/json',
-                        responseSchema: {
-                            type: 'ARRAY',
-                            items: { type: 'STRING' }
-                        }
-                    }
-                };
-                const res = await fetchTextWithFallback(payload, { signal });
-                const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
-                const parsed = JSON.parse(raw);
-                const svgList = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.svgs) ? parsed.svgs : null;
-                if (Array.isArray(svgList)) {
-                    chunkIndices.forEach((sceneIdx, pos) => {
-                        const clean = sanitizeAndWrapSvg(svgList[pos], '0 0 320 320', 320, 320);
-                        if (clean) {
-                            const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clean)}`;
-                            results[sceneIdx] = dataUrl;
-                            const key = `prop-svg-v1:${hashString(title + '|' + sceneIdx + '|' + cleanBeats[sceneIdx] + '|' + subjects[sceneIdx])}`;
-                            caches.images.set(key, dataUrl);
-                        }
-                    });
-                }
+                await fetchSvgChunk(chunkIndices);
             } catch (err) {
                 if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
-                console.warn('Custom prop SVG batch fallback:', err.message);
+                console.warn('Custom scene SVG batch retry needed:', err.message);
+            }
+        }
+
+        // Single-beat retry pass for any scene whose batch failed or emitted invalid XML
+        const stillMissing = missingIndices.filter((idx) => !results[idx]);
+        for (const idx of stillMissing) {
+            if (signal && signal.aborted) {
+                throw new DOMException('Aborted', 'AbortError');
+            }
+            try {
+                await fetchSvgChunk([idx]);
+            } catch (err) {
+                if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+                console.warn(`Scene SVG single retry skipped (${idx + 1}):`, err.message);
             }
         }
 

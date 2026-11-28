@@ -897,19 +897,24 @@
 
             const customHeroImgs = new Array(flatBeats.length).fill(null);
             if (visualStyle === 'motion' || visualStyle === 'ui-motion') {
-                updateStudioProgress(78, `Đang vẽ minh họa 2D khớp từng câu thoại & đồng bộ nhịp âm thanh...`);
+                updateStudioProgress(78, `Đang vẽ cảnh hoạt hình 2D khớp từng câu thoại (${flatBeats.length} cảnh)...`);
                 const customSvgUrls = await customPropSvgsPromise;
+                let drawnCount = 0;
                 if (Array.isArray(customSvgUrls) && customSvgUrls.length > 0) {
                     await Promise.all(
                         customSvgUrls.map(async (url, idx) => {
                             if (!url || idx >= flatBeats.length) return;
                             try {
                                 customHeroImgs[idx] = await App.mediaEngine.loadImageFromUrl(url);
+                                drawnCount++;
                             } catch (_) {
                                 customHeroImgs[idx] = null;
                             }
                         })
                     );
+                }
+                if (hasApiKey && drawnCount === 0) {
+                    App.toast.show('AI vẽ cảnh tạm quá tải → đang dùng hoạt hình 2D dựng sẵn khớp chủ đề.', 'warning');
                 }
             }
 
