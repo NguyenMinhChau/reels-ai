@@ -13,6 +13,8 @@
     let isDirty = true;
     let lastSignature = '';
     let dumpAbortController = null;
+    let trendsAbortController = null;
+    let cachedTrendItems = [];
     let hasAutoDumpedThisSession = false;
 
     function getFilteredTemplates(state) {
@@ -223,6 +225,121 @@
         handleDumpFreshScripts({ isAuto: true });
     }
 
+    function renderDailyTrends(result) {
+        const grid = document.getElementById('daily-trends-grid');
+        const dateBadge = document.getElementById('daily-trends-date-badge');
+        if (!grid) return;
+
+        const items = Array.isArray(result?.items) ? result.items : [];
+        cachedTrendItems = items;
+
+        if (dateBadge) {
+            dateBadge.textContent = result?.grounded
+                ? `${result.dateDisplay} • Đã đối chiếu Google Search`
+                : `${result?.dateDisplay || 'Hôm nay'} • Tổng hợp an toàn`;
+        }
+
+        if (items.length === 0) {
+            grid.innerHTML =
+                '<div class="col-span-full text-xs text-slate-500 dark:text-slate-400 p-4 text-center rounded-xl bg-white/80 dark:bg-slate-900 border border-dashed border-sky-200 dark:border-slate-700">Chưa có tin nổi bật nào được trả về, bấm "Cập nhật mới" để thử lại.</div>';
+            return;
+        }
+
+        const frag = document.createDocumentFragment();
+        items.forEach((item, idx) => {
+            const card = document.createElement('article');
+            card.className =
+                'min-w-0 bg-white dark:bg-slate-900 rounded-xl border border-sky-200/80 dark:border-slate-700 p-3.5 flex flex-col justify-between gap-2.5 shadow-sm card-hover';
+            const badge = CATEGORY_BADGES[item.category] || CATEGORY_BADGES.lifehack;
+            const safeSourcesHtml = (item.sources || [])
+                .filter((s) => /^https?:\/\//i.test(s?.url || ''))
+                .slice(0, 2)
+                .map(
+                    (s) =>
+                        `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-sky-100 text-[10px] font-semibold text-sky-700 dark:text-sky-300 max-w-full truncate"><i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i><span class="truncate">${escapeHtml(s.title)}</span></a>`
+                )
+                .join('');
+
+            card.innerHTML = `
+                <div class="space-y-1.5 min-w-0">
+                    <div class="flex items-center justify-between gap-2 flex-wrap">
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold border ${badge.cls}">${badge.label}</span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                            <i class="fa-solid fa-shield-check mr-0.5"></i>An toàn chính sách
+                        </span>
+                    </div>
+                    <h4 class="font-extrabold text-sm text-slate-900 dark:text-white leading-snug">${escapeHtml(item.title)}</h4>
+                    <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">${escapeHtml(item.factSummary)}</p>
+                    <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                        <i class="fa-regular fa-newspaper mr-1"></i>Nguồn: ${escapeHtml(item.sourceNote || 'Tổng hợp chính thống')}
+                    </p>
+                    ${safeSourcesHtml ? `<div class="flex flex-wrap gap-1 pt-0.5">${safeSourcesHtml}</div>` : ''}
+                </div>
+                <div class="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button type="button" data-trend-action="studio" data-trend-idx="${idx}" class="flex-1 py-2 px-2.5 rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-clapperboard"></i><span>Dựng Video 2D</span>
+                    </button>
+                    <button type="button" data-trend-action="save" data-trend-idx="${idx}" class="py-2 px-3 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition cursor-pointer">
+                        <i class="fa-solid fa-bookmark mr-1 text-amber-500"></i>Lưu
+                    </button>
+                </div>
+            `;
+            frag.appendChild(card);
+        });
+        grid.innerHTML = '';
+        grid.appendChild(frag);
+    }
+
+    async function handleFetchDailyTrends({ forceRefresh = false } = {}) {
+        const panel = document.getElementById('daily-trends-panel');
+        const btnOpen = document.getElementById('btn-fetch-daily-trends');
+        const btnRefresh = document.getElementById('btn-refresh-daily-trends');
+        const grid = document.getElementById('daily-trends-grid');
+        const niche = document.getElementById('daily-trend-niche')?.value || 'all';
+        if (panel) panel.classList.remove('hidden');
+
+        if (trendsAbortController) trendsAbortController.abort();
+        trendsAbortController = new AbortController();
+
+        if (btnOpen) btnOpen.disabled = true;
+        if (btnRefresh) btnRefresh.disabled = true;
+        if (grid) {
+            grid.innerHTML =
+                '<div class="col-span-full p-5 text-center text-xs font-bold text-sky-800 dark:text-sky-200"><i class="fa-solid fa-spinner fa-spin mr-1.5"></i>Đang tìm tin nóng &amp; xu hướng mới nhất hôm nay qua Google Search...</div>';
+        }
+
+        try {
+            const res = await App.geminiApi.fetchDailyTrendsAndNews({
+                niche,
+                forceRefresh,
+                signal: trendsAbortController.signal
+            });
+            renderDailyTrends(res);
+            App.toast.show(`Đã cập nhật ${res.items.length} tin tức/trend mới nhất hôm nay!`);
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            if (err.code === 'INVALID_API_KEY') {
+                if (grid) {
+                    grid.innerHTML =
+                        '<div class="col-span-full p-4 text-center text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 rounded-xl">Hãy nhập Gemini API Key để cập nhật tin tức &amp; trend trực tiếp từ Google Search mỗi ngày.</div>';
+                }
+                App.toast.show(err.message, 'warning', {
+                    actionLabel: 'Cài Key',
+                    onAction: () => App.modals.openSettingsModal()
+                });
+            } else {
+                if (grid) {
+                    grid.innerHTML = `<div class="col-span-full p-4 text-center text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/30 rounded-xl">${escapeHtml(err.message || 'Không thể tải tin tức hôm nay.')}</div>`;
+                }
+                App.toast.show(err.message || 'Lỗi tải tin tức hôm nay.', 'error');
+            }
+        } finally {
+            if (btnOpen) btnOpen.disabled = false;
+            if (btnRefresh) btnRefresh.disabled = false;
+            trendsAbortController = null;
+        }
+    }
+
     function init() {
         // Delegated Category Filter clicks
         document.getElementById('category-filter-bar')?.addEventListener('click', (e) => {
@@ -279,6 +396,44 @@
                 if (App.store.removeTemplate(id)) {
                     App.toast.show('Đã xóa ý tưởng khỏi kho.', 'info');
                 }
+            }
+        });
+
+        document.getElementById('btn-fetch-daily-trends')?.addEventListener('click', () => handleFetchDailyTrends({ forceRefresh: false }));
+        document.getElementById('btn-refresh-daily-trends')?.addEventListener('click', () => handleFetchDailyTrends({ forceRefresh: true }));
+        document.getElementById('daily-trend-niche')?.addEventListener('change', () => handleFetchDailyTrends({ forceRefresh: false }));
+        document.getElementById('btn-close-trends-panel')?.addEventListener('click', () => {
+            document.getElementById('daily-trends-panel')?.classList.add('hidden');
+        });
+        document.getElementById('daily-trends-grid')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-trend-action]');
+            if (!btn) return;
+            const idx = parseInt(btn.dataset.trendIdx, 10);
+            const item = cachedTrendItems[idx];
+            if (!item) return;
+            if (btn.dataset.trendAction === 'studio') {
+                App.videoStudio.open({
+                    title: item.title,
+                    scenes: item.scenes,
+                    hashtags: item.hashtags || ''
+                });
+            } else if (btn.dataset.trendAction === 'save') {
+                const body = (item.scenes || []).slice(1, -1).map((s) => `• ${s}`).join('\n') || item.factSummary;
+                const cta = (item.scenes || [])[item.scenes.length - 1] || 'Theo dõi để cập nhật tin mới mỗi ngày!';
+                const added = App.store.prependTemplates([
+                    {
+                        title: item.title,
+                        category: item.category || 'lifehack',
+                        duration: '30s',
+                        viralScore: '96%',
+                        hook: item.hook || item.scenes[0] || item.title,
+                        body,
+                        cta,
+                        hashtags: item.hashtags || '#tinnong #reelsvn'
+                    }
+                ]);
+                if (added > 0) App.toast.show('Đã lưu kịch bản tin nóng vào Kho!');
+                else App.toast.show('Kịch bản này đã có trong Kho.', 'info');
             }
         });
 

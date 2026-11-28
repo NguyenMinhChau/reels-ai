@@ -274,11 +274,15 @@
     ];
 
     const TONE_GUIDES = {
-        viral: 'Phong cách TRIỆU VIEW BẮT TREND: Hook cực gắt dưới 15 từ đánh thẳng vào sai lầm/bí mật/con số sốc; văn nói đời thường gãy gọn ("Khoan đã...", "Nghe vô lý nhưng...", "90% người làm sai..."); có bước ngoặt bất ngờ ở cảnh cuối; CTA đặt câu hỏi kích thích bình luận tranh luận nhẹ.',
-        funny: 'Phong cách HÀI XÉO XẮT / GEN Z: Tự trào, lầy lội, hơi phũ nhưng đúng tim đen; câu ngắn tung hứng duyên dáng kiểu nói chuyện với bạn thân; CTA rủ bạn bè vào điểm danh hoặc tag nhau.',
-        drama: 'Phong cách CẢNH BÁO / KỊCH TÍNH: Mở đầu khẩn cấp gây chú ý ngay ("Dừng lại 3 giây nếu bạn đang..."); chỉ rõ rủi ro mất tiền/hại sự nghiệp/hại sức khỏe; giải pháp dứt khoát; CTA nhắc gửi ngay cho đồng nghiệp hoặc người thân.',
-        healing: 'Phong cách TÂM SỰ / CHỮA LÀNH: Thủ thỉ gần gũi, chạm đúng nỗi lòng người đi làm/người trẻ; hình ảnh đời thường ấm áp; CTA tạo cảm giác được lắng nghe và muốn lưu lại.'
+        viral: 'Phong cách TRIỆU VIEW BẮT TREND: Hook cực gắt dưới 15 từ đánh thẳng vào sai lầm/bí mật/tình huống thực tế; văn nói đời thường gãy gọn ("Khoan đã...", "Nghe vô lý nhưng..."); có bước ngoặt bất ngờ ở cảnh cuối; CTA đặt câu hỏi kích thích bình luận.',
+        funny: 'Phong cách HÀI XÉO XẮT / GEN Z: Tự trào, lầy lội, duyên dáng nhưng văn minh; câu ngắn tung hứng với bạn thân; CTA rủ bạn bè vào điểm danh.',
+        drama: 'Phong cách CẢNH BÁO / KỊCH TÍNH: Mở đầu khẩn cấp gây chú ý ("Dừng lại 3 giây nếu bạn đang..."); chỉ rõ rủi ro mất tiền/sức khỏe có căn cứ thực tế; giải pháp an toàn; CTA nhắc người thân lưu ý.',
+        healing: 'Phong cách TÂM SỰ / CHỮA LÀNH: Thủ thỉ gần gũi, chạm đúng nỗi lòng người đi làm/người trẻ; hình ảnh đời thường ấm áp; CTA tạo cảm giác được lắng nghe.'
     };
+
+    const CREATOR_ETHICS_AND_POLICY_RULE = `NGUYÊN TẮC CREATOR CHUYÊN NGHIỆP (BẮT BUỘC TUÂN THỦ):
+- CHỐNG TIN GIẢ & SAI SỰ THẬT: Tuyệt đối KHÔNG tự bịa số liệu thống kê, tỷ lệ phần trăm giả ("98,7% chuyên gia...", "Đại học X vừa công bố...") hay trích dẫn nghiên cứu không có thật; nếu chia sẻ mẹo/kinh nghiệm, diễn đạt trung thực ("nhiều người thường gặp", "một thói quen hữu ích", "theo kinh nghiệm thực tế").
+- TUÂN THỦ CHÍNH SÁCH FACEBOOK REELS / TIKTOK / YOUTUBE SHORTS: Tuyệt đối KHÔNG cam kết chữa bệnh 100%, KHÔNG hứa làm giàu phi thực tế ("lãi 100%, không rủi ro"), KHÔNG kích động thù ghét/bạo lực, KHÔNG dụ tương tác spam ("tag 5 người nhận quà", "không follow sẽ xui").`;
 
     async function dumpFreshScripts({ existingTitles, category, categoryLabel, customTopic = '', tone = 'viral', count = 5, signal }) {
         return dedupedCall(`dumpScripts:${category}:${hashString(customTopic)}`, async () => {
@@ -306,6 +310,7 @@
             const prompt = `Bạn là Creative Director chuyên viết kịch bản Facebook Reels / TikTok triệu view tại Việt Nam với nguồn ý tưởng vô tận.
 Hãy sáng tạo ĐÚNG ${targetCount} kịch bản Reels hoàn toàn MỚI LẠ, ĐỜI THỰC, ĐỌC LÊN NGHE NHƯ NGƯỜI THẬT KỂ CHUYỆN (tuyệt đối CẤM văn phong sách giáo khoa hay sáo rỗng).
 ${toneRule}
+${CREATOR_ETHICS_AND_POLICY_RULE}
 ${categoryContext}
 QUY TẮC BẮT BUỘC:
 - Tuyệt đối KHÔNG trùng ý tưởng hoặc mô-típ với các tiêu đề đã có: [${existingTitles.slice(0, 80).join('; ')}].
@@ -358,6 +363,7 @@ QUY TẮC BẮT BUỘC:
         const prompt = `Bạn là biên kịch triệu view chuyên viết lời bình (voice-over) nhiều phân cảnh cho Facebook Reels / TikTok tại Việt Nam.
 Hãy viết lại & mở rộng kịch bản sau thành đúng ${count} đoạn lời thoại (từng cảnh ngắn nối tiếp nhau) VĂN NÓI ĐỜI THƯỜNG thật cuốn, có cao trào, nghe như người thật đang kể chuyện cho bạn thân (TUYỆT ĐỐI CẤM giọng văn sách giáo khoa, báo chí hay chỉ đạo quay phim).
 ${toneRule}
+${CREATOR_ETHICS_AND_POLICY_RULE}
 
 Tiêu đề: "${title}"
 Ý tưởng gốc:
@@ -1771,6 +1777,239 @@ YÊU CẦU ĐẦU RA:
         return fallback;
     }
 
+    function safeExtractJsonFromText(rawText) {
+        const raw = String(rawText || '').trim();
+        if (!raw) return null;
+        const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+        try {
+            return JSON.parse(cleaned);
+        } catch (_) {
+            const arrMatch = cleaned.match(/\[[\s\S]*\]/);
+            if (arrMatch) {
+                try {
+                    return JSON.parse(arrMatch[0]);
+                } catch (__) {}
+            }
+            const objMatch = cleaned.match(/\{[\s\S]*\}/);
+            if (objMatch) {
+                try {
+                    return JSON.parse(objMatch[0]);
+                } catch (__) {}
+            }
+        }
+        return null;
+    }
+
+    function quickLocalPolicyScan(rawText) {
+        const text = String(rawText || '').trim();
+        if (!text) return { status: 'safe', flags: [] };
+
+        const rules = [
+            {
+                rx: /chữa (?:khỏi|dứt điểm|tận gốc|bách bệnh)|thần dược|cam kết khỏi 100%|bác sĩ giấu/i,
+                msg: 'Khẳng định công dụng y tế tuyệt đối ("chữa dứt điểm / 100%") dễ bị quét hạn chế quảng cáo & sai sự thật y khoa.'
+            },
+            {
+                rx: /cam kết lãi|x\d+ tài khoản|làm giàu sau 1 đêm|thu nhập thụ động 100%|không (?:có )?rủi ro|lãi suất \d{2,}%/i,
+                msg: 'Nội dung hứa hẹn lợi nhuận / tài chính phi thực tế dễ vi phạm chính sách lừa đảo tài chính.'
+            },
+            {
+                rx: /tag (?:ngay )?\d+ người|không (?:follow|chia sẻ|share) sẽ|nhấn (?:vào )?link nhận tiền|chuyển khoản nhận quà/i,
+                msg: 'Dụ tương tác (engagement bait) hoặc điều hướng link quà tặng dễ bị bóp reach / hạn chế phân phối.'
+            },
+            {
+                rx: /chấn động cả nước|100% sự thật bị che|9\d[.,]\d+% (?:người|chuyên gia|bác sĩ)|tuyệt mật chưa ai biết/i,
+                msg: 'Giật tít hoặc trích dẫn số liệu % quá chính xác không nguồn dễ bị gắn cờ tin sai lệch.'
+            }
+        ];
+
+        const flags = [];
+        rules.forEach((r) => {
+            const m = text.match(r.rx);
+            if (m) flags.push(`${r.msg} ("${m[0]}")`);
+        });
+        return {
+            status: flags.length >= 2 ? 'risk' : flags.length === 1 ? 'caution' : 'safe',
+            flags
+        };
+    }
+
+    async function fetchDailyTrendsAndNews({ niche = 'all', forceRefresh = false, signal } = {}) {
+        const now = new Date();
+        const todayIso = now.toISOString().slice(0, 10);
+        const todayDisplay = now.toLocaleDateString('vi-VN', {
+            weekday: 'long',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+
+        const nicheMap = {
+            all: 'tin tức nổi bật, xu hướng đời sống, công nghệ và mạng xã hội tại Việt Nam',
+            tech: 'tin tức công nghệ mới, AI, bảo mật mạng và tiện ích số nổi bật tại Việt Nam và thế giới',
+            finance: 'tin tức kinh tế, tiêu dùng thông minh, tài chính cá nhân và cảnh báo lừa đảo tại Việt Nam',
+            health: 'xu hướng sức khỏe đời sống, dinh dưỡng, thói quen tốt và lời khuyên y tế chính thống',
+            social: 'trend sáng tạo nội dung, văn hóa công sở, nghề nghiệp và kỹ năng sống giới trẻ Việt Nam'
+        };
+        const topicLabel = nicheMap[niche] || nicheMap.all;
+        const cacheKey = `daily-trends:${todayIso}:${niche}`;
+        if (!forceRefresh && caches.prompts.has(cacheKey)) {
+            return caches.prompts.get(cacheKey);
+        }
+
+        const prompt = `Hôm nay là ${todayDisplay} (ngày ${todayIso}).
+Hãy sử dụng Google Search để tìm ĐÚNG 4 tin tức hoặc xu hướng CÓ THẬT, MỚI NHẤT trong tuần/ngày hôm nay liên quan tới: ${topicLabel}.
+TUYỆT ĐỐI KHÔNG bịa đặt sự kiện hay số liệu; chỉ đưa tin đã được báo chí / nguồn uy tín công bố và an toàn với Chính sách Cộng đồng Facebook Reels / TikTok / YouTube Shorts (tránh tin giật gân sai lệch, tránh nội dung nhạy cảm/cấm).
+
+Trả về DUY NHẤT 1 mảng JSON hợp lệ (không giải thích thêm) gồm 4 phần tử, mỗi phần tử có đúng các trường:
+- "title": Tiêu đề kịch bản Reels ngắn gọn, thu hút nhưng trung thực sự thật.
+- "category": Chọn đúng 1 trong ["office", "career", "finance", "humor", "lifehack", "warning", "reminder", "music", "vlog", "bts"].
+- "factSummary": Tóm tắt ngắn 1-2 câu sự thật cốt lõi đã kiểm chứng (có ngày/bối cảnh thật).
+- "sourceNote": Tên nguồn báo chí / tổ chức phát hành tin nếu thấy từ kết quả tìm kiếm.
+- "hook": Câu mở đầu Reels 3 giây tự nhiên, KHÔNG bịa số liệu giả.
+- "scenes": Mảng 6 câu lời thoại ngắn (8–16 từ/câu) sẵn sàng dựng hoạt hình 2D.
+- "hashtags": 4-5 hashtag tiếng Việt không dấu.`;
+
+        const trySearchPayload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            tools: [{ googleSearch: {} }]
+        };
+
+        return dedupedCall(cacheKey, async () => {
+            const candidates = [MODELS.TEXT, ...(MODELS.TEXT_FALLBACKS || [])].filter(Boolean);
+            let lastErr = null;
+            for (const modelName of candidates) {
+                try {
+                    const res = await fetchGeminiWithRetry(modelName, trySearchPayload, { signal });
+                    const cand = res?.candidates?.[0];
+                    const rawText = cand?.content?.parts?.map((p) => p.text || '').join('\n') || '';
+                    const parsed = safeExtractJsonFromText(rawText);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        const chunks = cand?.groundingMetadata?.groundingChunks || [];
+                        const webSources = [];
+                        const seenUrls = new Set();
+                        chunks.forEach((ch) => {
+                            const uri = ch?.web?.uri;
+                            const st = ch?.web?.title;
+                            if (uri && !seenUrls.has(uri)) {
+                                seenUrls.add(uri);
+                                webSources.push({ title: String(st || uri).slice(0, 65), url: uri });
+                            }
+                        });
+
+                        const normalized = parsed.slice(0, 5).map((item, idx) => ({
+                            id: `trend-${todayIso}-${niche}-${idx}`,
+                            dateDisplay: todayDisplay,
+                            title: String(item.title || '').trim(),
+                            category: String(item.category || 'lifehack').trim(),
+                            factSummary: String(item.factSummary || '').trim(),
+                            sourceNote: String(item.sourceNote || 'Tổng hợp báo chí chính thống').trim(),
+                            hook: String(item.hook || '').trim(),
+                            scenes: Array.isArray(item.scenes) ? item.scenes.map((s) => String(s || '').trim()).filter(Boolean) : [],
+                            hashtags: String(item.hashtags || '#tinnong #reelsvn #xuhuong').trim(),
+                            sources: webSources.slice(0, 4),
+                            grounded: webSources.length > 0
+                        })).filter((x) => x.title && x.scenes.length >= 2);
+
+                        if (normalized.length > 0) {
+                            const out = { dateDisplay: todayDisplay, items: normalized, grounded: webSources.length > 0 };
+                            caches.prompts.set(cacheKey, out);
+                            return out;
+                        }
+                    }
+                } catch (err) {
+                    if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+                    lastErr = err;
+                    console.warn(`Daily trends grounding on ${modelName} fallback:`, err.message);
+                }
+            }
+            throw lastErr || new ApiError('SERVER_ERROR', 'Không thể tải tin tức/trend mới lúc này.');
+        });
+    }
+
+    async function auditScriptPolicyAndFacts({ title = '', scenes = [], signal } = {}) {
+        const cleanScenes = (scenes || []).map((s) => String(s || '').trim()).filter(Boolean);
+        const combined = [title, ...cleanScenes].filter(Boolean).join('\n');
+        const localScan = quickLocalPolicyScan(combined);
+
+        if (!getApiKey()) {
+            return {
+                status: localScan.status,
+                score: localScan.status === 'safe' ? 92 : localScan.status === 'caution' ? 72 : 48,
+                summary:
+                    localScan.flags.length === 0
+                        ? 'Kiểm tra nhanh ngoại tuyến: Chưa phát hiện từ khóa rủi ro vi phạm chính sách. Hãy nhập API Key để kiểm duyệt sâu ngữ cảnh & chống tin giả.'
+                        : 'Phát hiện câu từ có nguy cơ vi phạm chính sách hoặc phóng đại quá mức.',
+                flags: localScan.flags,
+                factCheckNotes: ['Khi trích dẫn số liệu y tế, tài chính hoặc tin nóng, nên dẫn rõ nguồn hoặc nói ở mức kinh nghiệm chia sẻ.'],
+                improvedScenes: cleanScenes
+            };
+        }
+
+        const prompt = `Bạn là Chuyên gia Kiểm Duyệt Chính Sách Nền Tảng (Facebook Reels / TikTok / YouTube Shorts Trust & Safety) và Kiểm Chứng Sự Thật (Fact-Checker).
+Hãy rà soát kịch bản video ngắn sau:
+Tiêu đề: "${title}"
+Các cảnh lời thoại:
+${cleanScenes.map((s, i) => `${i + 1}. "${s}"`).join('\n')}
+
+TIÊU CHÍ ĐÁNH GIÁ NGHIÊM NGẶT:
+1. Thông tin sai sự thật / Tin giả: Có bịa đặt con số %, nghiên cứu khoa học không nguồn, cam kết y tế ("chữa khỏi 100%") hay hứa hẹn tài chính ảo không?
+2. Vi phạm Chính sách Cộng đồng & Kiếm tiền: Có dụ tương tác spam (engagement bait), ngôn từ công kích/xúc phạm, thông tin gây hoang mang không căn cứ hay từ khóa nhạy cảm bị bóp reach không?
+3. Đề xuất bản sửa: Viết lại nhẹ nhàng các câu có rủi ro thành văn phong trung thực, khách quan, an toàn kiếm tiền 100% mà vẫn giữ nguyên thông điệp & sức hút cho creator.
+
+Trả về JSON object có đúng các trường:
+- status: "safe" (90-100 điểm), "caution" (65-89 điểm), hoặc "risk" (<65 điểm).
+- score: số nguyên 0..100.
+- summary: Nhận xét tổng quan 1 câu ngắn gọn.
+- flags: Mảng cảnh báo cụ thể (nếu an toàn trả mảng rỗng []).
+- factCheckNotes: Mảng 1-3 lưu ý kiểm chứng / dẫn nguồn (hoặc gợi ý cách diễn đạt trung thực).
+- improvedScenes: Mảng ĐÚNG ${cleanScenes.length} câu lời thoại ĐÃ ĐƯỢC CHỈNH AN TOÀN CHÍNH SÁCH (nếu câu nào đã an toàn thì giữ nguyên).`;
+
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: 'OBJECT',
+                    properties: {
+                        status: { type: 'STRING', enum: ['safe', 'caution', 'risk'] },
+                        score: { type: 'INTEGER' },
+                        summary: { type: 'STRING' },
+                        flags: { type: 'ARRAY', items: { type: 'STRING' } },
+                        factCheckNotes: { type: 'ARRAY', items: { type: 'STRING' } },
+                        improvedScenes: { type: 'ARRAY', items: { type: 'STRING' } }
+                    },
+                    required: ['status', 'score', 'summary', 'flags', 'factCheckNotes', 'improvedScenes']
+                }
+            }
+        };
+
+        const res = await fetchTextWithFallback(payload, { signal });
+        const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const parsed = safeExtractJsonFromText(raw);
+        if (!parsed) {
+            return {
+                status: localScan.status,
+                score: 85,
+                summary: 'Hoàn tất kiểm tra nhanh tiêu chuẩn an toàn nội dung.',
+                flags: localScan.flags,
+                factCheckNotes: [],
+                improvedScenes: cleanScenes
+            };
+        }
+        return {
+            status: ['safe', 'caution', 'risk'].includes(parsed.status) ? parsed.status : 'safe',
+            score: Math.max(0, Math.min(100, Number(parsed.score) || 90)),
+            summary: String(parsed.summary || '').trim(),
+            flags: Array.isArray(parsed.flags) ? parsed.flags.filter(Boolean) : localScan.flags,
+            factCheckNotes: Array.isArray(parsed.factCheckNotes) ? parsed.factCheckNotes.filter(Boolean) : [],
+            improvedScenes:
+                Array.isArray(parsed.improvedScenes) && parsed.improvedScenes.length === cleanScenes.length
+                    ? parsed.improvedScenes.map((s) => String(s || '').trim() || '')
+                    : cleanScenes
+        };
+    }
+
     function clearMediaCaches() {
         caches.prompts.clear();
         caches.ttsPcm.clear();
@@ -1787,6 +2026,9 @@ YÊU CẦU ĐẦU RA:
         generateRealisticVisualPrompts,
         generateCartoonVisualPrompts,
         dumpContentTo2DScenes,
+        fetchDailyTrendsAndNews,
+        quickLocalPolicyScan,
+        auditScriptPolicyAndFacts,
         generateCustomSceneSvgs,
         generateCustomPropSvgs,
         generateMultiBeatStoryboard,

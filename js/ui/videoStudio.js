@@ -22,6 +22,8 @@
     let generationAbortController = null;
     let rewriteAbortController = null;
     let importAbortController = null;
+    let auditAbortController = null;
+    let pendingSafeFixScenes = null;
     let exportAbortController = null;
     let socialAbortController = null;
     let lastExportedFile = null;
@@ -200,6 +202,8 @@
 
         document.getElementById('btn-generate-ai-assets').disabled = false;
         document.getElementById('btn-export-video').disabled = true;
+        document.getElementById('vs-safety-report')?.classList.add('hidden');
+        pendingSafeFixScenes = null;
         document.getElementById('vs-playback-controls')?.classList.add('hidden');
         document.getElementById('vs-timer-badge')?.classList.add('hidden');
         document.getElementById('vs-progress-box')?.classList.add('hidden');
@@ -262,6 +266,10 @@
         if (importAbortController) {
             importAbortController.abort();
             importAbortController = null;
+        }
+        if (auditAbortController) {
+            auditAbortController.abort();
+            auditAbortController = null;
         }
         if (exportAbortController) {
             exportAbortController.abort();
@@ -411,6 +419,86 @@
             if (btnAuto) btnAuto.disabled = false;
             if (activeBtn) activeBtn.innerHTML = prevHtml;
             importAbortController = null;
+        }
+    }
+
+    function renderSafetyAuditReport(report) {
+        const box = document.getElementById('vs-safety-report');
+        const badge = document.getElementById('vs-safety-badge');
+        const summary = document.getElementById('vs-safety-summary');
+        const details = document.getElementById('vs-safety-details');
+        const fixBtn = document.getElementById('btn-apply-safe-fix');
+        if (!box || !badge || !summary || !details) return;
+
+        box.classList.remove('hidden', 'bg-emerald-50', 'border-emerald-200', 'bg-amber-50', 'border-amber-200', 'bg-rose-50', 'border-rose-200', 'dark:bg-emerald-950/30', 'dark:bg-amber-950/30', 'dark:bg-rose-950/30');
+        if (report.status === 'safe') {
+            box.classList.add('bg-emerald-50', 'dark:bg-emerald-950/30', 'border-emerald-200');
+            badge.className = 'px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-600 text-white shrink-0';
+            badge.textContent = `🟢 An toàn ${report.score}/100`;
+        } else if (report.status === 'caution') {
+            box.classList.add('bg-amber-50', 'dark:bg-amber-950/30', 'border-amber-200');
+            badge.className = 'px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-500 text-white shrink-0';
+            badge.textContent = `🟡 Cần lưu ý ${report.score}/100`;
+        } else {
+            box.classList.add('bg-rose-50', 'dark:bg-rose-950/30', 'border-rose-200');
+            badge.className = 'px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-600 text-white shrink-0';
+            badge.textContent = `🔴 Rủi ro ${report.score}/100`;
+        }
+
+        summary.textContent = report.summary || '';
+        const listItems = [];
+        (report.flags || []).forEach((f) => listItems.push(`<li class="text-rose-700 dark:text-rose-300 font-semibold">⚠️ ${escapeHtml(f)}</li>`));
+        (report.factCheckNotes || []).forEach((n) => listItems.push(`<li class="text-slate-700 dark:text-slate-300">🔍 ${escapeHtml(n)}</li>`));
+        details.innerHTML = listItems.length > 0 ? listItems.join('') : '<li class="text-emerald-700 dark:text-emerald-300">✅ Nội dung đạt chuẩn cộng đồng Facebook Reels, TikTok &amp; YouTube Shorts.</li>';
+
+        const currentScenes = getSceneInputs().map((el) => el.value.trim()).filter(Boolean);
+        const hasImprovedDiff =
+            Array.isArray(report.improvedScenes) &&
+            report.improvedScenes.length === currentScenes.length &&
+            report.improvedScenes.some((s, i) => s && s !== currentScenes[i]);
+
+        pendingSafeFixScenes = hasImprovedDiff ? report.improvedScenes : null;
+        if (fixBtn) fixBtn.classList.toggle('hidden', !hasImprovedDiff);
+    }
+
+    async function handleAuditContentSafety() {
+        const btn = document.getElementById('btn-audit-content-safety');
+        if (!btn || btn.disabled) return;
+
+        const title = document.getElementById('vs-title')?.value.trim() || '';
+        const scenes = getSceneInputs().map((el) => el.value.trim()).filter(Boolean);
+        if (scenes.length === 0) {
+            App.toast.show('Chưa có lời thoại nào để kiểm duyệt.', 'info');
+            return;
+        }
+
+        btn.disabled = true;
+        const prevHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Đang duyệt...</span>';
+
+        if (auditAbortController) auditAbortController.abort();
+        auditAbortController = new AbortController();
+
+        try {
+            const report = await App.geminiApi.auditScriptPolicyAndFacts({
+                title,
+                scenes,
+                signal: auditAbortController.signal
+            });
+            renderSafetyAuditReport(report);
+            App.toast.show(
+                report.status === 'safe'
+                    ? `Kiểm duyệt an toàn (${report.score}/100)!`
+                    : `Phát hiện điểm cần lưu ý (${report.score}/100) — xem gợi ý sửa bên dưới.`,
+                report.status === 'safe' ? 'success' : 'warning'
+            );
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            App.toast.show(err.message || 'Không thể kiểm duyệt lúc này.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = prevHtml;
+            auditAbortController = null;
         }
     }
 
@@ -565,6 +653,19 @@
             .map((el) => (el ? el.value.trim() : ''))
             .filter(Boolean);
         if (texts.length === 0) texts.push('Chia sẻ khoảnh khắc đời sống hằng ngày gần gũi.');
+
+        // Fast zero-latency deterministic policy/anti-misinfo pre-scan
+        const preScan = App.geminiApi?.quickLocalPolicyScan?.([videoTitle, ...texts].join('\n'));
+        if (preScan && preScan.flags.length > 0) {
+            renderSafetyAuditReport({
+                status: preScan.status,
+                score: preScan.status === 'risk' ? 52 : 74,
+                summary: 'Cảnh báo nhanh trước khi dựng video: có cụm từ dễ vi phạm chính sách hoặc phóng đại.',
+                flags: preScan.flags,
+                factCheckNotes: ['Bấm "Duyệt chính sách" để AI đề xuất câu chữ an toàn hơn nếu cần.'],
+                improvedScenes: texts
+            });
+        }
 
         const chapterCount = texts.length;
         const voiceName = document.getElementById('vs-voice')?.value || 'Aoede';
@@ -1030,6 +1131,9 @@
                 App.mediaEngine.prepareMixedPreviewWavUrl?.(bgmStyle),
                 App.mediaEngine.prebuildExportAssets?.(bgmStyle)
             ]);
+            if (window.innerWidth < 1024) {
+                document.getElementById('reels-canvas')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
             await App.mediaEngine.startPlayback({ startAt: 0, bgmStyle, recordMode: false });
         } catch (err) {
             if (err.name === 'AbortError') return;
@@ -1354,6 +1458,14 @@
         document.getElementById('btn-dump-content-to-2d')?.addEventListener('click', () => handleImportContentTo2D(false));
         document.getElementById('btn-dump-and-generate-2d')?.addEventListener('click', () => handleImportContentTo2D(true));
         document.getElementById('btn-rewrite-story')?.addEventListener('click', handleEnhanceStorytelling);
+        document.getElementById('btn-audit-content-safety')?.addEventListener('click', handleAuditContentSafety);
+        document.getElementById('btn-apply-safe-fix')?.addEventListener('click', () => {
+            if (!Array.isArray(pendingSafeFixScenes) || pendingSafeFixScenes.length === 0) return;
+            renderSceneInputs(pendingSafeFixScenes);
+            pendingSafeFixScenes = null;
+            document.getElementById('btn-apply-safe-fix')?.classList.add('hidden');
+            App.toast.show('Đã cập nhật lời thoại sang bản an toàn chính sách!');
+        });
         document.getElementById('btn-add-scene')?.addEventListener('click', () => {
             const values = getSceneInputs().map((el) => el.value);
             if (values.length >= MAX_DIALOGUE_SCENES) return;
