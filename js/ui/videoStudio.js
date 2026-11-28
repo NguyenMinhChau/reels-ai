@@ -787,13 +787,14 @@
         isSeeking = false;
 
         try {
-            // 1. Expand narration chapters into balanced audio-locked scenes
-            // Keep beats brisk (1.8-3s) so every clause/action gets its own crisp camera cut!
+            // 1. Expand narration chapters into audio-locked scenes
+            // Keep 1:1 scene correspondence by default ('balanced' when >=4 scenes exist) so every pause boundary matches TTS 100%,
+            // while inside each beat our 2-phase speechPivot engine animates stage 1 -> stage 2 seamlessly!
             const chapterBeatTexts = texts.map((t) => {
                 const wc = String(t || '').split(/\s+/).filter(Boolean).length;
                 if (scenePacing === 'standard') return [t];
                 if (scenePacing === 'dynamic') return splitTextIntoVisualBeats(t, chapterCount >= 10 ? 2 : 3);
-                return wc >= 12 || chapterCount < 7 ? splitTextIntoVisualBeats(t, 2) : [t];
+                return chapterCount < 4 && wc >= 18 ? splitTextIntoVisualBeats(t, 2) : [t];
             });
             const flatBeats = [];
             chapterBeatTexts.forEach((beatList, chapterIdx) => {
@@ -897,10 +898,11 @@
                     assignChapterBufferToBeats(c, App.mediaEngine.createSilentBuffer(audioCtx, texts[c]), false);
                 }
             } else if (!isLiveEngine && typeof App.geminiApi.fetchCombinedTtsPcm === 'function') {
-                // PATH A (Default): 1 single unified TTS call reading the entire script smoothly -> ZERO voice switching!
-                updateStudioProgress(26, `Đang thu âm 1 luồng đồng nhất cho toàn bộ ${chapterCount} câu thoại (không đổi giọng)...`);
+                // PATH A (Default): 1 single unified TTS call reading beat-by-beat with clean pauses -> ZERO voice switching & 1:1 pause alignment!
+                const beatTextsForTts = flatBeats.map((b) => b.text);
+                updateStudioProgress(26, `Đang thu âm 1 luồng đồng nhất cho ${totalBeats} phân cảnh khớp từng nhịp thoại...`);
                 const batchRes = await App.geminiApi.fetchCombinedTtsPcm({
-                    texts,
+                    texts: beatTextsForTts,
                     voiceName,
                     ttsModel: restTtsModelId,
                     signal
@@ -909,11 +911,11 @@
                     const rateMatch = String(batchRes.mimeType || '').match(/rate=(\d+)/i);
                     const parsedRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
                     const decodedAll = await App.mediaEngine.decodeTtsToAudioBuffer(batchRes.buffer, audioCtx, parsedRate || 24000);
-                    if (decodedAll && decodedAll.duration >= Math.max(0.8, chapterCount * 0.45)) {
+                    if (decodedAll && decodedAll.duration >= Math.max(0.8, totalBeats * 0.45)) {
                         usedSingleStreamAudio = true;
                         const beatTracks = App.mediaEngine.splitAudioBufferIntoBeats(
                             decodedAll,
-                            flatBeats.map((b) => b.text),
+                            beatTextsForTts,
                             audioCtx
                         );
                         for (let b = 0; b < totalBeats; b++) {
@@ -985,8 +987,9 @@
                     const fallbackIndices = [];
                     if (isLiveEngine && liveSuccessCount < chapterCount) {
                         // Prefer 1 unified combined REST call over mixing Live + REST voices!
+                        const beatTextsForRetry = flatBeats.map((b) => b.text);
                         const unifiedRetry = await App.geminiApi.fetchCombinedTtsPcm({
-                            texts,
+                            texts: beatTextsForRetry,
                             voiceName,
                             ttsModel: restTtsModelId,
                             signal
@@ -995,11 +998,11 @@
                             const rateMatch = String(unifiedRetry.mimeType || '').match(/rate=(\d+)/i);
                             const parsedRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
                             const decodedAll = await App.mediaEngine.decodeTtsToAudioBuffer(unifiedRetry.buffer, audioCtx, parsedRate || 24000);
-                            if (decodedAll && decodedAll.duration >= Math.max(0.8, chapterCount * 0.45)) {
+                            if (decodedAll && decodedAll.duration >= Math.max(0.8, totalBeats * 0.45)) {
                                 usedSingleStreamAudio = true;
                                 const beatTracks = App.mediaEngine.splitAudioBufferIntoBeats(
                                     decodedAll,
-                                    flatBeats.map((b) => b.text),
+                                    beatTextsForRetry,
                                     audioCtx
                                 );
                                 for (let b = 0; b < totalBeats; b++) {
@@ -1084,6 +1087,7 @@
             const motionCues = buildSyncedCueSequence(flatBeats, aiStoryboard, videoTitle, visualStyle);
 
             const sceneImageObjs = new Array(flatBeats.length).fill(null);
+            const sceneCustomHeroImgs = new Array(flatBeats.length).fill(null);
             const sceneStyleOverrides = new Array(flatBeats.length).fill(visualStyle);
             const loadSvgBatchIntoIndices = async (targetIndices, svgUrls) => {
                 await Promise.all(
@@ -1220,7 +1224,40 @@
                     })
                 );
             } else {
-                updateStudioProgress(82, `Đang dựng ${flatBeats.length} phân cảnh hoạt hình 2D 2 pha khớp từng nhịp âm thanh...`);
+                // Default AI 2D ('motion' / 'ui-motion'): Ask Gemini Free to draw bespoke 2D vector art per scene from each beat's exact narration!
+                if (hasApiKey && typeof App.geminiApi.generateCustomPropSvgs === 'function') {
+                    updateStudioProgress(64, `AI đang vẽ hoạt hình 2D riêng cho ${flatBeats.length} cảnh khớp từng câu nói...`);
+                    try {
+                        const customPropSvgs = await App.geminiApi.generateCustomPropSvgs({
+                            title: videoTitle,
+                            beats: flatBeats,
+                            storyboard: aiStoryboard,
+                            signal
+                        });
+                        if (Array.isArray(customPropSvgs)) {
+                            await Promise.all(
+                                customPropSvgs.map(async (svgUrl, idx) => {
+                                    if (!svgUrl) return;
+                                    try {
+                                        sceneCustomHeroImgs[idx] = await App.mediaEngine.loadImageFromUrl(svgUrl);
+                                    } catch (_) {
+                                        sceneCustomHeroImgs[idx] = null;
+                                    }
+                                })
+                            );
+                        }
+                    } catch (propErr) {
+                        if (propErr.name === 'AbortError' || propErr.code === 'INVALID_API_KEY') throw propErr;
+                        console.warn('Per-scene AI 2D hero illustration partial fallback:', propErr.message);
+                    }
+                }
+                const customSvgLoadedCount = sceneCustomHeroImgs.filter(Boolean).length;
+                updateStudioProgress(
+                    88,
+                    customSvgLoadedCount > 0
+                        ? `AI đã vẽ xong ${customSvgLoadedCount}/${flatBeats.length} cảnh hoạt hình 2D độc bản khớp giọng đọc...`
+                        : `Đang dựng ${flatBeats.length} phân cảnh hoạt hình 2D 2 pha khớp từng nhịp âm thanh...`
+                );
             }
 
             const builtScenes = flatBeats.map((beat, beatIdx) => {
@@ -1245,7 +1282,7 @@
                     showSubtitles,
                     motionCue: motionCues[beatIdx],
                     imageObj: sceneImageObjs[beatIdx],
-                    customHeroImg: null,
+                    customHeroImg: sceneCustomHeroImgs[beatIdx],
                     speechPivot,
                     audioBuffer,
                     playbackRate: speedRate,

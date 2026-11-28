@@ -3097,7 +3097,10 @@
         ctx.restore();
     }
 
-    function drawNarratorCameo(ctx, cx, cy, t, mood = 'happy', audioLevel = 0, cast = 'narrator') {
+    function drawNarratorCameo(ctx, cx, cy, t, mood = 'happy', audioLevel = 0, cast = 'narrator', audioViseme = -1) {
+        const prevViseme = currentAudioViseme;
+        if (audioViseme >= 0) currentAudioViseme = audioViseme;
+        try {
         const prof = CAST_PROFILES[cast] || CAST_PROFILES.narrator;
         const talkBounce = 1 + audioLevel * 0.05;
         ctx.save();
@@ -3136,22 +3139,31 @@
         ctx.arc(0, 0, 52, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
+        } finally {
+            currentAudioViseme = prevViseme;
+        }
     }
 
     function drawHeroSubject(ctx, scene, propId, cx, cy, scale, progress, t, audioLevel, screenType, allowCustomHero = true) {
         if (scale <= 0.02) return;
         const customImg = allowCustomHero ? scene?.customHeroImg : null;
         if (customImg) {
+            const pivot = scene?.speechPivot || 0.52;
+            const afterPivot = progress >= pivot;
+            const phaseBoost = afterPivot ? 1 + stagePop(progress, pivot, 0.14) * 0.06 : 1;
+            const bobY = Math.sin(t * 2.8) * (3.5 + audioLevel * 4.5);
+            const tilt = Math.sin(t * 2.1) * (0.02 + audioLevel * 0.035);
             ctx.save();
-            ctx.translate(cx, cy + Math.sin(t * 2.5) * 3.5);
-            const dynScale = scale * (1 + audioLevel * 0.045);
+            ctx.translate(cx, cy + bobY);
+            ctx.rotate(tilt);
+            const dynScale = scale * phaseBoost * (1 + audioLevel * 0.055);
             ctx.scale(dynScale, dynScale);
-            // Soft grounded radial shadow beneath transparent custom 2D vector illustration
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.11)';
+            // Soft grounded shadow + subtle glowing stage behind bespoke AI 2D vector illustration
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.12)';
             ctx.beginPath();
-            ctx.ellipse(0, 118, 96, 18, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 126, 98, 17, 0, 0, Math.PI * 2);
             ctx.fill();
-            ctx.drawImage(customImg, -145, -145, 290, 290);
+            ctx.drawImage(customImg, -150, -150, 300, 300);
             ctx.restore();
             return;
         }

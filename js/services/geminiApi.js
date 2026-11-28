@@ -1057,19 +1057,19 @@ Trả về 1 đối tượng JSON gồm:
 
         const buildScenePrompt = (indices) => {
             const itemLines = indices
-                .map((idx) => `- Cảnh ${idx + 1}: GIỌNG ĐỌC NÓI CHÍNH XÁC: "${cleanBeats[idx]}"\n  -> ĐỐI TƯỢNG VẼ: ${subjects[idx]}`)
+                .map((idx) => `- Cảnh ${idx + 1}/${cleanBeats.length}: GIỌNG ĐỌC NÓI CHÍNH XÁC: "${cleanBeats[idx]}"\n  -> CHỦ ĐỀ HÌNH ẢNH CẦN VẼ: ${subjects[idx]}`)
                 .join('\n');
-            return `Bạn là Họa sĩ Vector 2D Flat Cel-Shaded Cartoon chuyên vẽ ĐỐI TƯỢNG & NHÂN VẬT HÀNH ĐỘNG TRONG SUỐT (KHÔNG NỀN) để ghép trực tiếp vào cảnh phim 2D!
+            return `Bạn là Họa sĩ Vector 2D Flat Cel-Shaded Cartoon chuyên vẽ ĐỐI TƯỢNG & NHÂN VẬT HÀNH ĐỘNG ĐỘC BẢN (KHÔNG NỀN VUÔNG) khớp 100% nội dung từng câu nói!
 Tiêu đề video: "${title}".
 
-NHIỆM VỤ BẮT BUỘC: Giọng đọc nói gì, vẽ CHÍNH XÁC ĐỐI TƯỢNG / HÀNH ĐỘNG ĐÓ thành vector trong suốt rõ ràng (KHÔNG vẽ chung chung!).
+NHIỆM VỤ BẮT BUỘC: Với MỖI cảnh dưới đây, hãy tự sáng tác 1 tranh minh họa nhân vật/vật thể/tình huống ĐẶC TRƯNG ĐÚNG THEO CÂU NÓI ĐÓ (Mỗi cảnh 1 ý tưởng, góc nhìn và màu sắc hoàn toàn khác nhau — TUYỆT ĐỐI KHÔNG vẽ chung chung lặp lại):
 ${itemLines}
 
 YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
 1. Trả về mảng JSON đúng ${indices.length} chuỗi SVG theo đúng thứ tự, mỗi chuỗi là <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300">...</svg> hợp lệ XML.
-2. NỀN TRONG SUỐT 100%: TUYỆT ĐỐI KHÔNG vẽ hình chữ nhật/khung nền phủ toàn bộ 300x300! Chỉ vẽ nhân vật/đồ vật nổi bật nằm gọn ở giữa vùng an toàn (x từ 25..275, y từ 25..275).
-3. VẼ RÕ NÉT HÀNH ĐỘNG (12-26 khối path sắc nét, màu tươi sáng hiện đại, viền đậm stroke="#1e293b" stroke-width="4" stroke-linejoin="round"): VD ghế công thái học lưới đen kèm thẻ giá, cột sống đỏ cong đau, ví da rỗng tiền bay, ngăn đá tủ lạnh có chai hành lá, đồng hồ báo thức 5 phút...
-4. TUYỆT ĐỐI KHÔNG dùng thẻ <text> hay chữ viết trong SVG; mọi ký tự "&" viết là "&amp;".`;
+2. NỀN TRONG SUỐT 100%: TUYỆT ĐỐI KHÔNG vẽ <rect> hay khung nền phủ toàn bộ 300x300! Có thể vẽ 1 hình tròn/đám mây hào quang mềm nhỏ ở phía sau (r<=115, opacity<=0.35) để tôn vật thể chính ở vùng giữa (x: 24..276, y: 24..276).
+3. VẼ CHI TIẾT SỐNG ĐỘNG (16-32 khối path/circle/rect có chiều sâu sáng-tối, màu sắc rực rỡ tương phản đẹp, viền đậm stroke="#1e293b" stroke-width="3.6" stroke-linejoin="round"): minh họa rõ hành động & cảm xúc đúng ngữ cảnh câu nói (VD: người đau lưng ôm cột sống trên ghế công thái học, tô cơm canh nóng bốc khói, điện thoại bật cảnh báo link giả, dòng code bay ra từ màn hình, ví rỗng có cánh bay tiền...).
+4. TUYỆT ĐỐI KHÔNG dùng thẻ <text>, <image>, <foreignObject>, <script> hay chữ viết trong SVG; mọi ký tự "&" viết là "&amp;".`;
         };
 
         const fetchSvgChunk = async (indices) => {
@@ -1201,7 +1201,7 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
                 };
                 const res = await fetchTextWithFallback(payload, { signal });
                 const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
-                const parsed = JSON.parse(raw);
+                const parsed = safeExtractJsonFromText(raw);
                 const svgList = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.svgs) ? parsed.svgs : null;
                 if (Array.isArray(svgList)) {
                     chunkIndices.forEach((sceneIdx, pos) => {
@@ -1221,6 +1221,37 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
 
             doneCount += chunkIndices.length;
             if (onProgress) onProgress(doneCount, cleanScenes.length);
+        }
+
+        // Single-scene retry for any frame whose batch parse/XML validation missed
+        const stillMissing = missingIndices.filter((idx) => !results[idx]);
+        for (const idx of stillMissing) {
+            if (signal && signal.aborted) {
+                throw new DOMException('Aborted', 'AbortError');
+            }
+            try {
+                const retryPrompt = `Vẽ ĐÚNG 1 tranh minh họa SVG 2D (viewBox="0 0 540 960", width="540", height="960") hợp lệ XML, phong cách Flat Editorial sinh động, KHÔNG dùng <text>, khớp 100% câu nói: "${cleanScenes[idx]}" (Video: "${title}"). Bảng màu: ${palettes[idx % palettes.length]}. Trả về mảng JSON đúng 1 phần tử [ "<svg...>...</svg>" ].`;
+                const payload = {
+                    contents: [{ parts: [{ text: retryPrompt }] }],
+                    generationConfig: {
+                        responseMimeType: 'application/json',
+                        responseSchema: { type: 'ARRAY', items: { type: 'STRING' } }
+                    }
+                };
+                const res = await fetchTextWithFallback(payload, { signal });
+                const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
+                const parsed = safeExtractJsonFromText(raw);
+                const svgCandidate = Array.isArray(parsed) ? parsed[0] : (typeof parsed?.svg === 'string' ? parsed.svg : raw);
+                const clean = sanitizeAndWrapSvg(svgCandidate);
+                if (clean) {
+                    const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clean)}`;
+                    results[idx] = dataUrl;
+                    const key = `svg:${tone}:${hashString(title + '|' + idx + '|' + cleanScenes[idx])}`;
+                    caches.images.set(key, dataUrl);
+                }
+            } catch (err) {
+                if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+            }
         }
 
         return results;

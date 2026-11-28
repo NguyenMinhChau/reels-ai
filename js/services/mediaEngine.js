@@ -58,6 +58,7 @@
     let mixedPreviewCache = { key: '', url: '' };
     let isAudioUnlocked = false;
     let useHtmlAudioClock = false;
+    let htmlAudioStarted = false;
 
     function getSilentUnlockWavUrl() {
         if (silentUnlockWavUrl) return silentUnlockWavUrl;
@@ -827,13 +828,14 @@
 
     function getCurrentTime() {
         if (!isPlaying) return pausedAt;
-        const wallElapsed = Math.max(0, (performance.now() - perfStartTime) / 1000);
-        if (useHtmlAudioClock && previewAudioEl && !previewAudioEl.paused && !previewAudioEl.ended) {
+        if (useHtmlAudioClock && previewAudioEl && !previewAudioEl.error) {
+            if (previewAudioEl.ended) return totalDuration;
             const mediaTime = previewAudioEl.currentTime;
-            if (Number.isFinite(mediaTime) && (mediaTime > playbackOffset + 0.02 || wallElapsed < 0.3)) {
+            if (Number.isFinite(mediaTime) && (!htmlAudioStarted || !previewAudioEl.paused)) {
                 return Math.min(totalDuration, Math.max(0, mediaTime));
             }
         }
+        const wallElapsed = Math.max(0, (performance.now() - perfStartTime) / 1000);
         let elapsed = wallElapsed;
         if (!useHtmlAudioClock && audioCtx && audioCtx.state === 'running') {
             const audioElapsed = Math.max(0, audioCtx.currentTime - audioStartTime);
@@ -918,6 +920,22 @@
         }
     }
 
+    function sampleSceneAudioMetrics(scene, sceneProgress, activeWindow = 0.96) {
+        let audioLevel = 0;
+        let audioViseme = -1;
+        if (scene?.audioEnvelope && scene.audioEnvelope.length > 0 && sceneProgress < activeWindow) {
+            const envIdx = Math.min(
+                scene.audioEnvelope.length - 1,
+                Math.floor((sceneProgress / activeWindow) * scene.audioEnvelope.length)
+            );
+            audioLevel = scene.audioEnvelope[envIdx] || 0;
+            if (scene.audioVisemes && envIdx < scene.audioVisemes.length) {
+                audioViseme = scene.audioVisemes[envIdx];
+            }
+        }
+        return { audioLevel, audioViseme };
+    }
+
     function renderFrameAtTime(elapsed) {
         if (!ctx || studioScenes.length === 0) return;
 
@@ -949,18 +967,7 @@
         if (isMotionStyle) {
             // 1. Composable 2D Motion Infographic Scene driven by 30Hz real speech envelope + visemes
             const prevScene = activeIdx > 0 ? studioScenes[activeIdx - 1] : null;
-            let audioLevel = 0;
-            let audioViseme = -1;
-            if (currentScene.audioEnvelope && currentScene.audioEnvelope.length > 0 && sceneProgress < 0.96) {
-                const envIdx = Math.min(
-                    currentScene.audioEnvelope.length - 1,
-                    Math.floor((sceneProgress / 0.96) * currentScene.audioEnvelope.length)
-                );
-                audioLevel = currentScene.audioEnvelope[envIdx] || 0;
-                if (currentScene.audioVisemes && envIdx < currentScene.audioVisemes.length) {
-                    audioViseme = currentScene.audioVisemes[envIdx];
-                }
-            }
+            const { audioLevel, audioViseme } = sampleSceneAudioMetrics(currentScene, sceneProgress, 0.96);
             App.motionGraphics.drawMotionScene(ctx, currentScene, sceneProgress, activeIdx, elapsed, prevScene, audioLevel, audioViseme);
         } else {
             // 1. Custom AI Cartoon / SVG Illustration OR Real/AI Photo background + Diagonal Wipe / Crossfade
@@ -1017,16 +1024,9 @@
                 ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
             }
 
-            // 1b. In AI Cartoon 2D mode, add subtle audio-driven role pill / narrator lip-sync overlay if available
-            if (isCartoonAiVisual && App.motionGraphics) {
-                let audioLevel = 0;
-                if (currentScene.audioEnvelope && currentScene.audioEnvelope.length > 0 && sceneProgress < 0.94) {
-                    const envIdx = Math.min(
-                        currentScene.audioEnvelope.length - 1,
-                        Math.floor((sceneProgress / 0.94) * currentScene.audioEnvelope.length)
-                    );
-                    audioLevel = currentScene.audioEnvelope[envIdx] || 0;
-                }
+            // 1b. In AI Cartoon & AI SVG 2D modes, overlay 30Hz lip-synced narrator cameo & crisp topic pills
+            if ((isCartoonAiVisual || isSvgVisual) && App.motionGraphics) {
+                const { audioLevel, audioViseme } = sampleSceneAudioMetrics(currentScene, sceneProgress, 0.94);
                 const cue = currentScene.motionCue || {};
                 if (cue.roleTag && App.motionGraphics.drawShortPillBadge) {
                     App.motionGraphics.drawShortPillBadge(ctx, cue.roleTag, 96, 62, 'rgba(15, 23, 42, 0.80)', '#ffffff', 1);
@@ -1035,7 +1035,7 @@
                     App.motionGraphics.drawShortPillBadge(ctx, cue.focusTag, 434, 62, 'rgba(37, 99, 235, 0.92)', '#ffffff', 1);
                 }
                 if (cue.cast && App.motionGraphics.drawNarratorCameo) {
-                    App.motionGraphics.drawNarratorCameo(ctx, 466, 868, elapsed, cue.characterMood || 'happy', audioLevel, cue.cast);
+                    App.motionGraphics.drawNarratorCameo(ctx, 466, 868, elapsed, cue.characterMood || 'happy', audioLevel, cue.cast, audioViseme);
                 }
             }
 
@@ -1291,6 +1291,7 @@
 
     function clearScheduledAudio() {
         useHtmlAudioClock = false;
+        htmlAudioStarted = false;
         if (previewAudioEl && !previewAudioEl.paused) {
             try {
                 previewAudioEl.pause();
@@ -2270,9 +2271,17 @@
                 }
                 if (wavUrl) {
                     useHtmlAudioClock = true;
+                    htmlAudioStarted = false;
                     isPlaying = true;
                     isRecording = false;
                     perfStartTime = performance.now();
+
+                    const onHtmlPlaying = () => {
+                        if (runId !== playbackRunId) return;
+                        htmlAudioStarted = true;
+                        perfStartTime = performance.now();
+                    };
+                    audioEl.addEventListener('playing', onHtmlPlaying, { once: true });
 
                     if (audioEl.src !== wavUrl) {
                         audioEl.src = wavUrl;
@@ -2299,18 +2308,21 @@
                         playPromise
                             .then(() => {
                                 if (runId !== playbackRunId) return;
+                                htmlAudioStarted = true;
                                 isAudioUnlocked = true;
                                 if (callbacks.onAudioBlocked) callbacks.onAudioBlocked(false);
                             })
                             .catch(() => {
                                 if (runId !== playbackRunId) return;
+                                htmlAudioStarted = true;
                                 if (callbacks.onAudioBlocked) callbacks.onAudioBlocked(true);
                                 if (App.toast) {
                                     App.toast.show('Chạm nút "Chạm để bật âm thanh" trên khung video để nghe!', 'info', { duration: 4500 });
                                 }
                             });
-                    } else if (callbacks.onAudioBlocked) {
-                        callbacks.onAudioBlocked(false);
+                    } else {
+                        htmlAudioStarted = true;
+                        if (callbacks.onAudioBlocked) callbacks.onAudioBlocked(false);
                     }
 
                     if (callbacks.onStateChange) callbacks.onStateChange(getPlaybackState());
