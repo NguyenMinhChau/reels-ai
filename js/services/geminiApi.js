@@ -574,6 +574,226 @@ ${cleanTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
         });
     }
 
+    async function generateCartoonVisualPrompts({ title, beatTexts, storyboard, signal }) {
+        const cleanTexts = (beatTexts || []).map((t) => String(t || '').trim()).filter(Boolean);
+        if (cleanTexts.length === 0) return [];
+        const cacheKey = `cartoon-prompts-v1:${hashString(title + '|' + cleanTexts.join('|'))}`;
+        if (caches.prompts.has(cacheKey)) {
+            return caches.prompts.get(cacheKey);
+        }
+
+        const fallback = () =>
+            cleanTexts.map(
+                (t, i) =>
+                    `Flat 2D cel-shaded vector cartoon illustration, crisp #1e293b ink outlines, warm modern pastel & indigo palette, vertical 9:16 composition depicting literally: "${t}", expressive character pose and props, NO text, NO letters, NO speech bubbles`
+            );
+
+        return dedupedCall(cacheKey, async () => {
+            try {
+                const specs = cleanTexts
+                    .map((s, idx) => {
+                        const sb = Array.isArray(storyboard) ? storyboard[idx] : null;
+                        const hint = sb?.visualSubject ? ` (Scene focus: ${sb.visualSubject}, angle: ${sb.layout || 'medium shot'})` : '';
+                        return `${idx + 1}. "${s}"${hint}`;
+                    })
+                    .join('\n');
+
+                const prompt = `You are a 2D Cel-Shaded Animation Art Director creating prompts for Imagen / Nano Banana 2D cartoon frames (9:16 vertical Reels).
+Video title: "${title}"
+Maintain consistent lead character styling across all frames (friendly modern young Vietnamese creator/office character, crisp clean #1e293b ink linework, flat cel-shading with soft highlights, cozy/modern palette matching clean 2D animated explainer videos).
+Write ${cleanTexts.length} English image prompts (1 per spoken line) following these strict rules:
+- EVERY frame MUST visually illustrate the EXACT object, action, posture, and emotion mentioned in that specific Vietnamese spoken line (vary camera framing: wide team room, over-the-shoulder dual monitors, medium close-up, POV hands holding object, split comparison).
+- Pure 2D flat cel-shaded cartoon illustration style — clean lines, vibrant readable silhouettes.
+- STRICTLY ZERO text, ZERO words, ZERO subtitles, ZERO speech bubble letters, ZERO watermarks inside the image.
+Spoken lines:
+${specs}`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: 'ARRAY',
+                            items: { type: 'STRING' }
+                        }
+                    }
+                };
+                const result = await fetchTextWithFallback(payload, { signal });
+                const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length >= cleanTexts.length) {
+                    const sliced = parsed.slice(0, cleanTexts.length);
+                    caches.prompts.set(cacheKey, sliced);
+                    return sliced;
+                }
+            } catch (err) {
+                if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+                console.warn('Cartoon visual prompt fallback used:', err.message);
+            }
+            return fallback();
+        });
+    }
+
+    async function dumpContentTo2DScenes({ rawContent, titleHint = '', mode = 'preserve', visualStyle = 'motion', layouts, backdrops, props, actions, effects, casts, sfxList, screenTypes, signal } = {}) {
+        const cleanRaw = String(rawContent || '').trim();
+        if (!cleanRaw) {
+            throw new ApiError('EMPTY_CONTENT', 'Vui lòng dán nội dung có sẵn trước khi tách cảnh.');
+        }
+
+        const offlineFallback = () => {
+            const lines = cleanRaw
+                .split(/\n+/)
+                .map((l) => l.trim())
+                .filter(Boolean);
+            const beats = [];
+            lines.forEach((line) => {
+                const sub = typeof App.utils?.splitTextIntoVisualBeats === 'function'
+                    ? App.utils.splitTextIntoVisualBeats(line, 3)
+                    : [line];
+                sub.forEach((s) => {
+                    if (s && beats.length < 16) beats.push(s);
+                });
+            });
+            const finalBeats = beats.length >= 2 ? beats : [cleanRaw, 'Áp dụng ngay hôm nay để thấy sự khác biệt nhé!'];
+            return {
+                title: titleHint || (finalBeats[0] || '').slice(0, 48),
+                scenes: finalBeats.slice(0, 16),
+                storyboard: null
+            };
+        };
+
+        if (!getApiKey()) {
+            return offlineFallback();
+        }
+
+        const layoutList = Array.isArray(layouts) && layouts.length > 0
+            ? layouts
+            : ['wide-team', 'desk-closeup', 'two-shot-dialogue', 'back-monitors', 'hand-viewfinder', 'hand-pov', 'screen-pointer', 'laptop-popup', 'character-action', 'character-left', 'split-compare', 'multi-trio', 'thought-bubble', 'document-card', 'action-flow', 'center-hero', 'ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
+        const backdropList = Array.isArray(backdrops) && backdrops.length > 0
+            ? backdrops
+            : ['studio-focus', 'office-shelf', 'office-desk', 'work-late', 'gym-fresh', 'bank-vault', 'home-living', 'street-rain', 'warning-stage', 'bedroom-night', 'kitchen-cozy', 'cafe-chill', 'server-tech', 'cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint', 'grid-light', 'blueprint-dark'];
+        const propList = Array.isArray(props) && props.length > 0
+            ? props
+            : ['ergo_chair', 'spine_back', 'empty_wallet', 'stretching_pose', 'price_tag', 'shopping_bag', 'house', 'envelope', 'jar', 'phone', 'lightbulb', 'clock', 'water_glass', 'plug_socket', 'laptop', 'card_doc', 'chart_bars', 'cash_stack'];
+        const actionList = Array.isArray(actions) && actions.length > 0
+            ? actions
+            : ['pointing', 'typing', 'hunched-pain', 'stretching', 'empty-wallet', 'back-ache', 'calling', 'phone-scroll', 'shocked-phone', 'cooking', 'counting-money', 'sleeping', 'running', 'drinking', 'celebrating'];
+        const effectList = Array.isArray(effects) && effects.length > 0
+            ? effects
+            : ['sparkles', 'sparks', 'sweat', 'steam', 'hearts', 'confetti', 'money', 'notes'];
+        const castList = Array.isArray(casts) && casts.length > 0
+            ? casts
+            : ['narrator', 'girl-purple', 'boy-spiky', 'girl-bun', 'manager-red'];
+        const sfxOptions = Array.isArray(sfxList) && sfxList.length > 0
+            ? sfxList
+            : ['pop', 'click', 'whoosh', 'ding', 'none'];
+        const screenList = Array.isArray(screenTypes) && screenTypes.length > 0
+            ? screenTypes
+            : ['chat_msg', 'excel_err', 'revenue_up', 'revenue_down', 'checklist_done', 'calendar_due', 'notification_bell', 'wallet_cash', 'code_bug', 'contract_sign', 'tea_break', 'night_scroll'];
+        const phase2List = ['none', 'wallet_empty', 'back_pain', 'stretch_up', 'cross_mistake', 'check_win', 'shock_alert', 'money_fly'];
+        const transitionList = ['cut', 'diagonal-wipe'];
+
+        const modeRule = mode === 'preserve'
+            ? 'CHẾ ĐỘ GIỮ NGUYÊN CÂU CHỮ: Tuyệt đối giữ nguyên văn từng từ/ý trong bài gốc của người dùng (chỉ ngắt thành từng đoạn ngắn 6-14 từ ở các dấu phẩy/chấm/mạch ý để mỗi cảnh khớp đúng ~2-3 giây giọng nói, KHÔNG bịa thêm ý ngoài).'
+            : 'CHẾ ĐỘ CHUỐT MƯỢT REELS: Giữ nguyên 100% thông tin cốt lõi nhưng biên tập lại thành 8-14 câu văn nói ngắn 6-14 từ thật tự nhiên để đọc truyền cảm và khớp chuyển cảnh 2D mượt mà.';
+
+        const prompt = `Bạn là Tổng Đạo Diễn Phim Hoạt Hình 2D Reels chuyên chuyển đổi nội dung viết sẵn thành chuỗi phân cảnh hoạt hình khớp chặt từng câu nói.
+Tiêu đề gợi ý: "${titleHint}"
+Nội dung gốc của người dùng:
+"""
+${cleanRaw}
+"""
+
+NHIỆM VỤ:
+${modeRule}
+Trả về 1 đối tượng JSON gồm:
+- "title": Tiêu đề ngắn gọn cực hút (tối đa 10 từ).
+- "scenes": Mảng 6 đến 15 phân cảnh, mỗi phần tử đại diện ĐÚNG 1 nhịp hình-tiếng (6-14 từ) kèm đầy đủ chỉ đạo diễn xuất 2D khớp chính xác từng câu chữ nói:
+  + text: Câu lời thoại cho cảnh này.
+  + visualSubject: Mô tả ngắn vật thể/hành động chính (6-14 từ).
+  + roleTag: Nhãn vai RẤT NGẮN 1-2 từ nếu là lời nhân vật, không cần để "".
+  + focusTag: Nhãn từ khóa RẤT NGẮN 1-3 từ nhấn mạnh (tuyệt đối KHÔNG viết câu dài), không cần để "".
+  + layout, backdrop, transition, cast, action, stage2Action (động tác chuyển biến ở nửa sau câu), characterMood, stage2Mood, screenType, phase2Effect, effect, sfx, props (1-2 đạo cụ: props[0] đầu câu -> props[1] cuối câu), crossOut.`;
+
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: 'OBJECT',
+                    properties: {
+                        title: { type: 'STRING' },
+                        scenes: {
+                            type: 'ARRAY',
+                            items: {
+                                type: 'OBJECT',
+                                properties: {
+                                    text: { type: 'STRING' },
+                                    visualSubject: { type: 'STRING' },
+                                    roleTag: { type: 'STRING' },
+                                    focusTag: { type: 'STRING' },
+                                    layout: { type: 'STRING', enum: layoutList },
+                                    backdrop: { type: 'STRING', enum: backdropList },
+                                    transition: { type: 'STRING', enum: transitionList },
+                                    cast: { type: 'STRING', enum: castList },
+                                    action: { type: 'STRING', enum: actionList },
+                                    stage2Action: { type: 'STRING', enum: actionList },
+                                    characterMood: { type: 'STRING', enum: ['happy', 'shocked', 'thinking', 'sleepy'] },
+                                    stage2Mood: { type: 'STRING', enum: ['happy', 'shocked', 'thinking', 'sleepy'] },
+                                    screenType: { type: 'STRING', enum: screenList },
+                                    phase2Effect: { type: 'STRING', enum: phase2List },
+                                    effect: { type: 'STRING', enum: effectList },
+                                    sfx: { type: 'STRING', enum: sfxOptions },
+                                    props: { type: 'ARRAY', items: { type: 'STRING', enum: propList } },
+                                    crossOut: { type: 'BOOLEAN' }
+                                },
+                                required: ['text', 'visualSubject', 'roleTag', 'focusTag', 'layout', 'backdrop', 'transition', 'cast', 'action', 'stage2Action', 'characterMood', 'stage2Mood', 'screenType', 'phase2Effect', 'effect', 'sfx', 'props', 'crossOut']
+                            }
+                        }
+                    },
+                    required: ['title', 'scenes']
+                }
+            }
+        };
+
+        try {
+            const res = await fetchTextWithFallback(payload, { signal });
+            const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const parsed = JSON.parse(raw);
+            if (parsed && Array.isArray(parsed.scenes) && parsed.scenes.length >= 2) {
+                const sliced = parsed.scenes.slice(0, 16);
+                const beatTexts = sliced.map((s) => String(s.text || '').trim()).filter(Boolean);
+                const resolvedTitle = String(parsed.title || titleHint || beatTexts[0] || '').trim();
+                const normalizedBoard = sliced.map((item, idx) => ({
+                    visualSubject: String(item.visualSubject || beatTexts[idx] || '').trim(),
+                    roleTag: String(item.roleTag || '').trim().slice(0, 22),
+                    focusTag: String(item.focusTag || '').trim().slice(0, 20),
+                    layout: layoutList.includes(item.layout) ? item.layout : '',
+                    backdrop: backdropList.includes(item.backdrop) ? item.backdrop : '',
+                    transition: transitionList.includes(item.transition) ? item.transition : 'cut',
+                    cast: castList.includes(item.cast) ? item.cast : '',
+                    action: actionList.includes(item.action) ? item.action : '',
+                    stage2Action: actionList.includes(item.stage2Action) ? item.stage2Action : '',
+                    screenType: screenList.includes(item.screenType) ? item.screenType : '',
+                    phase2Effect: phase2List.includes(item.phase2Effect) ? item.phase2Effect : 'none',
+                    effect: effectList.includes(item.effect) ? item.effect : 'sparkles',
+                    sfx: sfxOptions.includes(item.sfx) ? item.sfx : 'none',
+                    props: Array.isArray(item.props) ? item.props.filter((p) => propList.includes(p)).slice(0, 3) : [],
+                    characterMood: ['happy', 'shocked', 'thinking', 'sleepy'].includes(item.characterMood) ? item.characterMood : 'happy',
+                    stage2Mood: ['happy', 'shocked', 'thinking', 'sleepy'].includes(item.stage2Mood) ? item.stage2Mood : '',
+                    crossOut: Boolean(item.crossOut)
+                }));
+                const cacheKey = `storyboard-v9:${hashString(resolvedTitle + '|' + visualStyle + '|' + beatTexts.join('|'))}`;
+                caches.prompts.set(cacheKey, normalizedBoard);
+                return { title: resolvedTitle, scenes: beatTexts, storyboard: normalizedBoard };
+            }
+        } catch (err) {
+            if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+            console.warn('dumpContentTo2DScenes fallback:', err.message);
+        }
+        return offlineFallback();
+    }
+
     function sanitizeAndWrapSvg(rawSvg, defaultViewBox = '0 0 540 960', defaultW = 540, defaultH = 960) {
         let s = String(rawSvg || '')
             .replace(/^```(?:svg|xml)?\s*/i, '')
@@ -818,7 +1038,7 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
         const cleanBeats = (beatTexts || []).map((b) => String(b || '').trim()).filter(Boolean);
         if (cleanBeats.length === 0) return null;
 
-        const cacheKey = `storyboard-v8:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
+        const cacheKey = `storyboard-v9:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
         if (caches.prompts.has(cacheKey)) {
             return caches.prompts.get(cacheKey);
         }
@@ -884,7 +1104,9 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
 - backdrop: Chọn từ [${backdropList.join(', ')}].
 - transition: Chọn [${transitionList.join(', ')}].
 - cast: Chọn nhân vật từ [${castList.join(', ')}].
-- action: Chọn động tác từ [${actionList.join(', ')}].
+- action: Chọn động tác đầu câu từ [${actionList.join(', ')}].
+- stage2Action: Động tác chuyển biến nửa sau câu từ [${actionList.join(', ')}].
+- stage2Mood: Biểu cảm nửa sau câu ("happy", "shocked", "thinking", hoặc "sleepy").
 - screenType: Chọn nội dung màn hình từ [${screenList.join(', ')}].
 - phase2Effect: Hiệu ứng chuyển biến ở vế sau của câu nói từ [${phase2List.join(', ')}].
 - characterMood: "happy", "shocked", "thinking", hoặc "sleepy".
@@ -910,15 +1132,17 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                                     transition: { type: 'STRING', enum: transitionList },
                                     cast: { type: 'STRING', enum: castList },
                                     action: { type: 'STRING', enum: actionList },
+                                    stage2Action: { type: 'STRING', enum: actionList },
                                     screenType: { type: 'STRING', enum: screenList },
                                     phase2Effect: { type: 'STRING', enum: phase2List },
                                     effect: { type: 'STRING', enum: effectList },
                                     sfx: { type: 'STRING', enum: sfxOptions },
                                     props: { type: 'ARRAY', items: { type: 'STRING', enum: propList } },
                                     characterMood: { type: 'STRING', enum: ['happy', 'shocked', 'thinking', 'sleepy'] },
+                                    stage2Mood: { type: 'STRING', enum: ['happy', 'shocked', 'thinking', 'sleepy'] },
                                     crossOut: { type: 'BOOLEAN' }
                                 },
-                                required: ['visualSubject', 'roleTag', 'focusTag', 'layout', 'backdrop', 'transition', 'cast', 'action', 'screenType', 'phase2Effect', 'effect', 'sfx', 'props', 'characterMood', 'crossOut']
+                                required: ['visualSubject', 'roleTag', 'focusTag', 'layout', 'backdrop', 'transition', 'cast', 'action', 'stage2Action', 'screenType', 'phase2Effect', 'effect', 'sfx', 'props', 'characterMood', 'stage2Mood', 'crossOut']
                             }
                         }
                     }
@@ -937,12 +1161,14 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                         transition: transitionList.includes(item.transition) ? item.transition : 'cut',
                         cast: castList.includes(item.cast) ? item.cast : '',
                         action: actionList.includes(item.action) ? item.action : '',
+                        stage2Action: actionList.includes(item.stage2Action) ? item.stage2Action : '',
                         screenType: screenList.includes(item.screenType) ? item.screenType : '',
                         phase2Effect: phase2List.includes(item.phase2Effect) ? item.phase2Effect : 'none',
                         effect: effectList.includes(item.effect) ? item.effect : 'sparkles',
                         sfx: sfxOptions.includes(item.sfx) ? item.sfx : 'none',
                         props: Array.isArray(item.props) ? item.props.filter((p) => propList.includes(p)).slice(0, 3) : [],
                         characterMood: ['happy', 'shocked', 'thinking', 'sleepy'].includes(item.characterMood) ? item.characterMood : 'happy',
+                        stage2Mood: ['happy', 'shocked', 'thinking', 'sleepy'].includes(item.stage2Mood) ? item.stage2Mood : '',
                         crossOut: Boolean(item.crossOut)
                     }));
                     caches.prompts.set(cacheKey, normalized);
@@ -1559,6 +1785,8 @@ YÊU CẦU ĐẦU RA:
         generateConnectedSeries,
         generateNextSeriesEpisode,
         generateRealisticVisualPrompts,
+        generateCartoonVisualPrompts,
+        dumpContentTo2DScenes,
         generateCustomSceneSvgs,
         generateCustomPropSvgs,
         generateMultiBeatStoryboard,

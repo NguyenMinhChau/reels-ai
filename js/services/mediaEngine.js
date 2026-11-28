@@ -819,8 +819,9 @@
 
         const currentScene = studioScenes[activeIdx];
         const isSvgVisual = currentScene.visualStyle === 'ai-svg' && Boolean(currentScene.imageObj);
+        const isCartoonAiVisual = currentScene.visualStyle === 'ai-cartoon' && Boolean(currentScene.imageObj);
         const isPhotoVisual = (currentScene.visualStyle === 'photo' || currentScene.visualStyle === 'ai-image') && Boolean(currentScene.imageObj);
-        const isMotionStyle = !isSvgVisual && !isPhotoVisual && Boolean(App.motionGraphics);
+        const isMotionStyle = !isSvgVisual && !isPhotoVisual && !isCartoonAiVisual && Boolean(App.motionGraphics);
         ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
         if (isMotionStyle) {
@@ -836,8 +837,40 @@
             }
             App.motionGraphics.drawMotionScene(ctx, currentScene, sceneProgress, activeIdx, elapsed, prevScene, audioLevel);
         } else {
-            // 1. Custom AI SVG Illustration OR Real/AI Photo background + whip/crossfade motion
-            if (currentScene.imageObj) {
+            // 1. Custom AI Cartoon / SVG Illustration OR Real/AI Photo background + Diagonal Wipe / Crossfade
+            const useWipe =
+                isCartoonAiVisual &&
+                activeIdx > 0 &&
+                studioScenes[activeIdx - 1]?.imageObj &&
+                sceneProgress < 0.14 &&
+                (currentScene.motionCue?.transition === 'diagonal-wipe' || activeIdx % 2 === 1);
+
+            if (useWipe) {
+                const wipeP = Math.max(0, Math.min(1, sceneProgress / 0.14));
+                const easeP = 1 - Math.pow(1 - wipeP, 3);
+                const prevSc = studioScenes[activeIdx - 1];
+                drawImageWithMotion(prevSc.imageObj, 1, prevSc.motionType, 1);
+                const sweepX = -260 + (CANVAS_W + 500) * easeP;
+                ctx.save();
+                ctx.fillStyle = '#0ea5e9';
+                ctx.beginPath();
+                ctx.moveTo(sweepX - 180, 0);
+                ctx.lineTo(sweepX + 40, 0);
+                ctx.lineTo(sweepX - 100, CANVAS_H);
+                ctx.lineTo(sweepX - 320, CANVAS_H);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(sweepX - 140, 0);
+                ctx.lineTo(sweepX - 280, CANVAS_H);
+                ctx.lineTo(0, CANVAS_H);
+                ctx.closePath();
+                ctx.clip();
+                drawImageWithMotion(currentScene.imageObj, sceneProgress, currentScene.motionType, 1);
+                ctx.restore();
+            } else if (currentScene.imageObj) {
                 drawImageWithMotion(currentScene.imageObj, sceneProgress, currentScene.motionType, 1);
                 if (sceneProgress < 0.14 && activeIdx > 0 && studioScenes[activeIdx - 1].imageObj) {
                     const fadeOutAlpha = 1 - sceneProgress / 0.14;
@@ -858,8 +891,30 @@
                 ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
             }
 
-            // 2. Subtle gradient overlay (light touch for crisp AI SVGs, cinematic vignette for photos)
-            if (!isSvgVisual) {
+            // 1b. In AI Cartoon 2D mode, add subtle audio-driven role pill / narrator lip-sync overlay if available
+            if (isCartoonAiVisual && App.motionGraphics) {
+                let audioLevel = 0;
+                if (currentScene.audioEnvelope && currentScene.audioEnvelope.length > 0 && sceneProgress < 0.94) {
+                    const envIdx = Math.min(
+                        currentScene.audioEnvelope.length - 1,
+                        Math.floor((sceneProgress / 0.94) * currentScene.audioEnvelope.length)
+                    );
+                    audioLevel = currentScene.audioEnvelope[envIdx] || 0;
+                }
+                const cue = currentScene.motionCue || {};
+                if (cue.roleTag && App.motionGraphics.drawShortPillBadge) {
+                    App.motionGraphics.drawShortPillBadge(ctx, cue.roleTag, 96, 62, 'rgba(15, 23, 42, 0.80)', '#ffffff', 1);
+                }
+                if (cue.focusTag && App.motionGraphics.drawShortPillBadge) {
+                    App.motionGraphics.drawShortPillBadge(ctx, cue.focusTag, 434, 62, 'rgba(37, 99, 235, 0.92)', '#ffffff', 1);
+                }
+                if (cue.cast && App.motionGraphics.drawNarratorCameo) {
+                    App.motionGraphics.drawNarratorCameo(ctx, 466, 868, elapsed, cue.characterMood || 'happy', audioLevel, cue.cast);
+                }
+            }
+
+            // 2. Subtle gradient overlay ONLY for real photos (keep clean bright colors on AI cartoon/SVG artwork!)
+            if (!isSvgVisual && !isCartoonAiVisual) {
                 if (!cachedOverlayGrad) {
                     cachedOverlayGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
                     cachedOverlayGrad.addColorStop(0, 'rgba(0,0,0,0.45)');
@@ -879,6 +934,7 @@
         const bdName = currentScene.motionCue?.backdrop;
         const useLightBar =
             isPhotoVisual ||
+            isCartoonAiVisual ||
             (isMotionStyle &&
                 (bdName === 'night-calm' ||
                     bdName === 'bedroom-night' ||
@@ -888,7 +944,7 @@
                     bdName === 'bank-vault' ||
                     bdName === 'street-rain' ||
                     bdName === 'warning-stage'));
-        const isCleanSubtitle = isMotionStyle || isSvgVisual;
+        const isCleanSubtitle = isMotionStyle || isSvgVisual || isCartoonAiVisual;
         for (let i = 0; i < count; i++) {
             const bx = 24 + i * (barWidth + barGap);
             ctx.fillStyle = useLightBar ? 'rgba(255,255,255,0.32)' : 'rgba(15,23,42,0.18)';

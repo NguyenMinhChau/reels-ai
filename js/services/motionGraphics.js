@@ -3019,12 +3019,15 @@
         const cue = scene.motionCue || analyzeSceneVisualCue(scene.text, sceneIdx, '', {}, visualStyle);
         const backdropId = BACKDROPS[cue.backdrop] ? cue.backdrop : (visualStyle === 'ui-motion' ? 'grid-light' : 'studio-focus');
         const props = Array.isArray(cue.props) && cue.props.length > 0 ? cue.props : ['lightbulb'];
-        const mood = cue.characterMood || 'happy';
-        const action = cue.action || 'pointing';
+        const pivot = Number.isFinite(scene.speechPivot) ? scene.speechPivot : 0.52;
+        const afterPivot = progress >= pivot;
+        const mood = (afterPivot && cue.stage2Mood) ? cue.stage2Mood : (cue.characterMood || 'happy');
+        const action = (afterPivot && cue.stage2Action) ? cue.stage2Action : (cue.action || 'pointing');
+        const activeProp = (afterPivot && props.length > 1) ? props[1] : props[0];
+        const propSwitchScale = (afterPivot && props.length > 1) ? stagePop(progress, Math.max(0.05, pivot - 0.04), 0.16) : 1;
         const cast = cue.cast || 'narrator';
         const effect = cue.effect || 'sparkles';
         const screenType = cue.screenType || 'chat_msg';
-        const pivot = Number.isFinite(scene.speechPivot) ? scene.speechPivot : 0.52;
         const phase2Effect = cue.phase2Effect || 'none';
         const roleTag = String(cue.roleTag || '').trim();
         const focusTag = String(cue.focusTag || '').trim();
@@ -3046,7 +3049,7 @@
                 drawSeatedDeskCharacter(ctx, 304, 545, pop2 * 0.72, t, 'boy-spiky', mood, 0, false);
                 drawSeatedDeskCharacter(ctx, 438, 480, pop2 * 0.56, t, 'manager-red', 'happy', 0, action === 'calling');
                 ctx.restore();
-                drawHeroSubject(ctx, scene, props[0], 270, 272, pop2 * 0.60, progress, t, audioLevel, screenType, true);
+                drawHeroSubject(ctx, scene, activeProp, 270, 272, pop2 * 0.60 * propSwitchScale, progress, t, audioLevel, screenType, true);
                 drawAnimatedActor(ctx, 444, 702, pop1 * 0.94, progress, t, action === 'celebrating' ? 'celebrating' : 'pointing', mood, audioLevel, cast);
                 if (roleTag) drawShortPillBadge(ctx, roleTag, 444, 548, 'rgba(15, 23, 42, 0.80)', '#ffffff', pop1);
                 drawComicReaction(ctx, 378, 590, mood, audioLevel, t);
@@ -3060,7 +3063,7 @@
                 ctx.scale(camZoom, camZoom);
                 ctx.translate(-270, -545);
                 drawSeatedDeskCharacter(ctx, 265, 540, pop1 * 1.48, t, cast, mood, audioLevel, action === 'calling');
-                drawHeroSubject(ctx, scene, props[0], 430, 345, pop2 * 0.56, progress, t, audioLevel, screenType, true);
+                drawHeroSubject(ctx, scene, activeProp, 430, 345, pop2 * 0.56 * propSwitchScale, progress, t, audioLevel, screenType, true);
                 if (roleTag) drawShortPillBadge(ctx, roleTag, 265, 344, 'rgba(15, 23, 42, 0.82)', '#ffffff', pop1);
                 drawComicReaction(ctx, 118, 385, mood, audioLevel, t);
                 ctx.restore();
@@ -3070,7 +3073,7 @@
             case 'two-shot-dialogue': {
                 const listener = cast === 'girl-purple' ? 'boy-spiky' : 'girl-purple';
                 drawSeatedDeskCharacter(ctx, 372, 520, pop2 * 0.96, t, listener, mood === 'shocked' ? 'thinking' : 'happy', audioLevel * 0.2, false);
-                drawHeroSubject(ctx, scene, props[0], 266, 286, pop2 * 0.62, progress, t, audioLevel, screenType, true);
+                drawHeroSubject(ctx, scene, activeProp, 266, 286, pop2 * 0.62 * propSwitchScale, progress, t, audioLevel, screenType, true);
                 drawAnimatedActor(ctx, 134, 668, pop1 * 1.12, progress, t, action, mood, audioLevel, cast);
                 if (roleTag) drawShortPillBadge(ctx, roleTag, 134, 492, 'rgba(15, 23, 42, 0.82)', '#ffffff', pop1);
                 drawComicReaction(ctx, 214, 535, mood, audioLevel, t);
@@ -3363,11 +3366,12 @@
             }
 
             case 'character-action': {
-                drawHeroSubject(ctx, scene, props[0], 342, 292, pop2 * 0.88, progress, t, audioLevel, screenType, true);
-                if (props[1] && !scene?.customHeroImg) {
-                    drawProp(ctx, props[1], 138, 270, pop3 * 0.48, progress, t, audioLevel, screenType);
+                drawHeroSubject(ctx, scene, activeProp, 342, 292, pop2 * 0.90 * propSwitchScale, progress, t, audioLevel, screenType, true);
+                if (props[1] && !afterPivot && !scene?.customHeroImg) {
+                    drawProp(ctx, props[1], 138, 270, pop3 * 0.46, progress, t, audioLevel, screenType);
                 }
                 drawAnimatedActor(ctx, 255, 628, pop1 * 1.12, progress, t, action, mood, audioLevel, cast);
+                if (roleTag) drawShortPillBadge(ctx, roleTag, 255, 456, 'rgba(15, 23, 42, 0.80)', '#ffffff', pop1);
                 drawComicReaction(ctx, 355, 515, mood, audioLevel, t);
                 if (cue.crossOut && progress > pivot * 0.7) {
                     drawRedCross(ctx, 342, 292, 78, stagePop(progress, pivot * 0.7, 0.16));
@@ -3377,11 +3381,13 @@
 
             case 'character-left': {
                 drawAnimatedActor(ctx, 134, 622, pop1 * 1.06, progress, t, action, mood, audioLevel, cast);
+                if (roleTag) drawShortPillBadge(ctx, roleTag, 134, 452, 'rgba(15, 23, 42, 0.80)', '#ffffff', pop1);
                 drawComicReaction(ctx, 212, 515, mood, audioLevel, t);
-                drawHeroSubject(ctx, scene, props[0], 362, 410, pop2 * 1.02, progress, t, audioLevel, screenType, true);
-                if (props[1] && pop3 > 0.1 && !scene?.customHeroImg) {
+                drawHeroSubject(ctx, scene, activeProp, 362, 410, pop2 * 1.02 * propSwitchScale, progress, t, audioLevel, screenType, true);
+                if (props[1] && pop3 > 0.1 && !afterPivot && !scene?.customHeroImg) {
                     drawProp(ctx, props[1], 418, 215, pop3 * 0.44, progress, t, audioLevel, screenType);
                 }
+                if (focusTag) drawShortPillBadge(ctx, focusTag, 362, 256, '#2563eb', '#ffffff', pop2);
                 if (cue.crossOut && progress > pivot * 0.7) {
                     drawRedCross(ctx, 362, 410, 95, stagePop(progress, pivot * 0.7, 0.16));
                 }
@@ -3563,6 +3569,8 @@
         SFX_NAMES,
         SCREEN_TYPES,
         analyzeSceneVisualCue,
-        drawMotionScene
+        drawMotionScene,
+        drawShortPillBadge,
+        drawNarratorCameo
     };
 })(window);

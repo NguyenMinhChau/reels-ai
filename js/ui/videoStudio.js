@@ -12,7 +12,7 @@
     const { MOTION_TYPES } = App.CONFIG;
     const { splitScriptIntoScenes, splitTextIntoVisualBeats, hashString, escapeHtml, copyToClipboard } = App.utils;
 
-    const MAX_DIALOGUE_SCENES = 14;
+    const MAX_DIALOGUE_SCENES = 16;
     let customImages = [];
     let currentTopicHashtags = '';
     let lastChapterAudioMeta = [];
@@ -21,6 +21,7 @@
     let lastVoiceSessionKey = '';
     let generationAbortController = null;
     let rewriteAbortController = null;
+    let importAbortController = null;
     let exportAbortController = null;
     let socialAbortController = null;
     let lastExportedFile = null;
@@ -258,6 +259,10 @@
             rewriteAbortController.abort();
             rewriteAbortController = null;
         }
+        if (importAbortController) {
+            importAbortController.abort();
+            importAbortController = null;
+        }
         if (exportAbortController) {
             exportAbortController.abort();
             exportAbortController = null;
@@ -336,6 +341,76 @@
             btn.disabled = false;
             btn.innerHTML = prevHtml;
             rewriteAbortController = null;
+        }
+    }
+
+    async function handleImportContentTo2D(autoGenerate = false) {
+        const rawInput = document.getElementById('vs-raw-content-input');
+        const btnDump = document.getElementById('btn-dump-content-to-2d');
+        const btnAuto = document.getElementById('btn-dump-and-generate-2d');
+        const rawContent = rawInput?.value.trim() || '';
+        if (!rawContent) {
+            App.toast.show('Hãy dán content / kịch bản có sẵn vào ô trước nhé!', 'warning');
+            rawInput?.focus();
+            return;
+        }
+
+        const titleEl = document.getElementById('vs-title');
+        const mode = document.getElementById('vs-import-mode')?.value || 'preserve';
+        const visualStyle = document.getElementById('vs-visual-style')?.value || 'motion';
+
+        if (btnDump) btnDump.disabled = true;
+        if (btnAuto) btnAuto.disabled = true;
+        const activeBtn = autoGenerate ? btnAuto : btnDump;
+        const prevHtml = activeBtn ? activeBtn.innerHTML : '';
+        if (activeBtn) {
+            activeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Đang tách nhịp &amp; đạo diễn 2D...';
+        }
+
+        if (importAbortController) importAbortController.abort();
+        importAbortController = new AbortController();
+
+        try {
+            const result = await App.geminiApi.dumpContentTo2DScenes({
+                rawContent,
+                titleHint: titleEl?.value.trim() || '',
+                mode,
+                visualStyle,
+                layouts: App.motionGraphics?.LAYOUT_NAMES,
+                backdrops: App.motionGraphics?.BACKDROP_NAMES,
+                props: App.motionGraphics?.PROP_NAMES,
+                actions: App.motionGraphics?.ACTION_NAMES,
+                effects: App.motionGraphics?.EFFECT_NAMES,
+                casts: App.motionGraphics?.CAST_NAMES,
+                sfxList: App.motionGraphics?.SFX_NAMES,
+                screenTypes: App.motionGraphics?.SCREEN_TYPES,
+                signal: importAbortController.signal
+            });
+
+            if (titleEl && result.title && !titleEl.value.trim()) {
+                titleEl.value = result.title;
+            } else if (titleEl && result.title && mode === 'polish') {
+                titleEl.value = result.title;
+            }
+
+            if (Array.isArray(result.scenes) && result.scenes.length >= 2) {
+                renderSceneInputs(result.scenes);
+                lastChapterAudioMeta = [];
+                cachedChapterAudios = [];
+                document.getElementById('vs-import-content-panel')?.classList.add('hidden');
+                App.toast.show(`Đã tách content thành ${result.scenes.length} nhịp cảnh 2D khớp giọng nói!`);
+                if (autoGenerate) {
+                    setTimeout(() => handleGenerateAssets(), 60);
+                }
+            }
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            App.toast.show(err.message || 'Không thể phân tích content thành cảnh 2D.', 'error');
+        } finally {
+            if (btnDump) btnDump.disabled = false;
+            if (btnAuto) btnAuto.disabled = false;
+            if (activeBtn) activeBtn.innerHTML = prevHtml;
+            importAbortController = null;
         }
     }
 
@@ -445,6 +520,7 @@
                     transition: aiItem.transition === 'diagonal-wipe' ? 'diagonal-wipe' : 'cut',
                     cast,
                     action: aiItem.action || localCue.action,
+                    stage2Action: aiItem.stage2Action || '',
                     screenType,
                     phase2Effect: aiItem.phase2Effect || localCue.phase2Effect || 'none',
                     visualSubject: aiItem.visualSubject || '',
@@ -454,6 +530,7 @@
                     sfx,
                     props: chosenProps,
                     characterMood: aiItem.characterMood || localCue.characterMood,
+                    stage2Mood: aiItem.stage2Mood || '',
                     crossOut: Boolean(aiItem.crossOut),
                     sceneText: beat.text,
                     videoTitle
@@ -505,16 +582,13 @@
 
         try {
             // 1. Expand narration chapters into balanced audio-locked scenes
-            // If user already wrote >= 7 scenes, keep 1 scene/line in 'balanced' mode for crisp pacing!
-            const maxBeatsPerChapter =
-                scenePacing === 'standard'
-                    ? 1
-                    : scenePacing === 'dynamic'
-                        ? (chapterCount >= 8 ? 2 : 3)
-                        : chapterCount >= 7
-                            ? 1
-                            : 2;
-            const chapterBeatTexts = texts.map((t) => splitTextIntoVisualBeats(t, maxBeatsPerChapter));
+            // Keep beats brisk (1.8-3s) so every clause/action gets its own crisp camera cut!
+            const chapterBeatTexts = texts.map((t) => {
+                const wc = String(t || '').split(/\s+/).filter(Boolean).length;
+                if (scenePacing === 'standard') return [t];
+                if (scenePacing === 'dynamic') return splitTextIntoVisualBeats(t, chapterCount >= 10 ? 2 : 3);
+                return wc >= 12 || chapterCount < 7 ? splitTextIntoVisualBeats(t, 2) : [t];
+            });
             const flatBeats = [];
             chapterBeatTexts.forEach((beatList, chapterIdx) => {
                 beatList.forEach((beatText, beatInChapter) => {
@@ -530,13 +604,13 @@
             updateStudioProgress(
                 10,
                 hasApiKey
-                    ? `Đang thiết kế ${flatBeats.length} phân cảnh không trùng lặp & kết nối giọng AI...`
+                    ? `Đang đạo diễn ${flatBeats.length} nhịp cảnh 2D khớp từng câu nói & kết nối giọng AI...`
                     : `Đang chuẩn bị ${flatBeats.length} nhịp chuyển cảnh đa dạng...`
             );
 
-            // Launch 1 Free Gemini AI Storyboard call in parallel with TTS for motion/ui-motion/photo metadata
+            // Launch 1 Free Gemini AI Storyboard Director call in parallel with TTS
             const storyboardPromise =
-                hasApiKey && (visualStyle === 'motion' || visualStyle === 'ui-motion' || visualStyle === 'photo')
+                hasApiKey && (visualStyle === 'motion' || visualStyle === 'ui-motion' || visualStyle === 'photo' || visualStyle === 'ai-cartoon')
                     ? App.geminiApi.generateMultiBeatStoryboard({
                           title: videoTitle,
                           beatTexts: flatBeats.map((b) => b.text),
@@ -548,35 +622,30 @@
                           casts: App.motionGraphics?.CAST_NAMES,
                           sfxList: App.motionGraphics?.SFX_NAMES,
                           screenTypes: App.motionGraphics?.SCREEN_TYPES,
-                          visualStyle,
+                          visualStyle: visualStyle === 'ai-cartoon' ? 'motion' : visualStyle,
                           signal
                       })
                     : Promise.resolve(null);
 
-            const customPropSvgsPromise =
-                hasApiKey && (visualStyle === 'motion' || visualStyle === 'ui-motion') && typeof App.geminiApi.generateCustomPropSvgs === 'function'
-                    ? storyboardPromise
-                          .then((sb) =>
-                              App.geminiApi.generateCustomPropSvgs({
-                                  title: videoTitle,
-                                  beats: flatBeats,
-                                  storyboard: sb,
-                                  signal
-                              })
-                          )
-                          .catch(() => [])
-                    : Promise.resolve([]);
-
             const needAiImagePrompts =
-                hasApiKey && (visualStyle === 'ai-image' || (visualStyle === 'photo' && imageSourceMode !== 'stock'));
+                hasApiKey && (visualStyle === 'ai-image' || visualStyle === 'ai-cartoon' || (visualStyle === 'photo' && imageSourceMode !== 'stock'));
             const visualPromptsPromise = needAiImagePrompts
-                ? App.geminiApi.generateRealisticVisualPrompts({
-                      title: videoTitle,
-                      sceneTexts: visualStyle === 'ai-image' ? flatBeats.map((b) => b.text) : texts,
-                      signal
-                  })
+                ? (visualStyle === 'ai-cartoon'
+                      ? storyboardPromise.then((sb) =>
+                            App.geminiApi.generateCartoonVisualPrompts({
+                                title: videoTitle,
+                                beatTexts: flatBeats.map((b) => b.text),
+                                storyboard: sb,
+                                signal
+                            })
+                        )
+                      : App.geminiApi.generateRealisticVisualPrompts({
+                            title: videoTitle,
+                            sceneTexts: visualStyle === 'ai-image' ? flatBeats.map((b) => b.text) : texts,
+                            signal
+                        }))
                 : Promise.resolve(
-                      (visualStyle === 'ai-image' ? flatBeats.map((b) => b.text) : texts).map(
+                      (visualStyle === 'ai-image' || visualStyle === 'ai-cartoon' ? flatBeats.map((b) => b.text) : texts).map(
                           (t, idx) => `${videoTitle} - ${idx + 1}: ${t}`
                       )
                   );
@@ -798,13 +867,19 @@
                 } else {
                     updateStudioProgress(72, `Chưa có API Key → dùng Hoạt hình 2D Offline cho ${flatBeats.length} cảnh...`);
                 }
-            } else if (visualStyle === 'ai-image') {
+            } else if (visualStyle === 'ai-image' || visualStyle === 'ai-cartoon') {
                 if (hasApiKey) {
+                    const isCartoon = visualStyle === 'ai-cartoon';
                     let hitRateLimit = false;
                     for (let b = 0; b < flatBeats.length; b++) {
                         if (b > 0) await App.utils.sleep(800, signal);
-                        const pct = 62 + Math.round((b / Math.max(1, flatBeats.length)) * 22);
-                        updateStudioProgress(pct, `Đang tạo ảnh AI cảnh ${b + 1}/${flatBeats.length} khớp lời thoại...`);
+                        const pct = 62 + Math.round((b / Math.max(1, flatBeats.length)) * 28);
+                        updateStudioProgress(
+                            pct,
+                            isCartoon
+                                ? `Nano Banana đang vẽ khung hình hoạt hình 2D cảnh ${b + 1}/${flatBeats.length}...`
+                                : `Đang tạo ảnh AI cảnh ${b + 1}/${flatBeats.length} khớp lời thoại...`
+                        );
                         const promptText =
                             visualPrompts[b] || visualPrompts[flatBeats[b].chapterIdx] || `${videoTitle}: ${flatBeats[b].text}`;
                         const imgRes = await App.geminiApi.fetchSceneImageDataUrl({ promptText, signal });
@@ -826,31 +901,24 @@
                         if (!sceneImageObjs[b]) missingIndices.push(b);
                     }
                     if (missingIndices.length > 0) {
-                        if (hitRateLimit && missingIndices.length === flatBeats.length) {
+                        // Fall back cleanly per missing scene to our crisp 2-stage cel-shaded 2D motion director!
+                        missingIndices.forEach((mIdx) => {
+                            sceneStyleOverrides[mIdx] = 'motion';
+                        });
+                        if (hitRateLimit) {
                             App.toast.show(
-                                'Model ảnh AI Nano Banana đang giới hạn Free → tự động chuyển sang AI Vẽ Minh Họa Độc Bản khớp ngữ cảnh!',
+                                missingIndices.length === flatBeats.length
+                                    ? 'Model ảnh Nano Banana tạm giới hạn Free → tự chuyển sang Hoạt Hình 2D Kể Chuyện 2 pha!'
+                                    : `Có ${missingIndices.length} cảnh chạm hạn mức ảnh AI → tự bù bằng Hoạt Hình 2D Kể Chuyện khớp giọng.`,
                                 'warning',
-                                { duration: 6000 }
-                            );
-                        } else if (hitRateLimit) {
-                            App.toast.show(
-                                `Có ${missingIndices.length} cảnh ảnh AI chạm hạn mức → AI tự vẽ minh họa độc bản bù đúng ngữ cảnh.`,
-                                'info'
+                                { duration: 5500 }
                             );
                         }
-                        const fallbackSvgs = await App.geminiApi.generateCustomSceneSvgs({
-                            title: videoTitle,
-                            scenes: missingIndices.map((idx) => flatBeats[idx].text),
-                            tone: bgmStyle,
-                            signal,
-                            onProgress: (done, total) => {
-                                const pct = 84 + Math.round((done / Math.max(1, total)) * 11);
-                                updateStudioProgress(pct, `Đang vẽ minh họa bù ${done}/${total} cảnh khớp lời thoại...`);
-                            }
-                        });
-                        await loadSvgBatchIntoIndices(missingIndices, fallbackSvgs);
                     }
                 } else {
+                    flatBeats.forEach((_, idx) => {
+                        sceneStyleOverrides[idx] = 'motion';
+                    });
                     updateStudioProgress(72, `Chưa có API Key → dùng Hoạt hình 2D Offline cho ${flatBeats.length} cảnh...`);
                 }
             } else if (visualStyle === 'photo') {
@@ -896,30 +964,7 @@
                     })
                 );
             } else {
-                updateStudioProgress(80, `Đang dựng ${flatBeats.length} cảnh hoạt hình 2D khớp từng nhịp âm thanh...`);
-            }
-
-            const customHeroImgs = new Array(flatBeats.length).fill(null);
-            if (visualStyle === 'motion' || visualStyle === 'ui-motion') {
-                updateStudioProgress(78, `Đang vẽ cảnh hoạt hình 2D khớp từng câu thoại (${flatBeats.length} cảnh)...`);
-                const customSvgUrls = await customPropSvgsPromise;
-                let drawnCount = 0;
-                if (Array.isArray(customSvgUrls) && customSvgUrls.length > 0) {
-                    await Promise.all(
-                        customSvgUrls.map(async (url, idx) => {
-                            if (!url || idx >= flatBeats.length) return;
-                            try {
-                                customHeroImgs[idx] = await App.mediaEngine.loadImageFromUrl(url);
-                                drawnCount++;
-                            } catch (_) {
-                                customHeroImgs[idx] = null;
-                            }
-                        })
-                    );
-                }
-                if (hasApiKey && drawnCount === 0) {
-                    App.toast.show('AI vẽ cảnh tạm quá tải → đang dùng hoạt hình 2D dựng sẵn khớp chủ đề.', 'warning');
-                }
+                updateStudioProgress(82, `Đang dựng ${flatBeats.length} phân cảnh hoạt hình 2D 2 pha khớp từng nhịp âm thanh...`);
             }
 
             const builtScenes = flatBeats.map((beat, beatIdx) => {
@@ -935,14 +980,14 @@
                 return {
                     text: beat.text,
                     visualPrompt:
-                        visualStyle === 'ai-image'
+                        visualStyle === 'ai-image' || visualStyle === 'ai-cartoon'
                             ? visualPrompts[beatIdx] || beat.text
                             : visualPrompts[beat.chapterIdx] || beat.text,
                     visualStyle: sceneStyleOverrides[beatIdx],
                     showSubtitles,
                     motionCue: motionCues[beatIdx],
                     imageObj: sceneImageObjs[beatIdx],
-                    customHeroImg: customHeroImgs[beatIdx],
+                    customHeroImg: null,
                     speechPivot,
                     audioBuffer,
                     playbackRate: speedRate,
@@ -1296,6 +1341,18 @@
         });
 
         document.getElementById('btn-open-studio-scratch')?.addEventListener('click', openFromScratch);
+        document.getElementById('btn-toggle-import-content')?.addEventListener('click', () => {
+            const panel = document.getElementById('vs-import-content-panel');
+            if (!panel) return;
+            const willOpen = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden');
+            if (willOpen) document.getElementById('vs-raw-content-input')?.focus();
+        });
+        document.getElementById('btn-close-import-panel')?.addEventListener('click', () => {
+            document.getElementById('vs-import-content-panel')?.classList.add('hidden');
+        });
+        document.getElementById('btn-dump-content-to-2d')?.addEventListener('click', () => handleImportContentTo2D(false));
+        document.getElementById('btn-dump-and-generate-2d')?.addEventListener('click', () => handleImportContentTo2D(true));
         document.getElementById('btn-rewrite-story')?.addEventListener('click', handleEnhanceStorytelling);
         document.getElementById('btn-add-scene')?.addEventListener('click', () => {
             const values = getSceneInputs().map((el) => el.value);
