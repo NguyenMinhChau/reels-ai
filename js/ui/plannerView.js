@@ -12,6 +12,8 @@
 
     let isDirty = true;
     let draggedScriptId = null;
+    const COLUMN_PAGE_SIZE = 4;
+    const columnPage = { idea: 1, scheduled: 1, published: 1 };
 
     function updateBadgeCount(total) {
         const badge = document.getElementById('planner-badge');
@@ -128,37 +130,56 @@
             published: document.getElementById('col-published')
         };
 
-        const fragments = {
-            idea: document.createDocumentFragment(),
-            scheduled: document.createDocumentFragment(),
-            published: document.createDocumentFragment()
-        };
-
-        const counts = { idea: 0, scheduled: 0, published: 0 };
-
+        const grouped = { idea: [], scheduled: [], published: [] };
         state.userScripts.forEach((script) => {
             const st = script.status || 'idea';
-            if (!cols[st]) return;
-            counts[st]++;
-            fragments[st].appendChild(createCardElement(script, st));
+            if (grouped[st]) grouped[st].push(script);
         });
 
         Object.keys(cols).forEach((k) => {
             const colEl = cols[k];
             if (!colEl) return;
-            colEl.innerHTML = '';
+            const list = grouped[k];
+            const total = list.length;
+            const totalPages = Math.max(1, Math.ceil(total / COLUMN_PAGE_SIZE));
+            if (columnPage[k] > totalPages) columnPage[k] = totalPages;
+            if (columnPage[k] < 1) columnPage[k] = 1;
 
-            if (counts[k] === 0) {
+            const startIdx = (columnPage[k] - 1) * COLUMN_PAGE_SIZE;
+            const pageSlice = list.slice(startIdx, startIdx + COLUMN_PAGE_SIZE);
+
+            colEl.innerHTML = '';
+            if (total === 0) {
                 colEl.innerHTML =
                     '<div class="text-center py-8 px-3 text-xs text-slate-400 dark:text-slate-500 border border-dashed border-slate-300/80 dark:border-slate-700 rounded-xl">Chưa có kịch bản nào ở mục này</div>';
             } else {
-                colEl.appendChild(fragments[k]);
+                const frag = document.createDocumentFragment();
+                pageSlice.forEach((script) => frag.appendChild(createCardElement(script, k)));
+                colEl.appendChild(frag);
+            }
+
+            const pagEl = document.getElementById(`planner-pag-${k}`);
+            if (pagEl) {
+                if (total <= COLUMN_PAGE_SIZE) {
+                    pagEl.classList.add('hidden');
+                    pagEl.innerHTML = '';
+                } else {
+                    pagEl.classList.remove('hidden');
+                    pagEl.innerHTML = `
+                        <span class="font-semibold text-slate-500 dark:text-slate-400">${startIdx + 1}–${startIdx + pageSlice.length} / ${total}</span>
+                        <div class="flex items-center gap-1">
+                            <button type="button" data-col-pag="${k}" data-page="${columnPage[k] - 1}" ${columnPage[k] <= 1 ? 'disabled' : ''} class="px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-slate-700 dark:text-slate-200 cursor-pointer">‹</button>
+                            <span class="px-1.5 font-extrabold text-slate-700 dark:text-slate-200">${columnPage[k]}/${totalPages}</span>
+                            <button type="button" data-col-pag="${k}" data-page="${columnPage[k] + 1}" ${columnPage[k] >= totalPages ? 'disabled' : ''} class="px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-slate-700 dark:text-slate-200 cursor-pointer">›</button>
+                        </div>
+                    `;
+                }
             }
 
             const countEl = document.getElementById(`count-${k}`);
-            if (countEl) countEl.textContent = counts[k];
+            if (countEl) countEl.textContent = total;
             const mobileCountEl = document.getElementById(`mobile-count-${k}`);
-            if (mobileCountEl) mobileCountEl.textContent = counts[k];
+            if (mobileCountEl) mobileCountEl.textContent = total;
         });
     }
 
@@ -263,8 +284,19 @@
     function init() {
         const board = document.getElementById('planner-board');
         if (board) {
-            // Delegated clicks on Kanban cards
+            // Delegated clicks on Kanban cards & column pagination
             board.addEventListener('click', (e) => {
+                const pagBtn = e.target.closest('button[data-col-pag]');
+                if (pagBtn && !pagBtn.disabled) {
+                    const colKey = pagBtn.dataset.colPag;
+                    const nextP = parseInt(pagBtn.dataset.page, 10);
+                    if (colKey && Number.isFinite(nextP)) {
+                        columnPage[colKey] = nextP;
+                        render(true);
+                    }
+                    return;
+                }
+
                 const btn = e.target.closest('button[data-action]');
                 if (!btn) return;
                 const action = btn.dataset.action;

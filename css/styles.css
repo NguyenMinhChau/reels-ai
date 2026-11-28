@@ -100,15 +100,27 @@ html.dark ::-webkit-scrollbar-thumb {
     animation: modalSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     max-height: 92vh;
     max-height: 92dvh;
+    overflow-x: hidden;
 }
 
 /* Prevent long hashtags/URLs or unspaced strings from overflowing mobile flex/grid containers */
+.card-hover,
+.kanban-card {
+    min-width: 0;
+}
+
 .card-hover h3,
+.card-hover h4,
 .card-hover p,
 .kanban-card h4,
 .kanban-card p {
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+/* Smooth clean custom select alignment */
+select {
+    text-overflow: ellipsis;
 }
 
 /* Kanban Drag & Drop States */
