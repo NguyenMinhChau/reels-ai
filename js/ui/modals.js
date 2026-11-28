@@ -48,9 +48,11 @@
 
         if (studioNote) {
             studioNote.textContent = hasKey
-                ? 'Đang dùng Gemini API Key riêng (tích hợp cache chống spam)'
-                : 'Kết nối Gemini mặc định (hoặc bấm biểu tượng chìa khóa để gắn API Key riêng)';
-            studioNote.className = 'text-[11px] text-slate-500 dark:text-slate-400 font-semibold';
+                ? 'Đang kết nối Gemini API Key thật (Free Tier • có cache chống spam)'
+                : 'Chưa nhập Gemini API Key — bấm "Cài API Key" ở góc trên để dán Key Free từ Google AI Studio';
+            studioNote.className = hasKey
+                ? 'text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold'
+                : 'text-[11px] text-amber-700 dark:text-amber-300 font-semibold';
         }
     }
 

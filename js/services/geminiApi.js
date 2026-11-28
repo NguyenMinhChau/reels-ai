@@ -109,6 +109,9 @@
 
     async function fetchGeminiWithRetry(model, payload, { signal, apiKeyOverride } = {}) {
         const apiKey = apiKeyOverride !== undefined ? String(apiKeyOverride).trim() : getApiKey();
+        if (!apiKey) {
+            throw new ApiError('INVALID_API_KEY', 'Bạn chưa nhập Gemini API Key Free. Hãy bấm "Cài API Key" để dán key miễn phí.');
+        }
         const url = `${GEMINI_BASE_URL}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
         return scheduleTask(async () => {
@@ -1353,6 +1356,9 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
 
     async function fetchLiveSessionChunk({ texts, voiceName, model, onChunkDone, signal }) {
         const apiKey = getApiKey();
+        if (!apiKey) {
+            throw new ApiError('INVALID_API_KEY', 'Bạn chưa nhập Gemini API Key Free để tạo giọng đọc Live.');
+        }
         const wsUrl = `${GEMINI_LIVE_WS_URL}?key=${encodeURIComponent(apiKey)}`;
         const count = texts.length;
         const buffers = new Array(count).fill(null);

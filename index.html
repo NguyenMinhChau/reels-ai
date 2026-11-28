@@ -1082,11 +1082,22 @@
 				<div class="p-5 space-y-5 max-h-[80vh] overflow-y-auto">
 					<form id="settings-form" class="space-y-3">
 						<div>
-							<label
-								for="input-gemini-api-key"
-								class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1"
-								>Gemini API Key (Lưu cục bộ 100% trên trình duyệt)</label
-							>
+							<div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
+								<label
+									for="input-gemini-api-key"
+									class="block text-xs font-bold text-slate-700 dark:text-slate-300"
+									>Gemini API Key Miễn Phí (Lưu cục bộ trên trình duyệt)</label
+								>
+								<a
+									href="https://aistudio.google.com/apikey"
+									target="_blank"
+									rel="noopener noreferrer"
+									class="text-[11px] font-extrabold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+								>
+									<i class="fa-solid fa-up-right-from-square text-[10px]"></i>
+									<span>Lấy Key Free tại Google AI Studio</span>
+								</a>
+							</div>
 							<div class="relative flex items-center">
 								<input
 									type="password"
