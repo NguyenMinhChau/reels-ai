@@ -970,15 +970,39 @@
             const { audioLevel, audioViseme } = sampleSceneAudioMetrics(currentScene, sceneProgress, 0.96);
             App.motionGraphics.drawMotionScene(ctx, currentScene, sceneProgress, activeIdx, elapsed, prevScene, audioLevel, audioViseme);
         } else {
-            // 1. Custom AI Cartoon / SVG Illustration OR Real/AI Photo background + Diagonal Wipe / Crossfade
+            // 1. Custom AI Cartoon / SVG Illustration OR Real/AI Photo background + Varied Creative Transitions
+            const transitionKind = isCartoonAiVisual || isSvgVisual
+                ? ['diagonal-wipe', 'iris-circle', 'whip-slide', 'crossfade'][activeIdx % 4]
+                : 'crossfade';
             const useWipe =
-                isCartoonAiVisual &&
+                (isCartoonAiVisual || isSvgVisual) &&
                 activeIdx > 0 &&
                 studioScenes[activeIdx - 1]?.imageObj &&
                 sceneProgress < 0.14 &&
-                (currentScene.motionCue?.transition === 'diagonal-wipe' || activeIdx % 2 === 1);
+                (transitionKind === 'diagonal-wipe' || transitionKind === 'iris-circle' || transitionKind === 'whip-slide');
 
-            if (useWipe) {
+            if (useWipe && transitionKind === 'iris-circle') {
+                const irisP = 1 - Math.pow(1 - Math.max(0, Math.min(1, sceneProgress / 0.14)), 3);
+                const prevSc = studioScenes[activeIdx - 1];
+                drawImageWithMotion(prevSc.imageObj, 1, prevSc.motionType, 1);
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(CANVAS_W / 2, CANVAS_H / 2, 30 + irisP * 760, 0, Math.PI * 2);
+                ctx.clip();
+                drawImageWithMotion(currentScene.imageObj, sceneProgress, currentScene.motionType, 1);
+                ctx.restore();
+            } else if (useWipe && transitionKind === 'whip-slide') {
+                const whipP = 1 - Math.pow(1 - Math.max(0, Math.min(1, sceneProgress / 0.14)), 3);
+                const prevSc = studioScenes[activeIdx - 1];
+                ctx.save();
+                ctx.translate(-CANVAS_W * whipP, 0);
+                drawImageWithMotion(prevSc.imageObj, 1, prevSc.motionType, 1);
+                ctx.restore();
+                ctx.save();
+                ctx.translate(CANVAS_W * (1 - whipP), 0);
+                drawImageWithMotion(currentScene.imageObj, sceneProgress, currentScene.motionType, 1);
+                ctx.restore();
+            } else if (useWipe) {
                 const wipeP = Math.max(0, Math.min(1, sceneProgress / 0.14));
                 const easeP = 1 - Math.pow(1 - wipeP, 3);
                 const prevSc = studioScenes[activeIdx - 1];
@@ -1024,18 +1048,19 @@
                 ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
             }
 
-            // 1b. In AI Cartoon & AI SVG 2D modes, overlay 30Hz lip-synced narrator cameo & crisp topic pills
+            // 1b. In AI Cartoon & AI SVG 2D modes, overlay audio-reactive motion sparks, varied tags & 30Hz lip cameo
             if ((isCartoonAiVisual || isSvgVisual) && App.motionGraphics) {
                 const { audioLevel, audioViseme } = sampleSceneAudioMetrics(currentScene, sceneProgress, 0.94);
                 const cue = currentScene.motionCue || {};
-                if (cue.roleTag && App.motionGraphics.drawShortPillBadge) {
-                    App.motionGraphics.drawShortPillBadge(ctx, cue.roleTag, 96, 62, 'rgba(15, 23, 42, 0.80)', '#ffffff', 1);
+                const sceneTheme = currentScene.artTheme || 'comic-pop';
+                if (typeof App.motionGraphics.drawAudioPulseAccents === 'function') {
+                    App.motionGraphics.drawAudioPulseAccents(ctx, sceneTheme, sceneProgress, elapsed, audioLevel, activeIdx);
                 }
                 if (cue.focusTag && App.motionGraphics.drawShortPillBadge) {
-                    App.motionGraphics.drawShortPillBadge(ctx, cue.focusTag, 434, 62, 'rgba(37, 99, 235, 0.92)', '#ffffff', 1);
+                    App.motionGraphics.drawShortPillBadge(ctx, cue.focusTag, 424, 64, '#2563eb', '#ffffff', 1, sceneTheme);
                 }
                 if (cue.cast && App.motionGraphics.drawNarratorCameo) {
-                    App.motionGraphics.drawNarratorCameo(ctx, 466, 868, elapsed, cue.characterMood || 'happy', audioLevel, cue.cast, audioViseme);
+                    App.motionGraphics.drawNarratorCameo(ctx, 466, 868, elapsed, cue.characterMood || 'happy', audioLevel, cue.cast, audioViseme, sceneTheme);
                 }
             }
 

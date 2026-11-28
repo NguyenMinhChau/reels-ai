@@ -14,7 +14,9 @@
     const W = 540;
     const H = 960;
     const FLOOR_Y = 784;
+    const ART_THEMES = ['comic-pop', 'bauhaus-geo', 'paper-cutout', 'neon-grid', 'editorial-zine'];
     let currentAudioViseme = -1;
+    let currentArtTheme = 'comic-pop';
 
     const BACKDROPS = {
         'studio-focus': { top: '#fafbff', bot: '#eef2ff', floor: '#dbeafe', line: '#93c5fd', accent: '#2563eb', wallTrim: '#e2e8f0', dark: false },
@@ -1372,6 +1374,151 @@
         ctx.moveTo(0, FLOOR_Y);
         ctx.lineTo(W, FLOOR_Y);
         ctx.stroke();
+    }
+
+    function drawAudioPulseAccents(ctx, artTheme = 'comic-pop', progress = 0, t = 0, audioLevel = 0, sceneIdx = 0) {
+        const activeTheme = ART_THEMES.includes(artTheme) ? artTheme : ART_THEMES[sceneIdx % ART_THEMES.length];
+        ctx.save();
+        if (activeTheme === 'comic-pop') {
+            // Dynamic radial comic impact lines pulsing with speech energy
+            const rays = 14;
+            const pulseAlpha = 0.08 + audioLevel * 0.24;
+            ctx.strokeStyle = `rgba(249, 115, 22, ${pulseAlpha})`;
+            ctx.lineWidth = 2.6;
+            for (let i = 0; i < rays; i++) {
+                const ang = (i / rays) * Math.PI * 2 + Math.sin(t * 0.8) * 0.05;
+                const r1 = 235 - audioLevel * 32;
+                const r2 = 340 + (i % 2) * 55;
+                ctx.beginPath();
+                ctx.moveTo(270 + Math.cos(ang) * r1, 420 + Math.sin(ang) * r1);
+                ctx.lineTo(270 + Math.cos(ang) * r2, 420 + Math.sin(ang) * r2);
+                ctx.stroke();
+            }
+        } else if (activeTheme === 'bauhaus-geo') {
+            // Rotating oversized Bauhaus rings & sweeping primary/pastel geometry
+            ctx.translate(270, 415);
+            ctx.rotate(t * 0.32 + progress * 0.6);
+            ctx.strokeStyle = `rgba(59, 130, 246, ${0.14 + audioLevel * 0.14})`;
+            ctx.lineWidth = 10;
+            ctx.beginPath();
+            ctx.arc(0, 0, 210 + audioLevel * 14, 0, Math.PI * 1.15);
+            ctx.stroke();
+            ctx.strokeStyle = `rgba(245, 158, 11, ${0.16 + audioLevel * 0.16})`;
+            ctx.beginPath();
+            ctx.arc(0, 0, 178 - audioLevel * 8, Math.PI * 0.8, Math.PI * 1.9);
+            ctx.stroke();
+        } else if (activeTheme === 'neon-grid') {
+            // Glowing kinetic HUD corner brackets & beat rings
+            const r = 188 + audioLevel * 28;
+            ctx.strokeStyle = `rgba(56, 189, 248, ${0.22 + audioLevel * 0.3})`;
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([14, 10]);
+            ctx.lineDashOffset = -t * 48;
+            ctx.beginPath();
+            ctx.arc(270, 415, r, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        } else if (activeTheme === 'paper-cutout') {
+            // Soft floating layered cutout ribbons at corners
+            ctx.fillStyle = `rgba(16, 185, 129, ${0.12 + audioLevel * 0.08})`;
+            ctx.beginPath();
+            ctx.ellipse(90, 155 + Math.sin(t * 1.9) * 10, 74, 34, -0.28, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = `rgba(244, 63, 94, ${0.10 + audioLevel * 0.08})`;
+            ctx.beginPath();
+            ctx.ellipse(456, 650 + Math.cos(t * 1.7) * 10, 68, 42, 0.34, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            // Editorial-zine subtle kinetic highlighter swoosh & rotating corner stars
+            const sweepW = Math.min(340, Math.max(40, progress * 340));
+            ctx.fillStyle = `rgba(250, 204, 21, ${0.16 + audioLevel * 0.08})`;
+            ctx.beginPath();
+            ctx.roundRect(100, 150, sweepW, 18, 9);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    function drawKineticArtStage(ctx, artTheme, backdropId, progress, t, audioLevel = 0, sceneIdx = 0, pivot = 0.52) {
+        const theme = ART_THEMES.includes(artTheme) ? artTheme : ART_THEMES[sceneIdx % ART_THEMES.length];
+        const b = BACKDROPS[backdropId] || BACKDROPS['cream-room'];
+        ctx.save();
+        if (theme === 'comic-pop') {
+            // Bold angled Pop-Art sash + animated comic halftone clusters
+            ctx.fillStyle = b.dark ? 'rgba(245, 158, 11, 0.14)' : 'rgba(251, 146, 60, 0.14)';
+            ctx.beginPath();
+            ctx.moveTo(0, 240);
+            ctx.lineTo(W, 145);
+            ctx.lineTo(W, 430);
+            ctx.lineTo(0, 540);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = b.dark ? 'rgba(56, 189, 248, 0.18)' : 'rgba(30, 41, 59, 0.08)';
+            for (let row = 0; row < 5; row++) {
+                for (let col = 0; col < 7; col++) {
+                    const dotR = 3.2 - row * 0.35 + audioLevel * 1.5;
+                    ctx.beginPath();
+                    ctx.arc(36 + col * 24, 108 + row * 22, Math.max(1.2, dotR), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        } else if (theme === 'bauhaus-geo') {
+            // Kinetic geometric blocks rotating subtly with timeline & voice
+            const shift = Math.sin(t * 1.4 + sceneIdx) * 14;
+            ctx.fillStyle = b.dark ? 'rgba(99, 102, 241, 0.22)' : 'rgba(59, 130, 246, 0.13)';
+            ctx.beginPath();
+            ctx.arc(465, 225 + shift, 108, Math.PI * 0.5, Math.PI * 1.5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = b.dark ? 'rgba(250, 204, 21, 0.18)' : 'rgba(245, 158, 11, 0.16)';
+            ctx.beginPath();
+            ctx.arc(76, 565 - shift, 68, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (theme === 'paper-cutout') {
+            // Scalloped parallax paper-cut hills & layered circles
+            const px = Math.sin(progress * Math.PI) * 18;
+            ctx.fillStyle = b.dark ? 'rgba(45, 212, 191, 0.14)' : 'rgba(20, 184, 166, 0.12)';
+            ctx.beginPath();
+            ctx.moveTo(0, 590);
+            ctx.quadraticCurveTo(160 + px, 520, 320, 575);
+            ctx.quadraticCurveTo(440 - px, 615, W, 540);
+            ctx.lineTo(W, FLOOR_Y);
+            ctx.lineTo(0, FLOOR_Y);
+            ctx.closePath();
+            ctx.fill();
+        } else if (theme === 'neon-grid') {
+            // Perspective glowing floor grid rays & cyber pulse halo
+            ctx.strokeStyle = b.dark ? 'rgba(56, 189, 248, 0.22)' : 'rgba(79, 70, 229, 0.14)';
+            ctx.lineWidth = 1.6;
+            for (let gx = -120; gx <= W + 120; gx += 75) {
+                ctx.beginPath();
+                ctx.moveTo(270, 310);
+                ctx.lineTo(gx, FLOOR_Y);
+                ctx.stroke();
+            }
+        } else if (theme === 'editorial-zine') {
+            // Dashed magazine collage frame + rotated kraft tape stickers
+            ctx.save();
+            ctx.translate(270, 415);
+            ctx.rotate(sceneIdx % 2 === 0 ? -0.025 : 0.025);
+            ctx.strokeStyle = b.dark ? 'rgba(255,255,255,0.22)' : 'rgba(15, 23, 42, 0.16)';
+            ctx.lineWidth = 2.4;
+            ctx.setLineDash([10, 8]);
+            ctx.strokeRect(-210, -230, 420, 460);
+            ctx.setLineDash([]);
+            ctx.restore();
+        }
+        drawAudioPulseAccents(ctx, theme, progress, t, audioLevel, sceneIdx);
+        if (progress > pivot && progress < pivot + 0.14) {
+            // Subtle phase-shift radial pop ring exactly on speech pivot!
+            const pNorm = (progress - pivot) / 0.14;
+            ctx.strokeStyle = `rgba(250, 204, 21, ${(1 - pNorm) * 0.55})`;
+            ctx.lineWidth = 6 * (1 - pNorm);
+            ctx.beginPath();
+            ctx.arc(270, 410, 60 + pNorm * 240, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.restore();
     }
 
     // ---- Cel-Shaded Expressive Multi-Cast Cartoon Head (Neck + Ears + Highlighted Hair + 4-stage Audio Lip-Sync) ----
@@ -3097,46 +3244,74 @@
         ctx.restore();
     }
 
-    function drawNarratorCameo(ctx, cx, cy, t, mood = 'happy', audioLevel = 0, cast = 'narrator', audioViseme = -1) {
+    function drawNarratorCameo(ctx, cx, cy, t, mood = 'happy', audioLevel = 0, cast = 'narrator', audioViseme = -1, artTheme = '') {
         const prevViseme = currentAudioViseme;
         if (audioViseme >= 0) currentAudioViseme = audioViseme;
         try {
+        const theme = ART_THEMES.includes(artTheme) ? artTheme : currentArtTheme;
         const prof = CAST_PROFILES[cast] || CAST_PROFILES.narrator;
-        const talkBounce = 1 + audioLevel * 0.05;
+        const talkBounce = 1 + audioLevel * 0.055;
         ctx.save();
         ctx.translate(cx, cy);
         ctx.scale(talkBounce, talkBounce);
 
-        // Soft shadow + speaking aura ring
-        if (audioLevel > 0.25) {
-            ctx.strokeStyle = `rgba(37, 99, 235, ${Math.min(0.6, audioLevel * 0.65)})`;
-            ctx.lineWidth = 4;
+        const traceFramePath = (r) => {
             ctx.beginPath();
-            ctx.arc(0, 0, 56 + audioLevel * 7, 0, Math.PI * 2);
+            if (theme === 'neon-grid') {
+                for (let i = 0; i < 6; i++) {
+                    const ang = (i * Math.PI) / 3 - Math.PI / 6;
+                    const px = Math.cos(ang) * r;
+                    const py = Math.sin(ang) * r;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+            } else if (theme === 'editorial-zine' || theme === 'bauhaus-geo') {
+                ctx.roundRect(-r, -r, r * 2, r * 2, theme === 'bauhaus-geo' ? 24 : 14);
+            } else if (theme === 'comic-pop') {
+                const pts = 16;
+                for (let i = 0; i < pts; i++) {
+                    const ang = (i / pts) * Math.PI * 2;
+                    const rad = i % 2 === 0 ? r + 4 : r - 3;
+                    const px = Math.cos(ang) * rad;
+                    const py = Math.sin(ang) * rad;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+            } else {
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+            }
+        };
+
+        // Soft shadow + speaking aura ring
+        if (audioLevel > 0.22) {
+            ctx.strokeStyle = theme === 'comic-pop'
+                ? `rgba(249, 115, 22, ${Math.min(0.7, audioLevel * 0.72)})`
+                : `rgba(37, 99, 235, ${Math.min(0.62, audioLevel * 0.68)})`;
+            ctx.lineWidth = 4;
+            traceFramePath(56 + audioLevel * 7);
             ctx.stroke();
         }
         ctx.fillStyle = '#ffffff';
         ctx.strokeStyle = '#1e293b';
         ctx.lineWidth = 3.5;
-        ctx.beginPath();
-        ctx.arc(0, 0, 52, 0, Math.PI * 2);
+        traceFramePath(52);
         ctx.fill();
         ctx.stroke();
 
         ctx.save();
-        ctx.beginPath();
-        ctx.arc(0, 0, 49, 0, Math.PI * 2);
+        traceFramePath(48);
         ctx.clip();
-        ctx.fillStyle = '#e0f2fe';
-        ctx.fillRect(-52, -52, 104, 104);
+        ctx.fillStyle = theme === 'comic-pop' ? '#fef08a' : (theme === 'neon-grid' ? '#0f172a' : (theme === 'editorial-zine' ? '#fde68a' : '#e0f2fe'));
+        ctx.fillRect(-56, -56, 112, 112);
         drawOutlinedRect(ctx, -32, 16, 64, 42, 16, prof.shirt, '#1e293b', 2.4, false);
         drawCharacterHead(ctx, 0, 2, t, mood, audioLevel, cast);
         ctx.restore();
 
-        ctx.strokeStyle = '#1e293b';
+        ctx.strokeStyle = theme === 'neon-grid' ? '#38bdf8' : '#1e293b';
         ctx.lineWidth = 3.5;
-        ctx.beginPath();
-        ctx.arc(0, 0, 52, 0, Math.PI * 2);
+        traceFramePath(52);
         ctx.stroke();
         ctx.restore();
         } finally {
@@ -3146,24 +3321,30 @@
 
     function drawHeroSubject(ctx, scene, propId, cx, cy, scale, progress, t, audioLevel, screenType, allowCustomHero = true) {
         if (scale <= 0.02) return;
-        const customImg = allowCustomHero ? scene?.customHeroImg : null;
+        const pivot = scene?.speechPivot || 0.52;
+        const afterPivot = progress >= pivot;
+        const stage2Img = allowCustomHero ? scene?.customPhase2Img : null;
+        const customImg = allowCustomHero
+            ? (afterPivot && stage2Img ? stage2Img : scene?.customHeroImg)
+            : null;
         if (customImg) {
-            const pivot = scene?.speechPivot || 0.52;
-            const afterPivot = progress >= pivot;
-            const phaseBoost = afterPivot ? 1 + stagePop(progress, pivot, 0.14) * 0.06 : 1;
-            const bobY = Math.sin(t * 2.8) * (3.5 + audioLevel * 4.5);
-            const tilt = Math.sin(t * 2.1) * (0.02 + audioLevel * 0.035);
+            const switchingToStage2 = afterPivot && stage2Img;
+            const stageScale = switchingToStage2
+                ? 0.94 + stagePop(progress, pivot, 0.16) * 0.16
+                : 1;
+            const bobY = Math.sin(t * 2.8) * (4 + audioLevel * 5);
+            const tilt = Math.sin(t * 2.1) * (0.025 + audioLevel * 0.04) + (switchingToStage2 ? Math.sin((progress - pivot) * 18) * 0.03 * Math.max(0, 1 - (progress - pivot) * 4) : 0);
             ctx.save();
             ctx.translate(cx, cy + bobY);
             ctx.rotate(tilt);
-            const dynScale = scale * phaseBoost * (1 + audioLevel * 0.055);
+            const dynScale = scale * stageScale * (1 + audioLevel * 0.06);
             ctx.scale(dynScale, dynScale);
-            // Soft grounded shadow + subtle glowing stage behind bespoke AI 2D vector illustration
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.12)';
+            // Soft grounded shadow beneath bespoke AI 2D illustration (drawn huge & crisp!)
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.13)';
             ctx.beginPath();
-            ctx.ellipse(0, 126, 98, 17, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 142, 108, 18, 0, 0, Math.PI * 2);
             ctx.fill();
-            ctx.drawImage(customImg, -150, -150, 300, 300);
+            ctx.drawImage(customImg, -168, -168, 336, 336);
             ctx.restore();
             return;
         }
@@ -3234,16 +3415,32 @@
         ctx.restore();
     }
 
-    function drawShortPillBadge(ctx, text, cx, cy, bg = 'rgba(15, 23, 42, 0.78)', fg = '#ffffff', scale = 1) {
+    function drawShortPillBadge(ctx, text, cx, cy, bg = 'rgba(15, 23, 42, 0.78)', fg = '#ffffff', scale = 1, artTheme = '') {
         const clean = String(text || '').trim().slice(0, 22);
         if (!clean || scale <= 0.05) return;
+        const theme = ART_THEMES.includes(artTheme) ? artTheme : currentArtTheme;
         ctx.save();
         ctx.translate(cx, cy);
         ctx.scale(scale, scale);
-        ctx.font = '700 15px "Inter", "Plus Jakarta Sans", sans-serif';
-        const tw = Math.min(200, Math.max(54, ctx.measureText(clean).width + 26));
-        drawOutlinedRect(ctx, -tw / 2, -16, tw, 32, 16, bg, 'rgba(255,255,255,0.28)', 1.5, true);
-        ctx.fillStyle = fg;
+        ctx.font = '800 15px "Inter", "Plus Jakarta Sans", sans-serif';
+        const tw = Math.min(206, Math.max(58, ctx.measureText(clean).width + 28));
+        if (theme === 'comic-pop') {
+            ctx.rotate(-0.04);
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(-tw / 2 + 4, -13, tw, 34);
+            drawOutlinedRect(ctx, -tw / 2, -17, tw, 34, 6, '#facc15', '#0f172a', 2.8, false);
+            ctx.fillStyle = '#0f172a';
+        } else if (theme === 'editorial-zine') {
+            ctx.rotate(0.03);
+            drawOutlinedRect(ctx, -tw / 2, -16, tw, 32, 4, '#fef08a', '#1e293b', 2, true);
+            ctx.fillStyle = '#1e293b';
+        } else if (theme === 'neon-grid') {
+            drawOutlinedRect(ctx, -tw / 2, -16, tw, 32, 8, 'rgba(15, 23, 42, 0.9)', '#38bdf8', 2.2, true);
+            ctx.fillStyle = '#38bdf8';
+        } else {
+            drawOutlinedRect(ctx, -tw / 2, -16, tw, 32, 16, bg, 'rgba(255,255,255,0.28)', 1.5, true);
+            ctx.fillStyle = fg;
+        }
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(clean, 0, 1);
@@ -3401,9 +3598,10 @@
         const badgeA = String(rawD.badgeA || '').trim().slice(0, 16);
         const badgeB = String(rawD.badgeB || '').trim().slice(0, 16);
         const hiNum = String(rawD.highlightNum || cue?.focusTag || '').trim().slice(0, 16);
-        const showHost = sceneIdx % 2 === 0;
-        const focusScale = showHost ? 1 : 1.12;
-        const focusOffsetY = showHost ? 0 : 48;
+        const hasBespokeAiArt = Boolean(scene?.customHeroImg);
+        const showHost = !hasBespokeAiArt && sceneIdx % 2 === 0;
+        const focusScale = hasBespokeAiArt ? 0.92 : (showHost ? 1 : 1.12);
+        const focusOffsetY = hasBespokeAiArt ? -38 : (showHost ? 0 : 48);
 
         ctx.save();
         if (!showHost) {
@@ -3670,6 +3868,7 @@
     // ---- Main Storyboard & UI Motion Choreography ----
     function renderSingleMotionScene(ctx, scene, progress, sceneIdx, t, audioLevel = 0, audioViseme = -1) {
         currentAudioViseme = audioViseme;
+        currentArtTheme = ART_THEMES.includes(scene?.artTheme) ? scene.artTheme : ART_THEMES[sceneIdx % ART_THEMES.length];
         try {
         const visualStyle = scene.visualStyle || 'motion';
         const cue = scene.motionCue || analyzeSceneVisualCue(scene.text, sceneIdx, '', {}, visualStyle);
@@ -3689,6 +3888,7 @@
         const focusTag = String(cue.focusTag || '').trim();
 
         drawBackdrop(ctx, backdropId, progress, t, audioLevel);
+        drawKineticArtStage(ctx, currentArtTheme, backdropId, progress, t, audioLevel, sceneIdx, pivot);
 
         const pop1 = stagePop(progress, 0.02, 0.18);
         const pop2 = stagePop(progress, 0.14, 0.18);
@@ -3703,6 +3903,10 @@
             case 'journey-route':
             case 'checklist-trio': {
                 drawDataDiagramLayout(ctx, cue.layout, scene, cue, progress, t, audioLevel, cast, mood, action, pop1, pop2, pop3, pivot, sceneIdx);
+                if (scene?.customHeroImg) {
+                    drawHeroSubject(ctx, scene, props[0], 270, 682, pop2 * 0.72, progress, t, audioLevel, screenType, true);
+                    drawNarratorCameo(ctx, 466, 868, t, mood, audioLevel, cast, audioViseme, currentArtTheme);
+                }
                 break;
             }
 
@@ -4036,30 +4240,43 @@
             }
 
             case 'character-action': {
-                drawHeroSubject(ctx, scene, activeProp, 342, 292, pop2 * 0.90 * propSwitchScale, progress, t, audioLevel, screenType, true);
-                if (props[1] && !afterPivot && !scene?.customHeroImg) {
-                    drawProp(ctx, props[1], 138, 270, pop3 * 0.46, progress, t, audioLevel, screenType);
+                if (scene?.customHeroImg) {
+                    drawHeroSubject(ctx, scene, activeProp, 270, 412, pop1 * 1.24, progress, t, audioLevel, screenType, true);
+                    drawNarratorCameo(ctx, 466, 856, t, mood, audioLevel, cast, audioViseme, currentArtTheme);
+                    if (focusTag && sceneIdx % 2 === 0) drawShortPillBadge(ctx, focusTag, 270, 174, '#2563eb', '#ffffff', pop2, currentArtTheme);
+                } else {
+                    drawHeroSubject(ctx, scene, activeProp, 342, 292, pop2 * 0.90 * propSwitchScale, progress, t, audioLevel, screenType, true);
+                    if (props[1] && !afterPivot) {
+                        drawProp(ctx, props[1], 138, 270, pop3 * 0.46, progress, t, audioLevel, screenType);
+                    }
+                    drawAnimatedActor(ctx, 255, 628, pop1 * 1.12, progress, t, action, mood, audioLevel, cast);
+                    if (roleTag) drawShortPillBadge(ctx, roleTag, 255, 456, 'rgba(15, 23, 42, 0.80)', '#ffffff', pop1, currentArtTheme);
+                    drawComicReaction(ctx, 355, 515, mood, audioLevel, t);
                 }
-                drawAnimatedActor(ctx, 255, 628, pop1 * 1.12, progress, t, action, mood, audioLevel, cast);
-                if (roleTag) drawShortPillBadge(ctx, roleTag, 255, 456, 'rgba(15, 23, 42, 0.80)', '#ffffff', pop1);
-                drawComicReaction(ctx, 355, 515, mood, audioLevel, t);
                 if (cue.crossOut && progress > pivot * 0.7) {
-                    drawRedCross(ctx, 342, 292, 78, stagePop(progress, pivot * 0.7, 0.16));
+                    drawRedCross(ctx, scene?.customHeroImg ? 270 : 342, scene?.customHeroImg ? 412 : 292, 86, stagePop(progress, pivot * 0.7, 0.16));
                 }
                 break;
             }
 
             case 'character-left': {
-                drawAnimatedActor(ctx, 134, 622, pop1 * 1.06, progress, t, action, mood, audioLevel, cast);
-                if (roleTag) drawShortPillBadge(ctx, roleTag, 134, 452, 'rgba(15, 23, 42, 0.80)', '#ffffff', pop1);
-                drawComicReaction(ctx, 212, 515, mood, audioLevel, t);
-                drawHeroSubject(ctx, scene, activeProp, 362, 410, pop2 * 1.02 * propSwitchScale, progress, t, audioLevel, screenType, true);
-                if (props[1] && pop3 > 0.1 && !afterPivot && !scene?.customHeroImg) {
-                    drawProp(ctx, props[1], 418, 215, pop3 * 0.44, progress, t, audioLevel, screenType);
+                if (scene?.customHeroImg) {
+                    const artX = sceneIdx % 2 === 0 ? 292 : 248;
+                    drawHeroSubject(ctx, scene, activeProp, artX, 412, pop1 * 1.18, progress, t, audioLevel, screenType, true);
+                    drawNarratorCameo(ctx, 84, 690, t, mood, audioLevel, cast, audioViseme, currentArtTheme);
+                    if (focusTag && sceneIdx % 2 === 1) drawShortPillBadge(ctx, focusTag, 270, 182, '#2563eb', '#ffffff', pop2, currentArtTheme);
+                } else {
+                    drawAnimatedActor(ctx, 134, 622, pop1 * 1.06, progress, t, action, mood, audioLevel, cast);
+                    if (roleTag) drawShortPillBadge(ctx, roleTag, 134, 452, 'rgba(15, 23, 42, 0.80)', '#ffffff', pop1, currentArtTheme);
+                    drawComicReaction(ctx, 212, 515, mood, audioLevel, t);
+                    drawHeroSubject(ctx, scene, activeProp, 362, 410, pop2 * 1.02 * propSwitchScale, progress, t, audioLevel, screenType, true);
+                    if (props[1] && pop3 > 0.1 && !afterPivot) {
+                        drawProp(ctx, props[1], 418, 215, pop3 * 0.44, progress, t, audioLevel, screenType);
+                    }
+                    if (focusTag) drawShortPillBadge(ctx, focusTag, 362, 256, '#2563eb', '#ffffff', pop2, currentArtTheme);
                 }
-                if (focusTag) drawShortPillBadge(ctx, focusTag, 362, 256, '#2563eb', '#ffffff', pop2);
                 if (cue.crossOut && progress > pivot * 0.7) {
-                    drawRedCross(ctx, 362, 410, 95, stagePop(progress, pivot * 0.7, 0.16));
+                    drawRedCross(ctx, scene?.customHeroImg ? 270 : 362, 410, 95, stagePop(progress, pivot * 0.7, 0.16));
                 }
                 break;
             }
@@ -4067,8 +4284,12 @@
             case 'split-compare': {
                 drawOutlinedRect(ctx, 42, 235, 212, 336, 24, 'rgba(254, 226, 226, 0.9)', '#1e293b', 3, true);
                 drawOutlinedRect(ctx, 286, 235, 212, 336, 24, 'rgba(220, 252, 231, 0.94)', '#1e293b', 3, true);
-                drawHeroSubject(ctx, scene, props[0], 148, 405, pop1 * 0.74, progress, t, audioLevel, 'excel_err', true);
-                drawProp(ctx, props[1] || props[0], 392, 405, pop2 * 0.74, progress, t, audioLevel, 'revenue_up');
+                drawHeroSubject(ctx, { ...scene, customPhase2Img: null }, props[0], 148, 405, pop1 * 0.68, progress, t, audioLevel, 'excel_err', true);
+                if (scene?.customPhase2Img) {
+                    drawHeroSubject(ctx, { customHeroImg: scene.customPhase2Img, customPhase2Img: null, speechPivot: scene.speechPivot }, props[1] || props[0], 392, 405, pop2 * 0.68, progress, t, audioLevel, 'revenue_up', true);
+                } else {
+                    drawProp(ctx, props[1] || props[0], 392, 405, pop2 * 0.74, progress, t, audioLevel, 'revenue_up');
+                }
                 if (cue.crossOut && progress > pivot * 0.65) {
                     drawRedCross(ctx, 148, 405, 76, stagePop(progress, pivot * 0.65, 0.16));
                 } else if (pop3 > 0.2) {
@@ -4172,12 +4393,15 @@
 
             case 'center-hero':
             default: {
-                drawHeroSubject(ctx, scene, props[0], 270, 435, pop1 * (1.06 + audioLevel * 0.05), progress, t, audioLevel, screenType, true);
-                if (props[1] && pop2 > 0.1 && !scene?.customHeroImg) {
+                drawHeroSubject(ctx, scene, props[0], 270, 425, pop1 * (scene?.customHeroImg ? 1.28 : 1.06 + audioLevel * 0.05), progress, t, audioLevel, screenType, true);
+                if (scene?.customHeroImg) {
+                    drawNarratorCameo(ctx, 466, 856, t, mood, audioLevel, cast, audioViseme, currentArtTheme);
+                    if (focusTag) drawShortPillBadge(ctx, focusTag, 270, 174, '#0f172a', '#fde047', pop2, currentArtTheme);
+                } else if (props[1] && pop2 > 0.1) {
                     drawProp(ctx, props[1], 420, 245, pop2 * 0.45, progress, t, audioLevel, screenType);
                 }
                 if (cue.crossOut && progress > pivot * 0.7) {
-                    drawRedCross(ctx, 270, 435, 130, stagePop(progress, pivot * 0.7, 0.16));
+                    drawRedCross(ctx, 270, 425, 130, stagePop(progress, pivot * 0.7, 0.16));
                 }
                 break;
             }
@@ -4187,6 +4411,7 @@
         drawAmbientEffects(ctx, effect, t, audioLevel);
         } finally {
             currentAudioViseme = -1;
+            currentArtTheme = 'comic-pop';
         }
     }
 
@@ -4197,6 +4422,16 @@
             if (useWipe) {
                 const wipeP = easeOutCubic(clamp01(sceneProgress / 0.14));
                 renderSingleMotionScene(ctx, prevScene, 1, sceneIdx - 1, globalTime, 0, -1);
+                if (sceneIdx % 2 === 0) {
+                    // Expanding Circular Iris Wipe for organic camera variety
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(W / 2, H / 2, 24 + wipeP * 760, 0, Math.PI * 2);
+                    ctx.clip();
+                    renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel, audioViseme);
+                    ctx.restore();
+                    return;
+                }
                 // Signature SaaS diagonal color panel sweep
                 ctx.save();
                 const sweepX = lerp(-260, W + 240, wipeP);
@@ -4221,13 +4456,14 @@
                 return;
             }
 
-            if (cue.transition === 'zoom-blur' && sceneProgress < 0.11) {
-                const zp = easeOutCubic(sceneProgress / 0.11);
-                const zScale = lerp(0.92, 1.0, zp);
+            if (cue.transition === 'zoom-blur' && sceneProgress < 0.12) {
+                const zp = easeOutCubic(sceneProgress / 0.12);
+                const slideDir = sceneIdx % 2 === 0 ? 1 : -1;
+                const zScale = lerp(0.88, 1.0, zp);
                 renderSingleMotionScene(ctx, prevScene, 1, sceneIdx - 1, globalTime, 0, -1);
                 ctx.save();
                 ctx.globalAlpha = zp;
-                ctx.translate(W / 2, H / 2);
+                ctx.translate(W / 2 + slideDir * (1 - zp) * 48, H / 2);
                 ctx.scale(zScale, zScale);
                 ctx.translate(-W / 2, -H / 2);
                 renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel, audioViseme);
@@ -4252,6 +4488,7 @@
     App.motionGraphics = {
         LAYOUT_NAMES,
         BACKDROP_NAMES,
+        ART_THEMES,
         PROP_NAMES,
         ACTION_NAMES,
         EFFECT_NAMES,
@@ -4260,6 +4497,7 @@
         SCREEN_TYPES,
         analyzeSceneVisualCue,
         drawMotionScene,
+        drawAudioPulseAccents,
         drawShortPillBadge,
         drawNarratorCameo
     };

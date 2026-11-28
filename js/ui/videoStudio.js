@@ -586,10 +586,13 @@
         const casts = App.motionGraphics?.CAST_NAMES || [];
         const sfxNames = App.motionGraphics?.SFX_NAMES || [];
         const screenTypes = App.motionGraphics?.SCREEN_TYPES || [];
+        const diagramSet = new Set(['balance-scale', 'bar-compare', 'savings-jar-growth', 'calendar-alert', 'tech-formula-steps', 'journey-route', 'checklist-trio']);
+        const storyHeroLayouts = ['character-action', 'character-left', 'center-hero', 'split-compare', 'action-flow', 'thought-bubble', 'hand-viewfinder', 'document-card'];
         const recentLayouts = [];
         const recentBackdrops = [];
         const recentProps = [];
         const recentCasts = [];
+        let diagramUsedCount = 0;
 
         return flatBeats.map((beat, idx) => {
             const localCue = App.motionGraphics
@@ -635,17 +638,24 @@
                 if (!isOfficeDomain && !beatMentionsOffice && officeOnlyLayouts.includes(lay)) {
                     lay = localCue.layout;
                 }
+                // Cap repetitive fixed card/chart diagrams to at most 2 scenes per video (and only when numbers/comparisons exist!)
+                const hasNumericData = /\d+|%|so với|tăng|giảm|bước/.test((beat.text || '').toLowerCase());
+                if (diagramSet.has(lay) && (diagramUsedCount >= 2 || !hasNumericData || recentLayouts.some((r) => diagramSet.has(r)))) {
+                    const storyPool = storyHeroLayouts.filter((l) => !recentLayouts.includes(l) && layouts.includes(l));
+                    lay = storyPool.length > 0 ? storyPool[idx % storyPool.length] : 'character-action';
+                }
                 // Enforce 3-scene anti-repetition window on camera layout (no A -> B -> A -> B!)
                 if (recentLayouts.includes(lay)) {
-                    if (localCue.layout && !recentLayouts.includes(localCue.layout)) {
+                    if (localCue.layout && !recentLayouts.includes(localCue.layout) && (!diagramSet.has(localCue.layout) || diagramUsedCount < 2)) {
                         lay = localCue.layout;
                     } else if (layouts.length > 1) {
-                        const freshAlts = layouts.filter((l) => !recentLayouts.includes(l) && (isOfficeDomain || !officeOnlyLayouts.includes(l)));
+                        const freshAlts = layouts.filter((l) => !recentLayouts.includes(l) && (!diagramSet.has(l) || diagramUsedCount < 2) && (isOfficeDomain || !officeOnlyLayouts.includes(l)));
                         const fallbackAlts = layouts.filter((l) => l !== recentLayouts[0] && (isOfficeDomain || !officeOnlyLayouts.includes(l)));
                         const pool = freshAlts.length > 0 ? freshAlts : fallbackAlts;
                         if (pool.length > 0) lay = pool[(idx * 3 + 1) % pool.length];
                     }
                 }
+                if (diagramSet.has(lay)) diagramUsedCount++;
 
                 // Prevent non-office topics from rendering office backdrops AND prevent 2-scene backdrop repeats!
                 let bd = backdrops.includes(aiItem.backdrop) ? aiItem.backdrop : localCue.backdrop;
@@ -1088,7 +1098,10 @@
 
             const sceneImageObjs = new Array(flatBeats.length).fill(null);
             const sceneCustomHeroImgs = new Array(flatBeats.length).fill(null);
+            const sceneCustomPhase2Imgs = new Array(flatBeats.length).fill(null);
             const sceneStyleOverrides = new Array(flatBeats.length).fill(visualStyle);
+            const artThemePool = App.motionGraphics?.ART_THEMES || ['comic-pop', 'bauhaus-geo', 'paper-cutout', 'neon-grid', 'editorial-zine'];
+            const videoArtTheme = artThemePool[hashString(`${videoTitle}|${storyTone}`) % artThemePool.length];
             const loadSvgBatchIntoIndices = async (targetIndices, svgUrls) => {
                 await Promise.all(
                     targetIndices.map(async (targetIdx, pos) => {
@@ -1224,9 +1237,9 @@
                     })
                 );
             } else {
-                // Default AI 2D ('motion' / 'ui-motion'): Ask Gemini Free to draw bespoke 2D vector art per scene from each beat's exact narration!
+                // Default AI 2D ('motion' / 'ui-motion'): Ask Gemini Free to draw TWO bespoke 2D vector art phases (Stage 1 -> Stage 2) per scene!
                 if (hasApiKey && typeof App.geminiApi.generateCustomPropSvgs === 'function') {
-                    updateStudioProgress(64, `AI đang vẽ hoạt hình 2D riêng cho ${flatBeats.length} cảnh khớp từng câu nói...`);
+                    updateStudioProgress(64, `AI đang sáng tác hoạt hình 2 pha (Stage 1 → 2) riêng cho ${flatBeats.length} cảnh...`);
                     try {
                         const customPropSvgs = await App.geminiApi.generateCustomPropSvgs({
                             title: videoTitle,
@@ -1236,12 +1249,23 @@
                         });
                         if (Array.isArray(customPropSvgs)) {
                             await Promise.all(
-                                customPropSvgs.map(async (svgUrl, idx) => {
-                                    if (!svgUrl) return;
-                                    try {
-                                        sceneCustomHeroImgs[idx] = await App.mediaEngine.loadImageFromUrl(svgUrl);
-                                    } catch (_) {
-                                        sceneCustomHeroImgs[idx] = null;
+                                customPropSvgs.map(async (item, idx) => {
+                                    if (!item) return;
+                                    const url1 = typeof item === 'string' ? item : item.stage1Url;
+                                    const url2 = typeof item === 'object' && item ? item.stage2Url : '';
+                                    if (url1) {
+                                        try {
+                                            sceneCustomHeroImgs[idx] = await App.mediaEngine.loadImageFromUrl(url1);
+                                        } catch (_) {
+                                            sceneCustomHeroImgs[idx] = null;
+                                        }
+                                    }
+                                    if (url2) {
+                                        try {
+                                            sceneCustomPhase2Imgs[idx] = await App.mediaEngine.loadImageFromUrl(url2);
+                                        } catch (_) {
+                                            sceneCustomPhase2Imgs[idx] = null;
+                                        }
                                     }
                                 })
                             );
@@ -1255,7 +1279,7 @@
                 updateStudioProgress(
                     88,
                     customSvgLoadedCount > 0
-                        ? `AI đã vẽ xong ${customSvgLoadedCount}/${flatBeats.length} cảnh hoạt hình 2D độc bản khớp giọng đọc...`
+                        ? `AI đã sáng tác xong ${customSvgLoadedCount}/${flatBeats.length} cảnh 2D 2 pha độc bản khớp giọng đọc...`
                         : `Đang dựng ${flatBeats.length} phân cảnh hoạt hình 2D 2 pha khớp từng nhịp âm thanh...`
                 );
             }
@@ -1271,6 +1295,7 @@
                     typeof App.mediaEngine.findAudioPivotRatio === 'function'
                         ? App.mediaEngine.findAudioPivotRatio(audioBuffer, clausePivot)
                         : clausePivot;
+                const sceneArtTheme = artThemePool[(artThemePool.indexOf(videoArtTheme) + Math.floor(beatIdx / 2)) % artThemePool.length];
 
                 return {
                     text: beat.text,
@@ -1279,10 +1304,12 @@
                             ? visualPrompts[beatIdx] || beat.text
                             : visualPrompts[beat.chapterIdx] || beat.text,
                     visualStyle: sceneStyleOverrides[beatIdx],
+                    artTheme: sceneArtTheme,
                     showSubtitles,
                     motionCue: motionCues[beatIdx],
                     imageObj: sceneImageObjs[beatIdx],
                     customHeroImg: sceneCustomHeroImgs[beatIdx],
+                    customPhase2Img: sceneCustomPhase2Imgs[beatIdx],
                     speechPivot,
                     audioBuffer,
                     playbackRate: speedRate,

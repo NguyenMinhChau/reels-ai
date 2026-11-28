@@ -1042,10 +1042,10 @@ Trả về 1 đối tượng JSON gồm:
             return sb && sb.visualSubject ? `${text} (Trọng tâm hình ảnh: ${sb.visualSubject})` : text;
         });
 
-        const results = new Array(cleanBeats.length).fill('');
+        const results = new Array(cleanBeats.length).fill(null);
         const missingIndices = [];
         cleanBeats.forEach((sc, idx) => {
-            const key = `prop-svg-v3:${hashString(title + '|' + idx + '|' + sc + '|' + subjects[idx])}`;
+            const key = `prop-svg-v4:${hashString(title + '|' + idx + '|' + sc + '|' + subjects[idx])}`;
             if (caches.images.has(key)) {
                 results[idx] = caches.images.get(key);
             } else {
@@ -1055,21 +1055,55 @@ Trả về 1 đối tượng JSON gồm:
 
         if (missingIndices.length === 0) return results;
 
+        const visualMetaphorStyles = [
+            'Pop-Art Comic Ink (nét viền mực đậm cá tính, màu tương phản mạnh vàng-cam-chàm, hiệu ứng tia chớp/chấm comic)',
+            'Isometric 2.5D Diorama (góc nhìn khối 3D cắt lớp tinh xảo, đổ bóng mềm, chiều sâu không gian)',
+            'Surreal Editorial Metaphor (ẩn dụ thị giác thông minh, ví dụ não phát sáng như bóng đèn, thời gian hóa thành tên lửa)',
+            'Handcrafted Collage & Botanical Vector (nét hữu cơ mềm mại, mảng màu pastel rực rỡ, hình khối uốn lượn tự nhiên)',
+            'Cyber-Tech Sci-Fi Blueprint (nét phát sáng neon cyan/tím trên chi tiết cơ khí/số hóa sắc sảo)',
+            'Dynamic Manga Action Close-up (góc máy cận cảnh nghiêng góc 15 độ đầy kịch tính, bàn tay/biểu cảm phóng đại)'
+        ];
+
         const buildScenePrompt = (indices) => {
             const itemLines = indices
-                .map((idx) => `- Cảnh ${idx + 1}/${cleanBeats.length}: GIỌNG ĐỌC NÓI CHÍNH XÁC: "${cleanBeats[idx]}"\n  -> CHỦ ĐỀ HÌNH ẢNH CẦN VẼ: ${subjects[idx]}`)
+                .map((idx) => {
+                    const styleHint = visualMetaphorStyles[(hashString(title) + idx * 2) % visualMetaphorStyles.length];
+                    return `- Cảnh ${idx + 1}/${cleanBeats.length} [Phong cách mỹ thuật RIÊNG: ${styleHint}]:
+  + GIỌNG ĐỌC: "${cleanBeats[idx]}"
+  + TRỌNG TÂM CẦN SÁNG TÁC: ${subjects[idx]}`;
+                })
                 .join('\n');
-            return `Bạn là Họa sĩ Vector 2D Flat Cel-Shaded Cartoon chuyên vẽ ĐỐI TƯỢNG & NHÂN VẬT HÀNH ĐỘNG ĐỘC BẢN (KHÔNG NỀN VUÔNG) khớp 100% nội dung từng câu nói!
+            return `Bạn là Giám Đốc Nghệ Thuật & Họa Sĩ 2D Đột Phá chuyên tạo TRẠNG THÁI CHUYỂN ĐỘNG 2 PHA (Stage 1 -> Stage 2) bằng Vector SVG trong suốt!
 Tiêu đề video: "${title}".
 
-NHIỆM VỤ BẮT BUỘC: Với MỖI cảnh dưới đây, hãy tự sáng tác 1 tranh minh họa nhân vật/vật thể/tình huống ĐẶC TRƯNG ĐÚNG THEO CÂU NÓI ĐÓ (Mỗi cảnh 1 ý tưởng, góc nhìn và màu sắc hoàn toàn khác nhau — TUYỆT ĐỐI KHÔNG vẽ chung chung lặp lại):
+NHIỆM VỤ SÁNG TÁC ĐỘC BẢN:
+TUYỆT ĐỐI KHÔNG vẽ các biểu tượng rập khuôn nhàm chán (không lặp lại mấy hình tròn/thẻ chữ nhật đơn điệu). Với MỖI cảnh dưới đây, hãy tự sáng tác **2 hình SVG KHÁC NHAU RÕ RỆT** diễn tả sự biến đổi theo đúng vế đầu & vế sau của câu nói:
+- \`stage1Svg\`: Hình vẽ VẾ ĐẦU (tình huống mở đầu / vấn đề / hành động ban đầu).
+- \`stage2Svg\`: Hình vẽ VẾ SAU (bước ngoặt / phản ứng / giải pháp / ẩn dụ bất ngờ khi câu nói chuyển ý).
 ${itemLines}
 
 YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
-1. Trả về mảng JSON đúng ${indices.length} chuỗi SVG theo đúng thứ tự, mỗi chuỗi là <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300">...</svg> hợp lệ XML.
-2. NỀN TRONG SUỐT 100%: TUYỆT ĐỐI KHÔNG vẽ <rect> hay khung nền phủ toàn bộ 300x300! Có thể vẽ 1 hình tròn/đám mây hào quang mềm nhỏ ở phía sau (r<=115, opacity<=0.35) để tôn vật thể chính ở vùng giữa (x: 24..276, y: 24..276).
-3. VẼ CHI TIẾT SỐNG ĐỘNG (16-32 khối path/circle/rect có chiều sâu sáng-tối, màu sắc rực rỡ tương phản đẹp, viền đậm stroke="#1e293b" stroke-width="3.6" stroke-linejoin="round"): minh họa rõ hành động & cảm xúc đúng ngữ cảnh câu nói (VD: người đau lưng ôm cột sống trên ghế công thái học, tô cơm canh nóng bốc khói, điện thoại bật cảnh báo link giả, dòng code bay ra từ màn hình, ví rỗng có cánh bay tiền...).
-4. TUYỆT ĐỐI KHÔNG dùng thẻ <text>, <image>, <foreignObject>, <script> hay chữ viết trong SVG; mọi ký tự "&" viết là "&amp;".`;
+1. Trả về mảng JSON đúng ${indices.length} object theo thứ tự: \`[ { "stage1Svg": "<svg...>...</svg>", "stage2Svg": "<svg...>...</svg>" } ]\`.
+2. Mỗi chuỗi SVG dùng \`viewBox="0 0 340 340" width="340" height="340"\` hợp lệ XML.
+3. NỀN TRONG SUỐT 100%: TUYỆT ĐỐI KHÔNG vẽ khung nền vuông phủ toàn bộ 340x340! Mọi chi tiết nằm gọn trong vùng giữa (x: 20..320, y: 20..320).
+4. MỖI HÌNH PHẢI GIÀU SÁNG TẠO (18-36 path/circle/polygon có phối màu sáng-tối có gu, góc nghiêng & hình khối táo bạo, ẩn dụ hình ảnh thông minh đúng nghĩa đen & nghĩa bóng câu nói).
+5. TUYỆT ĐỐI KHÔNG dùng thẻ <text>, <image>, <foreignObject>, <script>; ký tự "&" phải viết là "&amp;".`;
+        };
+
+        const storeSceneItem = (sceneIdx, item) => {
+            const raw1 = typeof item === 'string' ? item : (item?.stage1Svg || item?.svg || '');
+            const raw2 = typeof item === 'object' && item ? (item.stage2Svg || '') : '';
+            const clean1 = sanitizeAndWrapSvg(raw1, '0 0 340 340', 340, 340);
+            const clean2 = sanitizeAndWrapSvg(raw2, '0 0 340 340', 340, 340);
+            if (!clean1) return false;
+            const entry = {
+                stage1Url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clean1)}`,
+                stage2Url: clean2 ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clean2)}` : ''
+            };
+            results[sceneIdx] = entry;
+            const key = `prop-svg-v4:${hashString(title + '|' + sceneIdx + '|' + cleanBeats[sceneIdx] + '|' + subjects[sceneIdx])}`;
+            caches.images.set(key, entry);
+            return true;
         };
 
         const fetchSvgChunk = async (indices) => {
@@ -1079,23 +1113,24 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
                     responseMimeType: 'application/json',
                     responseSchema: {
                         type: 'ARRAY',
-                        items: { type: 'STRING' }
+                        items: {
+                            type: 'OBJECT',
+                            properties: {
+                                stage1Svg: { type: 'STRING' },
+                                stage2Svg: { type: 'STRING' }
+                            },
+                            required: ['stage1Svg', 'stage2Svg']
+                        }
                     }
                 }
             };
             const res = await fetchTextWithFallback(payload, { signal });
             const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
             const parsed = safeExtractJsonFromText(raw);
-            const svgList = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.svgs) ? parsed.svgs : null;
-            if (Array.isArray(svgList)) {
+            const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.svgs) ? parsed.svgs : null;
+            if (Array.isArray(list)) {
                 indices.forEach((sceneIdx, pos) => {
-                    const clean = sanitizeAndWrapSvg(svgList[pos], '0 0 300 300', 300, 300);
-                    if (clean) {
-                        const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clean)}`;
-                        results[sceneIdx] = dataUrl;
-                        const key = `prop-svg-v3:${hashString(title + '|' + sceneIdx + '|' + cleanBeats[sceneIdx] + '|' + subjects[sceneIdx])}`;
-                        caches.images.set(key, dataUrl);
-                    }
+                    storeSceneItem(sceneIdx, list[pos]);
                 });
             }
         };
@@ -1169,10 +1204,19 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
                 throw new DOMException('Aborted', 'AbortError');
             }
             const chunkIndices = missingIndices.slice(b, b + BATCH_SIZE);
+            const cameraAngles = [
+                'Góc nhìn toàn cảnh Isometric 2.5D từ trên chéo xuống',
+                'Góc cận cảnh POV đôi tay & vật thể chính đầy kịch tính',
+                'Bố cục chia đôi đường chéo Pop-Art (tương phản Trước vs Sau)',
+                'Góc thấp ngước lên hoành tráng với tia sáng ngược chiều',
+                'Khung truyện tranh đa lớp (Manga action panels + hiệu ứng tốc độ)',
+                'Cảnh ẩn dụ siêu thực tinh tế (vật thể biến hóa kích thước phóng đại)'
+            ];
             const sceneSpecs = chunkIndices
                 .map((idx) => {
-                    const prevHint = idx > 0 ? `(Cảnh trước: "${cleanScenes[idx - 1].slice(0, 60)}")` : '';
-                    return `- Cảnh ${idx + 1}/${cleanScenes.length} [Bảng màu gợi ý: ${palettes[idx % palettes.length]}]: "${cleanScenes[idx]}" ${prevHint}`;
+                    const prevHint = idx > 0 ? `(Cảnh trước: "${cleanScenes[idx - 1].slice(0, 50)}")` : '';
+                    const angleHint = cameraAngles[(hashString(title) + idx) % cameraAngles.length];
+                    return `- Cảnh ${idx + 1}/${cleanScenes.length} [Bắt buộc góc máy: ${angleHint} | Bảng màu: ${palettes[idx % palettes.length]}]: "${cleanScenes[idx]}" ${prevHint}`;
                 })
                 .join('\n');
 
