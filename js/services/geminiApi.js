@@ -979,7 +979,7 @@ Trả về 1 đối tượng JSON gồm:
                 stage2Mood: ['happy', 'shocked', 'thinking', 'sleepy'].includes(item.stage2Mood) ? item.stage2Mood : '',
                 crossOut: Boolean(item.crossOut)
             }));
-            const cacheKey = `storyboard-v11:${hashString(resolvedTitle + '|' + visualStyle + '|' + beatTexts.join('|'))}`;
+            const cacheKey = `storyboard-v12:${hashString(resolvedTitle + '|' + visualStyle + '|' + beatTexts.join('|'))}`;
             caches.prompts.set(cacheKey, normalizedBoard);
             return { title: resolvedTitle, scenes: beatTexts, storyboard: normalizedBoard };
         }
@@ -1230,7 +1230,7 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
         const cleanBeats = (beatTexts || []).map((b) => String(b || '').trim()).filter(Boolean);
         if (cleanBeats.length === 0) return null;
 
-        const cacheKey = `storyboard-v11:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
+        const cacheKey = `storyboard-v12:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
         if (caches.prompts.has(cacheKey)) {
             return caches.prompts.get(cacheKey);
         }
@@ -1281,7 +1281,7 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
   + Chủ đề Nhạc / Mood / Mini Vlog / Du lịch / Quê hương: dùng [cafe-chill, hills-nature, street-rain, city-skyline, night-calm] + [journey-route, character-left, center-hero].
   + Chủ đề Sức khỏe / Giãn cơ / Nhắc nhở: dùng [gym-fresh, mint-fresh, home-living, bedroom-night (chỉ khi nói về giấc ngủ)].
   + Chủ đề Công sở / MKT / Sale: dùng đa góc máy [wide-team, desk-closeup, two-shot-dialogue, back-monitors, screen-pointer, checklist-trio].
-- Đổi góc máy (layout) và transition ("cut", "zoom-blur", "diagonal-wipe") linh hoạt giữa các cảnh để không lặp lại.`;
+- Đổi góc máy (layout) và transition ("cut", "zoom-blur", "diagonal-wipe") liên tục: TUYỆT ĐỐI KHÔNG dùng lại cùng \`layout\`, \`props[0]\` hay \`cast\` trong 2-3 cảnh liên tiếp (chuyển nhịp điện ảnh: nhân vật cận mặt -> góc nhìn tay cầm đồ -> biểu đồ/cân so sánh -> toàn cảnh/hành động -> thẻ 3 bước) để mỗi cảnh là 1 khung hình hoàn toàn mới mẻ.`;
 
                 const prompt = `Bạn là Đạo diễn Hoạt Hình 2D chuyên dựng phim ngắn hành động khớp chặt từng câu chữ lời thoại (KHÔNG viết câu phụ đề dài lên video).
 Tiêu đề tổng thể: "${title}"

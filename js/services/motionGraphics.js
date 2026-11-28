@@ -499,9 +499,13 @@
         if (/tiền|lương|tài chính|tiết kiệm|đầu tư|ngân sách|nợ|chi tiêu|trả góp|hũ|ví|lãi|giá|triệu|quỹ|sổ/.test(lower)) {
             return {
                 domainKey: 'finance',
-                backdrops: ['warm-cream-stage', 'mint-fresh', 'bank-vault'],
-                layouts: ['balance-scale', 'bar-compare', 'savings-jar-growth', 'calendar-alert', 'journey-route', 'checklist-trio', 'character-action', 'split-compare'],
-                props: ['scale_icon', 'cash_stack', 'jar', 'calendar', 'bank_counter'],
+                backdrops: ['warm-cream-stage', 'mint-fresh', 'bank-vault', 'sunset-warm', 'studio-focus'],
+                layouts: [
+                    'character-action', 'balance-scale', 'hand-viewfinder', 'bar-compare',
+                    'character-left', 'savings-jar-growth', 'split-compare', 'calendar-alert',
+                    'thought-bubble', 'journey-route', 'action-flow', 'multi-trio'
+                ],
+                props: ['cash_stack', 'jar', 'scale_icon', 'envelope', 'coin', 'empty_wallet', 'calendar', 'bank_counter'],
                 action: 'counting-money',
                 screenType: 'wallet_cash',
                 cast: 'narrator'
@@ -659,9 +663,10 @@
         const titleLower = String(videoTitle || '').toLowerCase();
         const combinedLower = `${beatLower} ${titleLower}`;
         const isUiMode = visualStyle === 'ui-motion';
-        const prevLayout = state.prevLayout || '';
-        const prevBackdrop = state.prevBackdrop || '';
-        const prevProp = state.prevProp || '';
+        const recentLayouts = Array.isArray(state.recentLayouts) ? state.recentLayouts : (state.prevLayout ? [state.prevLayout] : []);
+        const recentBackdrops = Array.isArray(state.recentBackdrops) ? state.recentBackdrops : (state.prevBackdrop ? [state.prevBackdrop] : []);
+        const recentProps = Array.isArray(state.recentProps) ? state.recentProps : (state.prevProp ? [state.prevProp] : []);
+        const prevCast = state.prevCast || '';
 
         let bestBeatRule = null;
         let bestBeatScore = 0;
@@ -692,31 +697,44 @@
 
         let layout = isUiMode
             ? UI_LAYOUTS[beatIdx % UI_LAYOUTS.length]
-            : (bestRule && poolLayouts.includes(bestRule.layout)
+            : (bestRule && poolLayouts.includes(bestRule.layout) && !recentLayouts.includes(bestRule.layout)
                 ? bestRule.layout
-                : poolLayouts[(beatIdx * 2) % poolLayouts.length]);
+                : poolLayouts[(beatIdx * 3 + 1) % poolLayouts.length]);
 
-        if (layout === prevLayout && poolLayouts.length > 1) {
-            const alt = poolLayouts.filter((l) => l !== prevLayout);
-            layout = alt[(beatIdx * 3) % alt.length];
+        if (recentLayouts.includes(layout) && poolLayouts.length > 1) {
+            const freshLayouts = poolLayouts.filter((l) => !recentLayouts.includes(l));
+            const fallbackLayouts = poolLayouts.filter((l) => l !== recentLayouts[0]);
+            const picks = freshLayouts.length > 0 ? freshLayouts : (fallbackLayouts.length > 0 ? fallbackLayouts : poolLayouts);
+            layout = picks[(beatIdx * 5 + 1) % picks.length];
         }
 
-        const domainBackdrops = domain.backdrops || ['warm-cream-stage', 'home-living', 'studio-focus'];
+        const domainBackdrops = domain.backdrops || ['warm-cream-stage', 'home-living', 'studio-focus', 'sunset-warm'];
         let backdrop = isUiMode
             ? (beatIdx % 3 === 1 ? 'tech-dark-indigo' : 'grid-light')
-            : (bestRule ? bestRule.backdrop : domainBackdrops[beatIdx % domainBackdrops.length]);
+            : (bestRule && !recentBackdrops.includes(bestRule.backdrop) ? bestRule.backdrop : domainBackdrops[beatIdx % domainBackdrops.length]);
 
-        if (!isUiMode && backdrop === prevBackdrop && domainBackdrops.length > 1) {
-            const altBgs = domainBackdrops.filter((b) => b !== prevBackdrop);
-            backdrop = altBgs[beatIdx % altBgs.length];
+        if (!isUiMode && recentBackdrops.includes(backdrop) && domainBackdrops.length > 1) {
+            const freshBgs = domainBackdrops.filter((b) => !recentBackdrops.includes(b));
+            const fallbackBgs = domainBackdrops.filter((b) => b !== recentBackdrops[0]);
+            const bgPool = freshBgs.length > 0 ? freshBgs : (fallbackBgs.length > 0 ? fallbackBgs : domainBackdrops);
+            backdrop = bgPool[beatIdx % bgPool.length];
         }
 
-        const candidateProps = bestRule ? [...bestRule.props] : [...domain.props];
-        if (!bestBeatRule && candidateProps[0] === prevProp && candidateProps.length > 1) {
-            candidateProps.push(candidateProps.shift());
+        const mergedPropPool = [...new Set([...(bestRule?.props || []), ...(domain.props || [])])];
+        let candidateProps = [...mergedPropPool];
+        if (candidateProps.length > 1 && recentProps.includes(candidateProps[0])) {
+            const freshProps = candidateProps.filter((p) => !recentProps.includes(p));
+            const alt = freshProps.length > 0 ? freshProps[0] : candidateProps.find((p) => p !== recentProps[0]);
+            if (alt) {
+                candidateProps = [alt, ...candidateProps.filter((p) => p !== alt)];
+            }
         }
 
-        const cast = bestRule?.cast || domain.cast || CAST_NAMES[beatIdx % CAST_NAMES.length];
+        let cast = bestRule?.cast || domain.cast || CAST_NAMES[beatIdx % CAST_NAMES.length];
+        if (cast === prevCast && CAST_NAMES.length > 1) {
+            const altCasts = CAST_NAMES.filter((c) => c !== prevCast);
+            cast = altCasts[beatIdx % altCasts.length];
+        }
         const action = bestRule ? bestRule.action : domain.action;
         const characterMood = bestRule ? bestRule.mood : (/hỏi|sao|tại sao|gì|\?/.test(beatLower) ? 'thinking' : 'happy');
         const effect = bestRule ? bestRule.effect : 'sparkles';
@@ -737,7 +755,7 @@
             sfx,
             screenType,
             phase2Effect,
-            props: candidateProps,
+            props: candidateProps.slice(0, 3),
             diagramData: extractLocalDiagramData(beatLower, layout, domain.domainKey),
             characterMood,
             crossOut: Boolean(bestRule?.crossOut || (/sai lầm|đừng bao giờ|tuyệt đối không|cảnh báo|tránh ngay|sập bẫy|bó tay|sai bét/.test(beatLower))),
@@ -3364,13 +3382,23 @@
         ctx.restore();
     }
 
-    function drawDataDiagramLayout(ctx, layout, scene, cue, progress, t, audioLevel, cast, mood, action, pop1, pop2, pop3, pivot) {
+    function drawDataDiagramLayout(ctx, layout, scene, cue, progress, t, audioLevel, cast, mood, action, pop1, pop2, pop3, pivot, sceneIdx = 0) {
         const rawD = cue?.diagramData || extractLocalDiagramData(String(scene?.text || '').toLowerCase(), layout, cue?.domainKey || 'home');
         const leftLbl = String(rawD.leftLabel || cue?.focusTag || 'TRƯỚC').trim().slice(0, 16);
         const rightLbl = String(rawD.rightLabel || 'SAU').trim().slice(0, 16);
         const badgeA = String(rawD.badgeA || '').trim().slice(0, 16);
         const badgeB = String(rawD.badgeB || '').trim().slice(0, 16);
         const hiNum = String(rawD.highlightNum || cue?.focusTag || '').trim().slice(0, 16);
+        const showHost = sceneIdx % 2 === 0;
+        const focusScale = showHost ? 1 : 1.12;
+        const focusOffsetY = showHost ? 0 : 48;
+
+        ctx.save();
+        if (!showHost) {
+            ctx.translate(270, 420 + focusOffsetY);
+            ctx.scale(focusScale, focusScale);
+            ctx.translate(-270, -420);
+        }
 
         if (layout === 'balance-scale') {
             const tiltTarget = progress >= pivot ? 0.14 : -0.14;
@@ -3412,7 +3440,8 @@
             ctx.restore();
             ctx.restore();
 
-            drawAnimatedActor(ctx, 118, 678, pop2 * 0.86, progress, t, action, mood, audioLevel, cast);
+            ctx.restore();
+            if (showHost) drawAnimatedActor(ctx, 118, 678, pop2 * 0.86, progress, t, action, mood, audioLevel, cast);
             return;
         }
 
@@ -3438,7 +3467,8 @@
             drawDiagramLabelBox(ctx, leftLbl, 180, 522, '#1e293b', '#ffffff', '#1e293b', pop1, 14);
             drawDiagramLabelBox(ctx, rightLbl, 360, 522, '#15803d', '#ffffff', '#1e293b', pop1, 14);
 
-            drawAnimatedActor(ctx, 432, 682, pop2 * 0.86, progress, t, action, mood, audioLevel, cast);
+            ctx.restore();
+            if (showHost) drawAnimatedActor(ctx, 432, 682, pop2 * 0.86, progress, t, action, mood, audioLevel, cast);
             return;
         }
 
@@ -3447,9 +3477,8 @@
             if (hiNum) drawDiagramLabelBox(ctx, hiNum, 270, 174, '#059669', '#ffffff', '#064e3b', pop1, 17);
 
             ctx.save();
-            ctx.translate(296, 405);
+            ctx.translate(showHost ? 296 : 270, 405);
             ctx.scale(pop1 * 1.12, pop1 * 1.12);
-            // Lid + Transparent Jar Body
             drawOutlinedRect(ctx, -74, -126, 148, 26, 10, '#94a3b8', '#1e293b', 3.4, true);
             drawOutlinedRect(ctx, -104, -100, 208, 224, 34, 'rgba(255,255,255,0.88)', '#1e293b', 3.6, true);
             ctx.save();
@@ -3459,7 +3488,6 @@
             const liqH = 190 * fillR;
             ctx.fillStyle = '#4ade80';
             ctx.fillRect(-94, 114 - liqH, 188, liqH);
-            // Gold coins piling inside
             for (let ci = 0; ci < 5; ci++) {
                 ctx.fillStyle = '#fbbf24';
                 ctx.strokeStyle = '#1e293b';
@@ -3470,7 +3498,6 @@
                 ctx.stroke();
             }
             ctx.restore();
-            // Tier tick marks T1, T2, T3
             ['T1', 'T2', 'T3'].forEach((tk, idx) => {
                 const ty = 74 - idx * 54;
                 ctx.strokeStyle = '#1e293b';
@@ -3483,7 +3510,6 @@
                 ctx.font = '800 13px Inter, sans-serif';
                 ctx.fillText(tk, 40, ty + 4);
             });
-            // Falling coin into jar
             const coinDrop = (t * 1.1) % 1;
             ctx.fillStyle = '#facc15';
             ctx.strokeStyle = '#1e293b';
@@ -3494,9 +3520,10 @@
             ctx.stroke();
             ctx.restore();
 
-            if (badgeA) drawDiagramLabelBox(ctx, badgeA, 396, 268, '#fef08a', '#92400e', '#f59e0b', pop2, 16);
-            if (rightLbl) drawDiagramLabelBox(ctx, rightLbl, 296, 560, '#0f172a', '#ffffff', '#22c55e', pop2, 15);
-            drawAnimatedActor(ctx, 108, 675, pop2 * 0.86, progress, t, 'counting-money', mood, audioLevel, cast);
+            if (badgeA) drawDiagramLabelBox(ctx, badgeA, showHost ? 396 : 382, 268, '#fef08a', '#92400e', '#f59e0b', pop2, 16);
+            if (rightLbl) drawDiagramLabelBox(ctx, rightLbl, showHost ? 296 : 270, 560, '#0f172a', '#ffffff', '#22c55e', pop2, 15);
+            ctx.restore();
+            if (showHost) drawAnimatedActor(ctx, 108, 675, pop2 * 0.86, progress, t, 'counting-money', mood, audioLevel, cast);
             return;
         }
 
@@ -3527,12 +3554,12 @@
 
             if (badgeA) drawDiagramLabelBox(ctx, badgeA, 162, 566, '#0f172a', '#ffffff', '#38bdf8', pop2, 15);
             if (badgeB) drawDiagramLabelBox(ctx, badgeB, 378, 566, '#fef2f2', '#dc2626', '#ef4444', pop3, 15);
-            drawAnimatedActor(ctx, 114, 682, pop2 * 0.84, progress, t, action, mood, audioLevel, cast);
+            ctx.restore();
+            if (showHost) drawAnimatedActor(ctx, 114, 682, pop2 * 0.84, progress, t, action, mood, audioLevel, cast);
             return;
         }
 
         if (layout === 'tech-formula-steps') {
-            // 02.mp4 high-contrast technical diagram + halving visual blocks + badges
             drawDiagramLabelBox(ctx, hiNum || 'CÔNG THỨC', 270, 184, '#1e1b4b', '#38bdf8', '#6366f1', pop1, 19);
 
             const splitRatio = progress >= pivot ? 0.5 : 1;
@@ -3548,19 +3575,18 @@
             if (badgeA) drawDiagramLabelBox(ctx, `${leftLbl}: ${badgeA}`, 160, 408, '#1e293b', '#38bdf8', '#38bdf8', pop2, 15);
             if (badgeB) drawDiagramLabelBox(ctx, `${rightLbl}: ${badgeB}`, 380, 408, '#1e293b', '#4ade80', '#22c55e', pop3, 15);
 
-            // Bit/Node array bar below
             drawOutlinedRect(ctx, 76, 456, 388, 66, 16, 'rgba(15, 23, 42, 0.9)', '#475569', 2.4, true);
             for (let b = 0; b < 8; b++) {
                 const on = (b < Math.round(8 * splitRatio));
                 drawOutlinedRect(ctx, 96 + b * 44, 472, 34, 34, 7, on ? '#38bdf8' : '#1e293b', '#6366f1', 1.8, false);
             }
-            drawAnimatedActor(ctx, 426, 682, pop2 * 0.86, progress, t, 'pointing', mood, audioLevel, cast);
+            ctx.restore();
+            if (showHost) drawAnimatedActor(ctx, 426, 682, pop2 * 0.86, progress, t, 'pointing', mood, audioLevel, cast);
             return;
         }
 
         if (layout === 'journey-route') {
             if (hiNum) drawDiagramLabelBox(ctx, hiNum, 270, 174, '#0f172a', '#fde047', '#f59e0b', pop1, 18);
-            // Road card + Curved route + Animated vehicle moving along path
             drawOutlinedRect(ctx, 48, 224, 444, 290, 26, 'rgba(255,255,255,0.92)', '#94a3b8', 3, true);
             ctx.save();
             ctx.setLineDash([12, 10]);
@@ -3582,11 +3608,11 @@
             const vehProp = cue?.props?.includes('bus') ? 'bus' : 'scooter';
             drawProp(ctx, vehProp, vx, vy - 18, 0.42 * pop1, progress, t, audioLevel);
 
-            drawAnimatedActor(ctx, 118, 682, pop2 * 0.85, progress, t, action, mood, audioLevel, cast);
+            ctx.restore();
+            if (showHost) drawAnimatedActor(ctx, 118, 682, pop2 * 0.85, progress, t, action, mood, audioLevel, cast);
             return;
         }
 
-        // Default of 7: 'checklist-trio' (clean 3 sequential step cards with animated green checks)
         if (hiNum) drawDiagramLabelBox(ctx, hiNum, 270, 174, '#2563eb', '#ffffff', '#1e3a8a', pop1, 17);
         const rows = [
             leftLbl || 'BƯỚC 1',
@@ -3625,7 +3651,8 @@
             ctx.fillText(lbl, -104, 1);
             ctx.restore();
         });
-        drawAnimatedActor(ctx, 424, 682, pop2 * 0.84, progress, t, 'pointing', mood, audioLevel, cast);
+        ctx.restore();
+        if (showHost) drawAnimatedActor(ctx, 424, 682, pop2 * 0.84, progress, t, 'pointing', mood, audioLevel, cast);
     }
 
     // ---- Main Storyboard & UI Motion Choreography ----
@@ -3663,7 +3690,7 @@
             case 'tech-formula-steps':
             case 'journey-route':
             case 'checklist-trio': {
-                drawDataDiagramLayout(ctx, cue.layout, scene, cue, progress, t, audioLevel, cast, mood, action, pop1, pop2, pop3, pivot);
+                drawDataDiagramLayout(ctx, cue.layout, scene, cue, progress, t, audioLevel, cast, mood, action, pop1, pop2, pop3, pivot, sceneIdx);
                 break;
             }
 

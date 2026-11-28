@@ -586,10 +586,10 @@
         const casts = App.motionGraphics?.CAST_NAMES || [];
         const sfxNames = App.motionGraphics?.SFX_NAMES || [];
         const screenTypes = App.motionGraphics?.SCREEN_TYPES || [];
-        let prevLayout = '';
-        let prevBackdrop = '';
-        let prevProp = '';
-        let prevCast = '';
+        const recentLayouts = [];
+        const recentBackdrops = [];
+        const recentProps = [];
+        const recentCasts = [];
 
         return flatBeats.map((beat, idx) => {
             const localCue = App.motionGraphics
@@ -598,9 +598,13 @@
                       idx,
                       videoTitle,
                       {
-                          prevLayout,
-                          prevBackdrop,
-                          prevProp
+                          prevLayout: recentLayouts[0] || '',
+                          prevBackdrop: recentBackdrops[0] || '',
+                          prevProp: recentProps[0] || '',
+                          prevCast: recentCasts[0] || '',
+                          recentLayouts,
+                          recentBackdrops,
+                          recentProps
                       },
                       visualStyle
                   )
@@ -626,40 +630,56 @@
                 const isOfficeDomain = localCue.domainKey === 'office' || localCue.domainKey === 'tech';
                 const beatMentionsOffice = /văn phòng|công ty|họp|laptop|excel|code|server|sếp|nhân viên/.test((beat.text || '').toLowerCase());
                 const officeOnlyLayouts = ['wide-team', 'desk-closeup', 'two-shot-dialogue', 'laptop-popup', 'screen-pointer'];
+
                 let lay = aiItem.layout;
                 if (!isOfficeDomain && !beatMentionsOffice && officeOnlyLayouts.includes(lay)) {
                     lay = localCue.layout;
                 }
-                if (lay === prevLayout) {
-                    if (localCue.layout && localCue.layout !== prevLayout) {
+                // Enforce 3-scene anti-repetition window on camera layout (no A -> B -> A -> B!)
+                if (recentLayouts.includes(lay)) {
+                    if (localCue.layout && !recentLayouts.includes(localCue.layout)) {
                         lay = localCue.layout;
                     } else if (layouts.length > 1) {
-                        const alts = layouts.filter((l) => l !== prevLayout && (isOfficeDomain || !officeOnlyLayouts.includes(l)));
-                        const pool = alts.length > 0 ? alts : layouts.filter((l) => l !== prevLayout);
-                        lay = pool[idx % pool.length];
+                        const freshAlts = layouts.filter((l) => !recentLayouts.includes(l) && (isOfficeDomain || !officeOnlyLayouts.includes(l)));
+                        const fallbackAlts = layouts.filter((l) => l !== recentLayouts[0] && (isOfficeDomain || !officeOnlyLayouts.includes(l)));
+                        const pool = freshAlts.length > 0 ? freshAlts : fallbackAlts;
+                        if (pool.length > 0) lay = pool[(idx * 3 + 1) % pool.length];
                     }
                 }
 
-                // Prevent non-office topics from accidentally rendering office rooms/bookshelves!
+                // Prevent non-office topics from rendering office backdrops AND prevent 2-scene backdrop repeats!
                 let bd = backdrops.includes(aiItem.backdrop) ? aiItem.backdrop : localCue.backdrop;
                 if (!isOfficeDomain && !beatMentionsOffice && ['office-shelf', 'office-desk', 'server-tech'].includes(bd)) {
                     bd = localCue.backdrop;
                 }
+                if (recentBackdrops.includes(bd) && backdrops.length > 1) {
+                    if (localCue.backdrop && !recentBackdrops.includes(localCue.backdrop)) {
+                        bd = localCue.backdrop;
+                    } else {
+                        const allowedBgs = backdrops.filter((b) => !recentBackdrops.includes(b) && (isOfficeDomain || !['office-shelf', 'office-desk', 'server-tech'].includes(b)));
+                        if (allowedBgs.length > 0) bd = allowedBgs[idx % allowedBgs.length];
+                    }
+                }
 
                 let cast = casts.includes(aiItem.cast) ? aiItem.cast : (localCue.cast || 'narrator');
-                if (lay === 'desk-closeup' && cast === prevCast && localCue.cast && localCue.cast !== prevCast) {
-                    cast = localCue.cast;
+                if (recentCasts.includes(cast) && casts.length > 1) {
+                    const altCasts = casts.filter((c) => !recentCasts.includes(c));
+                    if (altCasts.length > 0) cast = altCasts[idx % altCasts.length];
                 }
 
-                let chosenProps = Array.isArray(aiItem.props) && aiItem.props.length > 0 ? [...aiItem.props] : [...localCue.props];
-                if (localCue.beatRuleMatched && Array.isArray(localCue.props) && localCue.props.length > 0) {
-                    const matchedPrimary = localCue.props[0];
-                    if (!chosenProps.includes(matchedPrimary)) {
-                        chosenProps = [matchedPrimary, ...chosenProps].slice(0, 3);
+                // Combine AI & beat props, ensuring primary prop never clones consecutive scenes!
+                const combinedProps = [...new Set([
+                    ...(Array.isArray(aiItem.props) ? aiItem.props : []),
+                    ...(Array.isArray(localCue.props) ? localCue.props : [])
+                ])].filter((p) => propNames.includes(p));
+                let chosenProps = combinedProps.length > 0 ? combinedProps : ['lightbulb'];
+                if (chosenProps.length > 1 && recentProps.includes(chosenProps[0])) {
+                    const freshProp = chosenProps.find((p) => !recentProps.includes(p)) || chosenProps.find((p) => p !== recentProps[0]);
+                    if (freshProp) {
+                        chosenProps = [freshProp, ...chosenProps.filter((p) => p !== freshProp)];
                     }
-                } else if (chosenProps[0] === prevProp && chosenProps.length > 1) {
-                    chosenProps = [...chosenProps.slice(1), chosenProps[0]];
                 }
+                chosenProps = chosenProps.slice(0, 3);
 
                 const sfx = sfxNames.includes(aiItem.sfx) ? aiItem.sfx : (localCue.sfx || 'none');
                 const screenType = screenTypes.includes(aiItem.screenType) ? aiItem.screenType : (localCue.screenType || 'chat_msg');
@@ -694,10 +714,18 @@
                 };
             }
 
-            prevLayout = finalCue.layout;
-            prevBackdrop = finalCue.backdrop;
-            prevProp = (finalCue.props && finalCue.props[0]) || '';
-            prevCast = finalCue.cast || '';
+            recentLayouts.unshift(finalCue.layout);
+            if (recentLayouts.length > 3) recentLayouts.pop();
+            recentBackdrops.unshift(finalCue.backdrop);
+            if (recentBackdrops.length > 2) recentBackdrops.pop();
+            if (finalCue.props?.[0]) {
+                recentProps.unshift(finalCue.props[0]);
+                if (recentProps.length > 2) recentProps.pop();
+            }
+            if (finalCue.cast) {
+                recentCasts.unshift(finalCue.cast);
+                if (recentCasts.length > 2) recentCasts.pop();
+            }
             return finalCue;
         });
     }
