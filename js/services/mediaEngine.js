@@ -621,36 +621,58 @@
         return Math.max(0.24, Math.min(0.84, bestSample / total));
     }
 
-    function computeAudioEnvelope(audioBuffer, bins = 96) {
+    function computeAudioEnvelope(audioBuffer, durationSec = 2.5) {
+        const safeDur = Math.max(0.8, Number(durationSec) || audioBuffer?.duration || 2.5);
+        const bins = Math.max(72, Math.min(240, Math.round(safeDur * 30)));
         if (!audioBuffer || typeof audioBuffer.getChannelData !== 'function' || audioBuffer.length === 0) {
-            return new Float32Array(bins);
+            return { env: new Float32Array(bins), visemes: new Uint8Array(bins) };
         }
         const data = audioBuffer.getChannelData(0);
         const raw = new Float32Array(bins);
+        const zcr = new Float32Array(bins);
         const step = Math.max(1, Math.floor(data.length / bins));
         for (let b = 0; b < bins; b++) {
             const start = b * step;
             const end = Math.min(data.length, start + step);
             let sumSq = 0;
+            let crossings = 0;
+            let prev = start < end ? data[start] : 0;
             for (let i = start; i < end; i++) {
                 const s = data[i];
                 sumSq += s * s;
+                if ((s >= 0 && prev < 0) || (s < 0 && prev >= 0)) crossings++;
+                prev = s;
             }
-            raw[b] = end > start ? Math.sqrt(sumSq / (end - start)) : 0;
+            const len = Math.max(1, end - start);
+            raw[b] = Math.sqrt(sumSq / len);
+            zcr[b] = crossings / len;
         }
         const sorted = Array.from(raw).sort((a, b) => a - b);
-        const floor = sorted[Math.floor(sorted.length * 0.15)] || 0;
-        const peak = sorted[Math.floor(sorted.length * 0.92)] || 0;
-        const span = Math.max(0.035, peak - floor);
+        const floor = sorted[Math.floor(sorted.length * 0.14)] || 0;
+        const peak = sorted[Math.floor(sorted.length * 0.93)] || 0;
+        const span = Math.max(0.03, peak - floor);
 
+        // Viseme codes: 0=closed/rest, 1=soft murmur, 2=wide open (A), 3=rounded (O/U), 4=spread teeth (E/I)
         const env = new Float32Array(bins);
+        const visemes = new Uint8Array(bins);
         for (let b = 0; b < bins; b++) {
-            const norm = Math.max(0, Math.min(1, (raw[b] - floor * 1.1) / span));
-            // Smooth lightly across neighbor bin to prevent mouth jitter while preserving syllable edges
-            const prev = b > 0 ? env[b - 1] : norm;
-            env[b] = prev * 0.25 + norm * 0.75;
+            const norm = Math.max(0, Math.min(1, (raw[b] - floor * 1.08) / span));
+            const prevEnv = b > 0 ? env[b - 1] : norm;
+            const val = prevEnv * 0.18 + norm * 0.82;
+            env[b] = val;
+
+            const z = zcr[b];
+            if (val < 0.09) {
+                visemes[b] = 0;
+            } else if (val > 0.56) {
+                visemes[b] = z < 0.085 ? 3 : 2;
+            } else if (val > 0.24) {
+                visemes[b] = z > 0.155 ? 4 : (z < 0.07 ? 3 : 2);
+            } else {
+                visemes[b] = z > 0.14 ? 4 : 1;
+            }
         }
-        return env;
+        return { env, visemes };
     }
 
     function setScenes(scenes, videoTitle = '') {
@@ -666,14 +688,19 @@
             ? measureWrappedLines(measureCtx, currentVideoTitle.toUpperCase(), 420).slice(0, 2)
             : [];
 
-        studioScenes = (scenes || []).map((scene) => ({
-            ...scene,
-            precomputedChunks: precomputeSceneSubtitles(
-                scene.text,
-                scene.visualStyle === 'motion' || scene.visualStyle === 'ui-motion' || scene.visualStyle === 'ai-svg'
-            ),
-            audioEnvelope: computeAudioEnvelope(scene.audioBuffer)
-        }));
+        studioScenes = (scenes || []).map((scene) => {
+            const dur = Number.isFinite(scene.duration) ? scene.duration : 2.0;
+            const analysis = computeAudioEnvelope(scene.audioBuffer, dur);
+            return {
+                ...scene,
+                precomputedChunks: precomputeSceneSubtitles(
+                    scene.text,
+                    scene.visualStyle === 'motion' || scene.visualStyle === 'ui-motion' || scene.visualStyle === 'ai-svg'
+                ),
+                audioEnvelope: analysis.env,
+                audioVisemes: analysis.visemes
+            };
+        });
         totalDuration = studioScenes.reduce((sum, s) => sum + (Number.isFinite(s.duration) ? s.duration : 2.0), 0);
         pausedAt = 0;
         playbackOffset = 0;
@@ -825,17 +852,21 @@
         ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
         if (isMotionStyle) {
-            // 1. Composable 2D Motion Infographic Scene driven by real speech audio envelope
+            // 1. Composable 2D Motion Infographic Scene driven by 30Hz real speech envelope + visemes
             const prevScene = activeIdx > 0 ? studioScenes[activeIdx - 1] : null;
             let audioLevel = 0;
-            if (currentScene.audioEnvelope && currentScene.audioEnvelope.length > 0 && sceneProgress < 0.94) {
+            let audioViseme = -1;
+            if (currentScene.audioEnvelope && currentScene.audioEnvelope.length > 0 && sceneProgress < 0.96) {
                 const envIdx = Math.min(
                     currentScene.audioEnvelope.length - 1,
-                    Math.floor((sceneProgress / 0.94) * currentScene.audioEnvelope.length)
+                    Math.floor((sceneProgress / 0.96) * currentScene.audioEnvelope.length)
                 );
                 audioLevel = currentScene.audioEnvelope[envIdx] || 0;
+                if (currentScene.audioVisemes && envIdx < currentScene.audioVisemes.length) {
+                    audioViseme = currentScene.audioVisemes[envIdx];
+                }
             }
-            App.motionGraphics.drawMotionScene(ctx, currentScene, sceneProgress, activeIdx, elapsed, prevScene, audioLevel);
+            App.motionGraphics.drawMotionScene(ctx, currentScene, sceneProgress, activeIdx, elapsed, prevScene, audioLevel, audioViseme);
         } else {
             // 1. Custom AI Cartoon / SVG Illustration OR Real/AI Photo background + Diagonal Wipe / Crossfade
             const useWipe =

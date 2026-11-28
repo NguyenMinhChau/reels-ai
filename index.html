@@ -58,7 +58,6 @@
 		<!-- Modular Application Scripts (defer preserves execution order & works on file:// + http://) -->
 		<script defer src="js/config.js"></script>
 		<script defer src="js/utils.js"></script>
-		<script defer src="js/data/defaultScripts.js"></script>
 		<script defer src="js/store.js"></script>
 		<script defer src="js/services/geminiApi.js"></script>
 		<script defer src="js/services/motionGraphics.js"></script>
@@ -122,7 +121,7 @@
 							<button
 								type="button"
 								id="api-status-badge"
-								class="px-2.5 py-2 rounded-xl bg-amber-50 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+								class="h-9 px-3 rounded-xl bg-amber-50 text-xs font-bold inline-flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
 								title="Cấu hình Gemini API Key"
 							>
 								<span
@@ -136,7 +135,7 @@
 							<button
 								type="button"
 								id="btn-toggle-theme"
-								class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition cursor-pointer"
+								class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 inline-flex items-center justify-center transition shrink-0 cursor-pointer"
 								title="Chuyển giao diện Sáng / Tối"
 							>
 								<i
@@ -147,7 +146,7 @@
 							<button
 								type="button"
 								id="btn-open-settings"
-								class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 transition cursor-pointer"
+								class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 inline-flex items-center justify-center text-slate-600 dark:text-slate-300 transition shrink-0 cursor-pointer"
 								title="Cài đặt &amp; Sao lưu"
 							>
 								<i class="fa-solid fa-sliders"></i>
@@ -155,7 +154,7 @@
 							<button
 								type="button"
 								id="btn-open-goal-mobile"
-								class="xl:hidden px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 text-xs font-bold text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+								class="xl:hidden h-9 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 text-xs font-bold text-slate-700 dark:text-slate-200 transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
 								title="Cập nhật chỉ số"
 							>
 								<i
@@ -228,7 +227,7 @@
 						<button
 							type="button"
 							id="btn-open-goal-desktop"
-							class="hidden xl:flex px-3 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition items-center gap-1.5 shrink-0 cursor-pointer"
+							class="hidden xl:inline-flex h-9 px-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
 						>
 							<i
 								class="fa-solid fa-pen-to-square text-indigo-600 dark:text-indigo-400"
@@ -246,17 +245,17 @@
 		>
 			<!-- Top Navigation Tabs & Creation Actions -->
 			<div
-				class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5"
+				class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5"
 			>
 				<nav
 					id="main-tab-nav"
-					class="grid grid-cols-3 sm:flex bg-slate-200/75 dark:bg-slate-900 p-1 rounded-2xl w-full sm:w-auto gap-1 border border-transparent dark:border-slate-800"
+					class="grid grid-cols-3 sm:inline-flex bg-slate-200/75 dark:bg-slate-900 p-1 rounded-2xl w-full lg:w-auto gap-1 border border-transparent dark:border-slate-800"
 				>
 					<button
 						type="button"
 						data-tab="library"
 						id="tab-btn-library"
-						class="px-2 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white text-indigo-600 shadow-sm flex items-center justify-center gap-1.5 cursor-pointer truncate"
+						class="h-10 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white text-indigo-600 shadow-sm inline-flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer truncate"
 					>
 						<i class="fa-solid fa-book-open shrink-0"></i>
 						<span class="truncate">Kho Kịch bản</span>
@@ -265,7 +264,7 @@
 						type="button"
 						data-tab="planner"
 						id="tab-btn-planner"
-						class="px-2 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900 dark:hover:text-white flex items-center justify-center gap-1.5 cursor-pointer truncate"
+						class="h-10 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900 dark:hover:text-white inline-flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer truncate"
 					>
 						<i class="fa-solid fa-calendar-check shrink-0"></i>
 						<span class="truncate">Lịch Đăng</span>
@@ -279,37 +278,38 @@
 						type="button"
 						data-tab="guide"
 						id="tab-btn-guide"
-						class="px-2 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900 dark:hover:text-white flex items-center justify-center gap-1.5 cursor-pointer truncate"
+						class="h-10 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900 dark:hover:text-white inline-flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer truncate"
 					>
 						<i class="fa-solid fa-bolt shrink-0"></i>
 						<span class="truncate">Thuật toán</span>
 					</button>
 				</nav>
 
-				<div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+				<div class="grid grid-cols-3 sm:flex sm:items-center gap-2 w-full lg:w-auto">
 					<button
 						type="button"
 						id="btn-open-series-modal"
-						class="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 active:scale-[0.98] text-white text-xs sm:text-sm font-bold shadow-md shadow-rose-500/20 transition flex items-center justify-center gap-1.5 cursor-pointer"
+						class="h-10 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 active:scale-[0.98] text-white text-xs sm:text-sm font-bold shadow-md shadow-rose-500/20 transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
 						title="Tạo chuỗi Seri nhiều tập tiếp nối để đăng dần"
 					>
-						<i class="fa-solid fa-layer-group"></i>
-						<span>Chuỗi Seri</span>
+						<i class="fa-solid fa-layer-group shrink-0"></i>
+						<span class="truncate">Chuỗi Seri</span>
 					</button>
 					<button
 						type="button"
 						id="btn-open-studio-scratch"
-						class="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 active:scale-[0.98] text-white text-xs sm:text-sm font-bold shadow-md shadow-pink-500/20 transition flex items-center justify-center gap-1.5 cursor-pointer"
+						class="h-10 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 active:scale-[0.98] text-white text-xs sm:text-sm font-bold shadow-md shadow-pink-500/20 transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
 					>
-						<i class="fa-solid fa-wand-magic-sparkles"></i>
-						<span>Tạo Video AI</span>
+						<i class="fa-solid fa-wand-magic-sparkles shrink-0"></i>
+						<span class="truncate">Tạo Video AI</span>
 					</button>
 					<button
 						type="button"
 						id="btn-new-script"
-						class="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-500/20 transition flex items-center justify-center gap-1.5 cursor-pointer"
+						class="h-10 px-3 sm:px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-500/20 transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
 					>
-						<i class="fa-solid fa-plus"></i> <span>Thêm Kịch Bản</span>
+						<i class="fa-solid fa-plus shrink-0"></i>
+						<span class="truncate">Thêm Kịch Bản</span>
 					</button>
 				</div>
 			</div>
@@ -338,22 +338,22 @@
 								class="hidden text-xs font-bold text-amber-600 dark:text-amber-400 mt-1"
 							></p>
 						</div>
-						<div class="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
+						<div class="grid grid-cols-1 sm:flex items-center gap-2 shrink-0 w-full sm:w-auto">
 							<button
 								type="button"
 								id="btn-fetch-daily-trends"
-								class="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-sky-500/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+								class="h-10 px-4 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-sky-500/20 transition inline-flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
 								title="Tra cứu tin tức &amp; xu hướng thật hôm nay qua Google Search"
 							>
-								<i class="fa-solid fa-newspaper"></i>
+								<i class="fa-solid fa-newspaper shrink-0"></i>
 								<span>Tin Hot &amp; Trend Hôm Nay</span>
 							</button>
 							<button
 								type="button"
 								id="btn-dump-scripts"
-								class="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+								class="h-10 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-orange-500/20 transition inline-flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
 							>
-								<i class="fa-solid fa-sparkles"></i>
+								<i class="fa-solid fa-sparkles shrink-0"></i>
 								<span>Dump Thêm 5 Ý Tưởng Mới</span>
 							</button>
 						</div>
@@ -382,7 +382,7 @@
 							<div class="flex items-center gap-1.5 shrink-0 flex-wrap">
 								<select
 									id="daily-trend-niche"
-									class="px-2.5 py-1.5 rounded-xl border border-sky-200 dark:border-sky-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
+									class="h-8 px-2.5 rounded-xl border border-sky-200 dark:border-sky-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
 								>
 									<option value="all" selected>🌐 Tổng hợp VN hôm nay</option>
 									<option value="tech">🤖 Công nghệ &amp; AI</option>
@@ -393,7 +393,7 @@
 								<button
 									type="button"
 									id="btn-refresh-daily-trends"
-									class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition cursor-pointer disabled:opacity-60 flex items-center gap-1"
+									class="h-8 px-3 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition cursor-pointer disabled:opacity-60 inline-flex items-center justify-center gap-1 whitespace-nowrap"
 								>
 									<i class="fa-solid fa-rotate"></i>
 									<span>Cập nhật mới</span>
@@ -401,7 +401,7 @@
 								<button
 									type="button"
 									id="btn-close-trends-panel"
-									class="w-7 h-7 rounded-lg bg-white/80 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center cursor-pointer"
+									class="w-8 h-8 rounded-xl bg-white/80 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white inline-flex items-center justify-center cursor-pointer"
 									title="Đóng bảng tin"
 								>
 									<i class="fa-solid fa-xmark text-xs"></i>
@@ -411,11 +411,11 @@
 						<div id="daily-trends-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
 					</div>
 
-					<!-- Row 2: Custom Infinite Topic, Search, Tone & Shuffle Controls -->
+					<!-- Row 2: Keyword AI Dump, Search, Tone & Clear Controls -->
 					<div
-						class="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800"
+						class="grid grid-cols-1 lg:grid-cols-12 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 items-center"
 					>
-						<div class="relative sm:col-span-4 min-w-0">
+						<div class="relative lg:col-span-3 min-w-0">
 							<i
 								class="fa-solid fa-magnifying-glass text-slate-400 text-xs absolute left-3 top-1/2 -translate-y-1/2"
 							></i>
@@ -423,24 +423,35 @@
 								type="search"
 								id="library-search"
 								placeholder="Tìm tiêu đề, hashtag..."
-								class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
+								class="w-full h-9 pl-8 pr-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
 							/>
 						</div>
-						<div class="relative sm:col-span-4 min-w-0">
-							<i
-								class="fa-solid fa-wand-magic-sparkles text-amber-500 text-xs absolute left-3 top-1/2 -translate-y-1/2"
-							></i>
-							<input
-								type="text"
-								id="library-custom-topic"
-								placeholder="Nhập ngách bất kỳ để AI đẻ ý tưởng (VD: IT, Sale, Cafe...)"
-								class="w-full pl-8 pr-3 py-2 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/10 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500"
-							/>
+						<div class="lg:col-span-5 flex items-center gap-1.5 min-w-0">
+							<div class="relative flex-1 min-w-0">
+								<i
+									class="fa-solid fa-wand-magic-sparkles text-amber-500 text-xs absolute left-3 top-1/2 -translate-y-1/2"
+								></i>
+								<input
+									type="text"
+									id="library-custom-topic"
+									placeholder="Nhập từ khóa chủ đề (VD: AI, Tài chính, Bếp...)"
+									class="w-full h-9 pl-8 pr-3 rounded-xl border border-amber-300 dark:border-amber-500/40 bg-amber-50/50 dark:bg-amber-500/10 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500"
+								/>
+							</div>
+							<button
+								type="button"
+								id="btn-dump-keyword"
+								class="h-9 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-white text-xs font-extrabold shadow-sm transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60"
+								title="AI tự viết 5 kịch bản theo đúng từ khóa vừa nhập"
+							>
+								<i class="fa-solid fa-bolt"></i>
+								<span>AI Dump Từ Khóa</span>
+							</button>
 						</div>
-						<div class="grid grid-cols-2 sm:col-span-4 gap-2 min-w-0">
+						<div class="grid grid-cols-2 lg:col-span-4 gap-2 min-w-0">
 							<select
 								id="library-tone"
-								class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-indigo-500 truncate"
+								class="w-full h-9 min-w-0 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-indigo-500 truncate"
 								title="Phong cách AI viết kịch bản"
 							>
 								<option value="viral" selected>🔥 Gu Triệu View</option>
@@ -450,39 +461,39 @@
 							</select>
 							<button
 								type="button"
-								id="btn-shuffle-topics"
-								class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
-								title="Đảo chủ đề mới lên đầu"
+								id="btn-clear-templates"
+								class="w-full h-9 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-500/15 hover:text-rose-600 text-slate-700 dark:text-slate-200 text-xs font-bold transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+								title="Xóa sạch kho hiện tại để chỉ giữ ý tưởng AI mới"
 							>
-								<i class="fa-solid fa-arrows-rotate text-indigo-500"></i>
-								<span class="truncate">Đổi chủ đề</span>
+								<i class="fa-solid fa-trash-can text-slate-400"></i>
+								<span class="truncate">Xóa kho cũ</span>
 							</button>
 						</div>
 					</div>
 
 					<!-- Infinite Quick Niche Chips -->
 					<div id="library-niche-chips" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
-						<span class="text-[11px] font-bold text-slate-400 shrink-0 mr-1">Gợi ý vô tận:</span>
-						<button type="button" data-niche="Drama công sở: sếp, đồng nghiệp, OT và tăng lương" class="shrink-0 px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-500/15 hover:bg-sky-100 text-sky-700 dark:text-sky-300 text-[11px] font-bold cursor-pointer">🏢 Drama Công Sở</button>
-						<button type="button" data-niche="Ngành IT Lập trình viên, Tester, PM và câu chuyện deploy code" class="shrink-0 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/15 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold cursor-pointer">💻 Ngành IT</button>
-						<button type="button" data-niche="Ngành Marketing, chạy Ads, làm Content và KPI khách hàng" class="shrink-0 px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-500/15 hover:bg-purple-100 text-purple-700 dark:text-purple-300 text-[11px] font-bold cursor-pointer">📣 Marketing / Ads</button>
-						<button type="button" data-niche="Ngành Sale bán hàng, B2B, gọi điện chốt đơn và xử lý từ chối" class="shrink-0 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-500/15 hover:bg-amber-100 text-amber-800 dark:text-amber-300 text-[11px] font-bold cursor-pointer">🤝 Sale / Chốt đơn</button>
-						<button type="button" data-niche="Tài chính cá nhân, quản lý chi tiêu, thẻ tín dụng và đầu tư từ 0đ" class="shrink-0 px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-500/15 hover:bg-teal-100 text-teal-700 dark:text-teal-300 text-[11px] font-bold cursor-pointer">💰 Tài chính 0đ</button>
-						<button type="button" data-niche="Chủ shop kinh doanh nhỏ, F&B quán cafe, bán hàng online" class="shrink-0 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold cursor-pointer">🏪 Chủ shop / F&amp;B</button>
-						<button type="button" data-niche="Tâm lý học hành vi, đọc vị giao tiếp và tình cảm tuổi trẻ" class="shrink-0 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-500/15 hover:bg-rose-100 text-rose-700 dark:text-rose-300 text-[11px] font-bold cursor-pointer">🧠 Tâm lý học</button>
+						<span class="text-[11px] font-bold text-slate-400 shrink-0 mr-1">Gợi ý nhanh:</span>
+						<button type="button" data-niche="Drama công sở: sếp, đồng nghiệp, OT và tăng lương" class="shrink-0 h-7 px-2.5 rounded-lg bg-sky-50 dark:bg-sky-500/15 hover:bg-sky-100 text-sky-700 dark:text-sky-300 text-[11px] font-bold inline-flex items-center whitespace-nowrap cursor-pointer">🏢 Drama Công Sở</button>
+						<button type="button" data-niche="Ngành IT Lập trình viên, Tester, PM và câu chuyện deploy code" class="shrink-0 h-7 px-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-500/15 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold inline-flex items-center whitespace-nowrap cursor-pointer">💻 Ngành IT</button>
+						<button type="button" data-niche="Ngành Marketing, chạy Ads, làm Content và KPI khách hàng" class="shrink-0 h-7 px-2.5 rounded-lg bg-purple-50 dark:bg-purple-500/15 hover:bg-purple-100 text-purple-700 dark:text-purple-300 text-[11px] font-bold inline-flex items-center whitespace-nowrap cursor-pointer">📣 Marketing / Ads</button>
+						<button type="button" data-niche="Ngành Sale bán hàng, B2B, gọi điện chốt đơn và xử lý từ chối" class="shrink-0 h-7 px-2.5 rounded-lg bg-amber-50 dark:bg-amber-500/15 hover:bg-amber-100 text-amber-800 dark:text-amber-300 text-[11px] font-bold inline-flex items-center whitespace-nowrap cursor-pointer">🤝 Sale / Chốt đơn</button>
+						<button type="button" data-niche="Tài chính cá nhân, quản lý chi tiêu, thẻ tín dụng và đầu tư từ 0đ" class="shrink-0 h-7 px-2.5 rounded-lg bg-teal-50 dark:bg-teal-500/15 hover:bg-teal-100 text-teal-700 dark:text-teal-300 text-[11px] font-bold inline-flex items-center whitespace-nowrap cursor-pointer">💰 Tài chính 0đ</button>
+						<button type="button" data-niche="Chủ shop kinh doanh nhỏ, F&B quán cafe, bán hàng online" class="shrink-0 h-7 px-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold inline-flex items-center whitespace-nowrap cursor-pointer">🏪 Chủ shop / F&amp;B</button>
+						<button type="button" data-niche="Tâm lý học hành vi, đọc vị giao tiếp và tình cảm tuổi trẻ" class="shrink-0 h-7 px-2.5 rounded-lg bg-rose-50 dark:bg-rose-500/15 hover:bg-rose-100 text-rose-700 dark:text-rose-300 text-[11px] font-bold inline-flex items-center whitespace-nowrap cursor-pointer">🧠 Tâm lý học</button>
 					</div>
 
 					<!-- Category Filter Pills -->
 					<div
 						id="category-filter-bar"
-						class="flex items-center gap-2 overflow-x-auto no-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800"
+						class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800"
 					>
 						<button
 							type="button"
-							class="cat-btn active shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white transition cursor-pointer"
+							class="cat-btn active shrink-0 h-8 px-3 rounded-xl text-xs font-bold bg-slate-900 text-white transition inline-flex items-center justify-center whitespace-nowrap cursor-pointer"
 							data-cat="all"
 						>
-							Tất cả (63)
+							Tất cả (0)
 						</button>
 						<button
 							type="button"
@@ -988,13 +999,13 @@
 						<button
 							type="button"
 							data-close-modal="script-modal"
-							class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 cursor-pointer"
+							class="h-10 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 inline-flex items-center justify-center whitespace-nowrap cursor-pointer"
 						>
 							Hủy
 						</button>
 						<button
 							type="submit"
-							class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs sm:text-sm font-bold text-white shadow-md shadow-indigo-500/20 cursor-pointer"
+							class="h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs sm:text-sm font-bold text-white shadow-md shadow-indigo-500/20 inline-flex items-center justify-center whitespace-nowrap cursor-pointer"
 						>
 							Lưu vào Lịch
 						</button>
@@ -1060,13 +1071,13 @@
 						<button
 							type="button"
 							data-close-modal="goal-modal"
-							class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm font-bold text-slate-700 dark:text-slate-200 cursor-pointer"
+							class="h-10 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm font-bold text-slate-700 dark:text-slate-200 inline-flex items-center justify-center whitespace-nowrap cursor-pointer"
 						>
 							Đóng
 						</button>
 						<button
 							type="submit"
-							class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-sm font-bold text-white cursor-pointer"
+							class="h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-sm font-bold text-white inline-flex items-center justify-center whitespace-nowrap cursor-pointer"
 						>
 							Cập nhật
 						</button>
@@ -1171,14 +1182,14 @@
 						<div class="flex flex-wrap items-center gap-2">
 							<button
 								type="submit"
-								class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer"
+								class="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold inline-flex items-center justify-center whitespace-nowrap cursor-pointer"
 							>
 								Lưu Key
 							</button>
 							<button
 								type="button"
 								id="btn-test-api-key"
-								class="px-4 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 text-xs font-bold cursor-pointer flex items-center gap-1.5"
+								class="h-9 px-4 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 text-xs font-bold cursor-pointer inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
 							>
 								<i class="fa-solid fa-plug-circle-check"></i>
 								<span>Kiểm tra kết nối</span>
@@ -1186,7 +1197,7 @@
 							<button
 								type="button"
 								id="btn-clear-api-key"
-								class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 text-slate-600 dark:text-slate-300 text-xs font-bold cursor-pointer"
+								class="h-9 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 text-slate-600 dark:text-slate-300 text-xs font-bold inline-flex items-center justify-center whitespace-nowrap cursor-pointer"
 							>
 								Xóa Key
 							</button>
@@ -1201,17 +1212,17 @@
 						>
 							Sao lưu &amp; Khôi phục dữ liệu
 						</h4>
-						<div class="flex flex-wrap gap-2">
+						<div class="flex flex-wrap items-center gap-2">
 							<button
 								type="button"
 								id="btn-export-backup"
-								class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer flex items-center gap-1.5"
+								class="h-9 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
 							>
 								<i class="fa-solid fa-file-export text-indigo-500"></i> Xuất
 								JSON Backup
 							</button>
 							<label
-								class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer flex items-center gap-1.5"
+								class="h-9 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
 							>
 								<i class="fa-solid fa-file-import text-emerald-500"></i> Khôi
 								phục từ JSON
@@ -1225,9 +1236,9 @@
 							<button
 								type="button"
 								id="btn-reset-templates"
-								class="px-3.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-500/15 hover:bg-amber-100 text-amber-800 dark:text-amber-300 text-xs font-bold cursor-pointer flex items-center gap-1.5"
+								class="h-9 px-3.5 rounded-xl bg-rose-50 dark:bg-rose-500/15 hover:bg-rose-100 text-rose-700 dark:text-rose-300 text-xs font-bold cursor-pointer inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
 							>
-								<i class="fa-solid fa-rotate-left"></i> Khôi phục 45 mẫu gốc
+								<i class="fa-solid fa-trash-can"></i> Xóa sạch kho kịch bản
 							</button>
 						</div>
 					</div>
@@ -1292,6 +1303,34 @@
 							>
 						</div>
 
+						<!-- Keyword Auto-Dump inside Video Studio -->
+						<div
+							class="p-3 rounded-2xl bg-amber-50/75 dark:bg-amber-500/10 border border-amber-200/90 dark:border-amber-500/35 space-y-2"
+						>
+							<label
+								for="vs-keyword-input"
+								class="block text-xs font-extrabold text-amber-950 dark:text-amber-200"
+							>
+								<i class="fa-solid fa-bolt text-amber-500 mr-1"></i>Nhập từ khóa → AI tự dump kịch bản &amp; phân cảnh
+							</label>
+							<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+								<input
+									type="text"
+									id="vs-keyword-input"
+									placeholder="VD: Quỹ khẩn cấp cho người lương 15tr, Học Subnetting IPv4..."
+									class="flex-1 h-9 px-3 rounded-xl border border-amber-300 dark:border-amber-500/40 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+								/>
+								<button
+									type="button"
+									id="btn-studio-dump-keyword"
+									class="h-9 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-white text-xs font-extrabold shadow-sm transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60"
+								>
+									<i class="fa-solid fa-wand-magic-sparkles"></i>
+									<span>AI Dump Nội Dung</span>
+								</button>
+							</div>
+						</div>
+
 						<div>
 							<label
 								for="vs-title"
@@ -1301,7 +1340,8 @@
 							<input
 								type="text"
 								id="vs-title"
-								class="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+								placeholder="AI sẽ tự điền hoặc bạn tự nhập tiêu đề..."
+								class="w-full h-9 px-3.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
 							/>
 						</div>
 
@@ -1322,7 +1362,7 @@
 									<div class="flex items-center gap-1.5 flex-wrap">
 										<select
 											id="vs-tone"
-											class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-[11px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
+											class="h-8 px-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-[11px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-indigo-500"
 										>
 											<option value="viral" selected>🔥 Gu Triệu View</option>
 											<option value="funny">😂 Hài Xéo Xắt</option>
@@ -1331,7 +1371,7 @@
 										</select>
 										<select
 											id="vs-target-scenes"
-											class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-[11px] font-bold text-indigo-700 dark:text-indigo-300 focus:outline-none focus:border-indigo-500"
+											class="h-8 px-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-[11px] font-bold text-indigo-700 dark:text-indigo-300 focus:outline-none focus:border-indigo-500"
 											title="Số cảnh lời thoại AI sẽ viết lại"
 										>
 											<option value="5">5 cảnh (~22s)</option>
@@ -1342,32 +1382,32 @@
 									</div>
 								</div>
 
-								<div class="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+								<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
 									<button
 										id="btn-toggle-import-content"
 										type="button"
-										class="px-2.5 py-1.5 rounded-xl bg-indigo-100 dark:bg-indigo-500/20 hover:bg-indigo-200 text-indigo-900 dark:text-indigo-200 text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+										class="h-9 px-3 rounded-xl bg-indigo-100 dark:bg-indigo-500/20 hover:bg-indigo-200 text-indigo-900 dark:text-indigo-200 text-xs font-bold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition cursor-pointer"
 										title="Dán bài viết hoặc kịch bản có sẵn để AI tách nhịp và dựng hoạt hình 2D khớp từng câu nói"
 									>
-										<i class="fa-solid fa-paste"></i>
-										<span>Dán content sẵn</span>
+										<i class="fa-solid fa-paste shrink-0"></i>
+										<span class="truncate">Dán content sẵn</span>
 									</button>
 									<button
 										id="btn-rewrite-story"
 										type="button"
-										class="px-2.5 py-1.5 rounded-xl bg-amber-100 dark:bg-amber-500/20 hover:bg-amber-200 text-amber-900 dark:text-amber-300 text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-60"
+										class="h-9 px-3 rounded-xl bg-amber-100 dark:bg-amber-500/20 hover:bg-amber-200 text-amber-900 dark:text-amber-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition cursor-pointer disabled:opacity-60"
 									>
-										<i class="fa-solid fa-wand-magic-sparkles"></i>
-										<span>Viết lại cực cuốn</span>
+										<i class="fa-solid fa-wand-magic-sparkles shrink-0"></i>
+										<span class="truncate">Viết lại cực cuốn</span>
 									</button>
 									<button
 										id="btn-audit-content-safety"
 										type="button"
-										class="px-2.5 py-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 hover:bg-emerald-200 text-emerald-900 dark:text-emerald-300 text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-60"
+										class="h-9 px-3 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 hover:bg-emerald-200 text-emerald-900 dark:text-emerald-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition cursor-pointer disabled:opacity-60"
 										title="Kiểm duyệt chính sách Facebook/TikTok/YouTube &amp; chống thông tin sai sự thật"
 									>
-										<i class="fa-solid fa-shield-halved"></i>
-										<span>Duyệt chính sách</span>
+										<i class="fa-solid fa-shield-halved shrink-0"></i>
+										<span class="truncate">Duyệt chính sách</span>
 									</button>
 								</div>
 							</div>
@@ -1419,25 +1459,25 @@
 								<div class="flex flex-wrap items-center gap-2 justify-between">
 									<select
 										id="vs-import-mode"
-										class="px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-900 text-[11px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
+										class="h-9 px-2.5 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-900 text-[11px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
 									>
 										<option value="preserve" selected>🎯 Giữ nguyên từng chữ (chỉ tách nhịp 2D)</option>
 										<option value="polish">✨ Chuốt mượt văn nói Reels (giữ đủ ý)</option>
 									</select>
-									<div class="flex items-center gap-1.5 flex-wrap">
+									<div class="flex items-center gap-2 flex-wrap">
 										<button
 											type="button"
 											id="btn-dump-content-to-2d"
-											class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-indigo-100 border border-indigo-300 dark:border-indigo-600 text-indigo-800 dark:text-indigo-200 text-[11px] font-bold transition cursor-pointer disabled:opacity-60"
+											class="h-9 px-3 rounded-lg bg-white dark:bg-slate-800 hover:bg-indigo-100 border border-indigo-300 dark:border-indigo-600 text-indigo-800 dark:text-indigo-200 text-xs font-bold transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer disabled:opacity-60"
 										>
-											<i class="fa-solid fa-scissors mr-1"></i>Tách vào danh sách cảnh
+											<i class="fa-solid fa-scissors"></i><span>Tách vào danh sách cảnh</span>
 										</button>
 										<button
 											type="button"
 											id="btn-dump-and-generate-2d"
-											class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-sm transition cursor-pointer disabled:opacity-60"
+											class="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer disabled:opacity-60"
 										>
-											<i class="fa-solid fa-bolt mr-1"></i>Đổ Content &amp; Tạo Video 2D Luôn
+											<i class="fa-solid fa-bolt"></i><span>Đổ Content &amp; Tạo Video 2D Luôn</span>
 										</button>
 									</div>
 								</div>
@@ -1471,7 +1511,7 @@
 									class="w-full min-w-0 px-2.5 py-2 rounded-xl border border-amber-300 dark:border-amber-500/40 bg-amber-50/70 dark:bg-amber-500/10 text-amber-950 dark:text-amber-200 text-xs font-bold focus:outline-none focus:border-amber-500 truncate"
 								>
 									<option value="motion" selected>
-										🎬 Hoạt Hình 2D Kể Chuyện (Nhân Vật &amp; Bối Cảnh)
+										🎬 Hoạt Hình 2D Đa Chủ Đề (Khớp Giọng &amp; Khẩu Hình)
 									</option>
 									<option value="ui-motion">
 										✨ Hoạt Hình 2D Motion UI (Thẻ &amp; Con Trỏ Hiện Đại)
@@ -1571,7 +1611,7 @@
 								<div class="flex items-center gap-1.5 min-w-0">
 									<select
 										id="vs-bgm"
-										class="flex-1 min-w-0 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold bg-white dark:bg-slate-800 focus:outline-none focus:border-indigo-500 truncate"
+										class="flex-1 h-9 min-w-0 px-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold bg-white dark:bg-slate-800 focus:outline-none focus:border-indigo-500 truncate"
 									>
 										<option value="upbeat" selected>
 											🎶 Vui Tươi Bắt Trend
@@ -1585,7 +1625,7 @@
 									<button
 										type="button"
 										id="btn-preview-bgm"
-										class="px-2.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-300 text-xs font-bold shrink-0 cursor-pointer flex items-center gap-1"
+										class="h-9 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-300 text-xs font-bold shrink-0 cursor-pointer inline-flex items-center justify-center gap-1 whitespace-nowrap"
 										title="Nghe thử nhạc nền"
 									>
 										<i class="fa-solid fa-music"></i>
@@ -1649,7 +1689,7 @@
 								</div>
 								<div class="flex items-center gap-1.5">
 									<label
-										class="flex-1 min-w-0 px-2.5 py-2 rounded-xl border border-dashed border-indigo-400 bg-indigo-50/60 dark:bg-indigo-500/10 hover:bg-indigo-100/70 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition truncate"
+										class="flex-1 h-9 min-w-0 px-2.5 rounded-xl border border-dashed border-indigo-400 bg-indigo-50/60 dark:bg-indigo-500/10 hover:bg-indigo-100/70 text-indigo-700 dark:text-indigo-300 text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition truncate"
 									>
 										<i class="fa-solid fa-image"></i>
 										<span class="truncate">Tải 1–12 ảnh</span>
@@ -1664,7 +1704,7 @@
 									<button
 										type="button"
 										id="btn-clear-custom-images"
-										class="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 text-slate-500 text-xs shrink-0 cursor-pointer"
+										class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 text-slate-500 text-xs shrink-0 inline-flex items-center justify-center cursor-pointer"
 										title="Xóa ảnh đã chọn"
 									>
 										<i class="fa-solid fa-rotate-left"></i>
@@ -1699,23 +1739,23 @@
 						</div>
 
 						<!-- Action Buttons -->
-						<div class="flex flex-col sm:flex-row gap-2.5 pt-1">
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
 							<button
 								type="button"
 								id="btn-generate-ai-assets"
-								class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-indigo-500/25 transition flex items-center justify-center gap-2 cursor-pointer"
+								class="h-11 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-indigo-500/25 transition inline-flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
 							>
-								<i class="fa-solid fa-wand-magic-sparkles"></i>
-								<span>1. Tạo Video Nhiều Cảnh &amp; Giọng Đọc</span>
+								<i class="fa-solid fa-wand-magic-sparkles shrink-0"></i>
+								<span class="truncate">1. Tạo Video Nhiều Cảnh &amp; Giọng Đọc</span>
 							</button>
 							<button
 								type="button"
 								id="btn-export-video"
 								disabled
-								class="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
+								class="h-11 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-emerald-500/20 transition inline-flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
 							>
-								<i class="fa-solid fa-download"></i>
-								<span>2. Xuất &amp; Tải Video Về Máy</span>
+								<i class="fa-solid fa-download shrink-0"></i>
+								<span class="truncate">2. Xuất &amp; Tải Video Về Máy</span>
 							</button>
 						</div>
 
@@ -1738,7 +1778,7 @@
 										id="btn-manual-download"
 										href="#"
 										download="reels-video.mp4"
-										class="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer"
+										class="flex-1 sm:flex-initial h-9 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition cursor-pointer"
 									>
 										<i class="fa-solid fa-download"></i> <span>Tải Video</span>
 									</a>
@@ -1746,7 +1786,7 @@
 										id="btn-download-wav"
 										href="#"
 										download="reels-audio.wav"
-										class="hidden px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-500/40 hover:bg-emerald-100/70 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+										class="hidden h-9 px-3.5 rounded-xl bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-500/40 hover:bg-emerald-100/70 text-emerald-800 dark:text-emerald-200 text-xs font-bold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition cursor-pointer"
 										title="Tải riêng file âm thanh giọng đọc + nhạc nền (.WAV)"
 									>
 										<i class="fa-solid fa-file-audio"></i> <span>.WAV</span>
@@ -1754,7 +1794,7 @@
 									<button
 										type="button"
 										id="btn-share-video"
-										class="hidden flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer"
+										class="hidden flex-1 sm:flex-initial h-9 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition cursor-pointer"
 									>
 										<i class="fa-solid fa-share-nodes"></i>
 										<span>Lưu vào Ảnh / Share</span>
@@ -1784,7 +1824,7 @@
 									<button
 										type="button"
 										id="btn-regen-social"
-										class="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-500/20 hover:bg-amber-200 text-amber-900 dark:text-amber-200 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer disabled:opacity-60"
+										class="h-8 px-3 rounded-lg bg-amber-100 dark:bg-amber-500/20 hover:bg-amber-200 text-amber-900 dark:text-amber-200 text-[11px] font-bold inline-flex items-center justify-center gap-1 whitespace-nowrap transition cursor-pointer disabled:opacity-60"
 									>
 										<i class="fa-solid fa-sparkles"></i>
 										<span>Tạo Caption AI</span>
@@ -1792,7 +1832,7 @@
 									<button
 										type="button"
 										id="btn-copy-social"
-										class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-extrabold flex items-center gap-1 transition cursor-pointer"
+										class="h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-extrabold inline-flex items-center justify-center gap-1 whitespace-nowrap transition cursor-pointer"
 									>
 										<i class="fa-regular fa-copy"></i>
 										<span>Copy Đăng Ngay</span>

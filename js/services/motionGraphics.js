@@ -14,9 +14,12 @@
     const W = 540;
     const H = 960;
     const FLOOR_Y = 784;
+    let currentAudioViseme = -1;
 
     const BACKDROPS = {
         'studio-focus': { top: '#fafbff', bot: '#eef2ff', floor: '#dbeafe', line: '#93c5fd', accent: '#2563eb', wallTrim: '#e2e8f0', dark: false },
+        'warm-cream-stage': { top: '#f7f0e2', bot: '#ebe0c8', floor: '#ddcca8', line: '#b39b70', accent: '#059669', wallTrim: '#e5d6b8', dark: false },
+        'tech-dark-indigo': { top: '#060919', bot: '#12173d', floor: '#040712', line: '#6366f1', accent: '#38bdf8', wallTrim: '#1e2554', dark: true },
         'office-shelf': { top: '#f5ede0', bot: '#e2d2ba', floor: '#c8a680', line: '#9c7d5b', accent: '#2563eb', wallTrim: '#d4bfa2', dark: false },
         'office-desk': { top: '#f0f6ff', bot: '#dceafe', floor: '#c7d2fe', line: '#6366f1', accent: '#2563eb', wallTrim: '#c7d9fc', dark: false },
         'work-late': { top: '#111827', bot: '#1e293b', floor: '#0f172a', line: '#334155', accent: '#f59e0b', wallTrim: '#1e293b', dark: true },
@@ -43,6 +46,13 @@
     const BACKDROP_NAMES = Object.keys(BACKDROPS);
 
     const LAYOUT_NAMES = [
+        'balance-scale',
+        'bar-compare',
+        'savings-jar-growth',
+        'calendar-alert',
+        'tech-formula-steps',
+        'journey-route',
+        'checklist-trio',
         'wide-team',
         'desk-closeup',
         'two-shot-dialogue',
@@ -65,10 +75,25 @@
         'ui-grid-hero'
     ];
 
-    const UI_LAYOUTS = ['back-monitors', 'ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
+    const DIAGRAM_LAYOUTS = [
+        'balance-scale',
+        'bar-compare',
+        'savings-jar-growth',
+        'calendar-alert',
+        'tech-formula-steps',
+        'journey-route',
+        'checklist-trio'
+    ];
+    const UI_LAYOUTS = ['back-monitors', 'tech-formula-steps', 'bar-compare', 'checklist-trio', 'ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
     const STORY_LAYOUTS_GENERAL = [
         'character-action',
         'character-left',
+        'balance-scale',
+        'bar-compare',
+        'savings-jar-growth',
+        'calendar-alert',
+        'journey-route',
+        'checklist-trio',
         'back-monitors',
         'hand-viewfinder',
         'split-compare',
@@ -85,6 +110,9 @@
         'hand-viewfinder',
         'screen-pointer',
         'laptop-popup',
+        'balance-scale',
+        'bar-compare',
+        'checklist-trio',
         'character-action',
         'character-left',
         'split-compare',
@@ -197,6 +225,14 @@
     ];
 
     const PROP_NAMES = [
+        'scale_icon',
+        'hospital_card',
+        'bank_counter',
+        'speedometer',
+        'scissors_cut',
+        'umbrella',
+        'map_pin',
+        'formula_chip',
         'ergo_chair',
         'spine_back',
         'empty_wallet',
@@ -379,8 +415,44 @@
             props: ['music_bars', 'coffee_cup', 'heart'], mood: 'happy', effect: 'notes', sfx: 'none', screenType: 'tea_break'
         },
         {
+            regex: /cân bằng|bằng nhau|tài sản|công dụng|nặng hơn|nhẹ hơn|giá trị thực|đánh đổi|công sức/,
+            weight: 2.2,
+            backdrop: 'warm-cream-stage', layout: 'balance-scale', cast: 'narrator', action: 'pointing',
+            props: ['scale_icon', 'cash_stack'], mood: 'thinking', effect: 'money', sfx: 'ding', screenType: 'wallet_cash'
+        },
+        {
+            regex: /subnet|cidr|ip|mask|block|bit|binary|công thức|thuật toán|tính nhanh|chia đôi/,
+            weight: 2.4,
+            backdrop: 'tech-dark-indigo', layout: 'tech-formula-steps', cast: 'boy-spiky', action: 'pointing',
+            props: ['formula_chip', 'laptop'], mood: 'happy', effect: 'sparks', sfx: 'click', screenType: 'code_bug'
+        },
+        {
+            regex: /quỹ khẩn cấp|tích lũy|cất bù|chia hũ|bỏ ống|hũ tiền|gửi tiết kiệm|sổ tiết kiệm/,
+            weight: 2.2,
+            backdrop: 'warm-cream-stage', layout: 'savings-jar-growth', cast: 'narrator', action: 'counting-money',
+            props: ['jar', 'coin'], mood: 'happy', effect: 'money', sfx: 'ding', screenType: 'wallet_cash'
+        },
+        {
+            regex: /tháng \d+|ngày \d+|12 tháng|24 tháng|kỳ hạn|đến hạn|mỗi năm|viện phí|bệnh viện|tất toán/,
+            weight: 2.2,
+            backdrop: 'warm-cream-stage', layout: 'calendar-alert', cast: 'narrator', action: 'pointing',
+            props: ['calendar', 'hospital_card'], mood: 'shocked', effect: 'sparkles', sfx: 'pop', screenType: 'calendar_due'
+        },
+        {
+            regex: /quãng đường|\d+\s*km|đi làm|về quê|đèn đỏ|kẹt xe|đi mưa|áo mưa|xe buýt|xe máy/,
+            weight: 2.2,
+            backdrop: 'warm-cream-stage', layout: 'journey-route', cast: 'boy-spiky', action: 'running',
+            props: ['scooter', 'map_pin', 'umbrella'], mood: 'happy', effect: 'sparkles', sfx: 'whoosh', screenType: 'calendar_due'
+        },
+        {
+            regex: /3 việc|3 bước|3 điều|3 cách|danh sách|công thức nấu|nguyên liệu/,
+            weight: 2.0,
+            backdrop: 'grid-light', layout: 'checklist-trio', cast: 'girl-purple', action: 'pointing',
+            props: ['card_doc', 'lightbulb'], mood: 'happy', effect: 'confetti', sfx: 'ding', screenType: 'checklist_done'
+        },
+        {
             regex: /lương|thu nhập|tiền|phong bì|triệu|nghìn|50k|100k|tiết kiệm|hũ|ví|trả góp|chi tiêu|tài chính|ngân sách|đầu tư|lãi/,
-            backdrop: 'mint-fresh', layout: 'character-action', cast: 'narrator', action: 'counting-money',
+            backdrop: 'warm-cream-stage', layout: 'bar-compare', cast: 'narrator', action: 'counting-money',
             props: ['cash_stack', 'jar', 'coin'], mood: 'happy', effect: 'money', sfx: 'ding', screenType: 'wallet_cash'
         },
         {
@@ -413,23 +485,23 @@
                 cast: 'girl-bun'
             };
         }
-        if (/it|dev|code|bug|server|phần mềm|hệ thống|erp|ai|công nghệ|máy tính|dữ liệu|lập trình/.test(lower)) {
+        if (/subnet|cidr|mask|ip|it|dev|code|bug|server|phần mềm|hệ thống|erp|ai|công nghệ|máy tính|dữ liệu|lập trình|công thức/.test(lower)) {
             return {
                 domainKey: 'tech',
-                backdrops: ['server-tech', 'office-desk', 'work-late'],
-                layouts: STORY_LAYOUTS,
-                props: ['laptop', 'chart_bars'],
+                backdrops: ['tech-dark-indigo', 'blueprint-dark', 'grid-light'],
+                layouts: ['tech-formula-steps', 'back-monitors', 'bar-compare', 'checklist-trio', 'ui-window', 'character-action'],
+                props: ['formula_chip', 'laptop', 'chart_bars'],
                 action: 'typing',
                 screenType: 'code_bug',
                 cast: 'boy-spiky'
             };
         }
-        if (/tiền|lương|tài chính|tiết kiệm|đầu tư|ngân sách|nợ|chi tiêu|trả góp|hũ|ví|lãi|giá/.test(lower)) {
+        if (/tiền|lương|tài chính|tiết kiệm|đầu tư|ngân sách|nợ|chi tiêu|trả góp|hũ|ví|lãi|giá|triệu|quỹ|sổ/.test(lower)) {
             return {
                 domainKey: 'finance',
-                backdrops: ['bank-vault', 'mint-fresh', 'sunset-warm'],
-                layouts: STORY_LAYOUTS_GENERAL,
-                props: ['cash_stack', 'jar'],
+                backdrops: ['warm-cream-stage', 'mint-fresh', 'bank-vault'],
+                layouts: ['balance-scale', 'bar-compare', 'savings-jar-growth', 'calendar-alert', 'journey-route', 'checklist-trio', 'character-action', 'split-compare'],
+                props: ['scale_icon', 'cash_stack', 'jar', 'calendar', 'bank_counter'],
                 action: 'counting-money',
                 screenType: 'wallet_cash',
                 cast: 'narrator'
@@ -501,6 +573,87 @@
         };
     }
 
+    function extractLocalDiagramData(beatLower, layout, domainKey) {
+        const cleanNum = (rx, fallback) => {
+            const m = beatLower.match(rx);
+            return m ? String(m[0]).toUpperCase().trim().slice(0, 16) : fallback;
+        };
+        const numMatches = beatLower.match(/\d+(?:[.,]\d+)?\s*(?:triệu|tr|nghìn|k|km|tháng|năm|%|ngày|giờ|củ)?/gi) || [];
+        const n1 = (numMatches[0] || '').toUpperCase().trim().slice(0, 14);
+        const n2 = (numMatches[1] || '').toUpperCase().trim().slice(0, 14);
+
+        if (layout === 'balance-scale') {
+            return {
+                leftLabel: /tài sản|giá trị|thu nhập/.test(beatLower) ? 'TÀI SẢN' : (/công dụng|lợi ích/.test(beatLower) ? 'CÔNG DỤNG' : 'GIÁ TRỊ'),
+                rightLabel: /chi tiêu|trả góp|xe mới/.test(beatLower) ? 'CHI TIÊU' : 'CHI PHÍ',
+                badgeA: n1 || '+',
+                badgeB: n2 || '-',
+                highlightNum: 'CÂN BẰNG'
+            };
+        }
+        if (layout === 'bar-compare') {
+            return {
+                leftLabel: /trước|cũ|ngắn hạn|ban đầu/.test(beatLower) ? 'TRƯỚC ĐÂY' : (/thu|tiết kiệm|tài sản/.test(beatLower) ? 'TÍCH LŨY' : 'MỨC A'),
+                rightLabel: /sau|mới|dài hạn|tích lũy/.test(beatLower) ? 'HIỆN TẠI' : (/chi|tốn|nợ/.test(beatLower) ? 'CHI PHÍ' : 'MỨC B'),
+                badgeA: n1 || 'THẤP',
+                badgeB: n2 || (n1 ? 'TỐI ƯU' : 'CAO'),
+                highlightNum: n1 || 'SO SÁNH'
+            };
+        }
+        if (layout === 'savings-jar-growth') {
+            return {
+                leftLabel: 'TÍCH LŨY',
+                rightLabel: /khẩn cấp/.test(beatLower) ? 'QUỸ DỰ PHÒNG' : 'QUỸ TÍCH LŨY',
+                badgeA: n1 || '+TÍCH LŨY',
+                badgeB: n2 || 'TĂNG ĐỀU',
+                highlightNum: n1 || 'QUỸ TÍCH LŨY'
+            };
+        }
+        if (layout === 'calendar-alert') {
+            return {
+                leftLabel: 'KỲ HẠN',
+                rightLabel: 'ĐẾN HẠN',
+                badgeA: cleanNum(/\d+\s*tháng/, n1 || 'ĐỊNH KỲ'),
+                badgeB: 'LƯU Ý',
+                highlightNum: cleanNum(/tháng\s*\d+/, n1 || 'MỐC THỜI GIAN')
+            };
+        }
+        if (layout === 'tech-formula-steps') {
+            return {
+                leftLabel: 'INPUT',
+                rightLabel: 'OUTPUT',
+                badgeA: n1 || (/subnet|cidr|mask/.test(beatLower) ? '/24' : 'DỮ LIỆU'),
+                badgeB: n2 || (/subnet|cidr|mask/.test(beatLower) ? '/26' : 'KẾT QUẢ'),
+                highlightNum: /subnet|cidr|mask/.test(beatLower) ? '256 - MASK' : (n1 ? `CÔNG THỨC ${n1}` : 'CẤU TRÚC')
+            };
+        }
+        if (layout === 'journey-route') {
+            return {
+                leftLabel: /quê/.test(beatLower) ? 'THÀNH PHỐ' : 'XUẤT PHÁT',
+                rightLabel: /quê/.test(beatLower) ? 'VỀ QUÊ' : 'ĐÍCH ĐẾN',
+                badgeA: 'ĐIỂM A',
+                badgeB: 'ĐIỂM B',
+                highlightNum: cleanNum(/\d+\s*km/, n1 || 'LỘ TRÌNH')
+            };
+        }
+        if (layout === 'checklist-trio') {
+            return {
+                leftLabel: domainKey === 'tech' ? 'BƯỚC 1' : (/nấu|bếp/.test(beatLower) ? 'CHUẨN BỊ' : 'MỤC TIÊU 1'),
+                rightLabel: domainKey === 'tech' ? 'BƯỚC 2' : (/nấu|bếp/.test(beatLower) ? 'THỰC HIỆN' : 'MỤC TIÊU 2'),
+                badgeA: domainKey === 'tech' ? 'BƯỚC 3' : 'HOÀN TẤT',
+                badgeB: '✓',
+                highlightNum: '3 BƯỚC'
+            };
+        }
+        return {
+            leftLabel: n1 || '',
+            rightLabel: n2 || '',
+            badgeA: '',
+            badgeB: '',
+            highlightNum: n1 || ''
+        };
+    }
+
     function analyzeSceneVisualCue(sceneText, beatIdx, videoTitle = '', state = {}, visualStyle = 'motion') {
         const beatLower = String(sceneText || '').toLowerCase();
         const combinedLower = `${beatLower} ${String(videoTitle || '').toLowerCase()}`;
@@ -515,7 +668,8 @@
             const globalRx = new RegExp(r.regex.source, 'gi');
             const beatHits = (beatLower.match(globalRx) || []).length;
             const titleHits = (String(videoTitle || '').toLowerCase().match(globalRx) || []).length;
-            const score = beatHits * 3 + titleHits;
+            const w = Number(r.weight) || 1;
+            const score = (beatHits * 3 + titleHits) * w;
             if (score > bestScore) {
                 bestScore = score;
                 bestRule = r;
@@ -536,9 +690,9 @@
             layout = alt[(beatIdx * 3) % alt.length];
         }
 
-        const domainBackdrops = domain.backdrops || ['home-living', 'studio-focus', 'cream-room'];
+        const domainBackdrops = domain.backdrops || ['warm-cream-stage', 'home-living', 'studio-focus'];
         let backdrop = isUiMode
-            ? (beatIdx % 3 === 1 ? 'blueprint-dark' : 'grid-light')
+            ? (beatIdx % 3 === 1 ? 'tech-dark-indigo' : 'grid-light')
             : (bestRule ? bestRule.backdrop : domainBackdrops[beatIdx % domainBackdrops.length]);
 
         if (!isUiMode && backdrop === prevBackdrop && domainBackdrops.length > 1) {
@@ -558,11 +712,13 @@
         const sfx = bestRule?.sfx || (beatIdx === 0 ? 'whoosh' : beatIdx % 2 === 0 ? 'pop' : 'click');
         const screenType = bestRule?.screenType || domain.screenType || 'chat_msg';
         const phase2Effect = bestRule?.phase2Effect || 'none';
+        const transition = isUiMode && beatIdx % 2 === 1 ? 'diagonal-wipe' : (DIAGRAM_LAYOUTS.includes(layout) && beatIdx > 0 ? 'zoom-blur' : 'cut');
 
         return {
             domainKey: domain.domainKey || 'home',
             layout,
             backdrop,
+            transition,
             cast,
             action,
             effect,
@@ -570,6 +726,7 @@
             screenType,
             phase2Effect,
             props: candidateProps,
+            diagramData: extractLocalDiagramData(beatLower, layout, domain.domainKey),
             characterMood,
             crossOut: Boolean(bestRule?.crossOut || (/sai lầm|đừng bao giờ|tuyệt đối không|cảnh báo|tránh ngay|sập bẫy|bó tay|sai bét/.test(beatLower))),
             sceneText: String(sceneText || ''),
@@ -853,10 +1010,10 @@
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, W, H);
 
-        if (backdropId === 'grid-light' || backdropId === 'blueprint-dark') {
-            const isDark = backdropId === 'blueprint-dark';
-            // Modern dot-matrix + soft glowing radial studio backdrop
-            ctx.fillStyle = isDark ? 'rgba(56, 189, 248, 0.18)' : 'rgba(37, 99, 235, 0.15)';
+        if (backdropId === 'grid-light' || backdropId === 'blueprint-dark' || backdropId === 'tech-dark-indigo') {
+            const isDark = backdropId !== 'grid-light';
+            const dotCol = backdropId === 'tech-dark-indigo' ? 'rgba(99, 102, 241, 0.24)' : (isDark ? 'rgba(56, 189, 248, 0.18)' : 'rgba(37, 99, 235, 0.15)');
+            ctx.fillStyle = dotCol;
             for (let gx = 20; gx < W; gx += 28) {
                 for (let gy = 48; gy < H - 48; gy += 28) {
                     ctx.beginPath();
@@ -865,10 +1022,33 @@
                 }
             }
             const aura = ctx.createRadialGradient(270, 410, 30, 270, 410, 350);
-            aura.addColorStop(0, isDark ? `rgba(37, 99, 235, ${0.26 + audioLevel * 0.08})` : 'rgba(255, 255, 255, 0.78)');
+            aura.addColorStop(
+                0,
+                backdropId === 'tech-dark-indigo'
+                    ? `rgba(79, 70, 229, ${0.30 + audioLevel * 0.10})`
+                    : (isDark ? `rgba(37, 99, 235, ${0.26 + audioLevel * 0.08})` : 'rgba(255, 255, 255, 0.78)')
+            );
             aura.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = aura;
             ctx.fillRect(0, 0, W, H);
+            return;
+        }
+
+        if (backdropId === 'warm-cream-stage') {
+            // Uncluttered signature broadcast studio: soft sunlit cream spotlight + clean horizon floor
+            const warmSpot = ctx.createRadialGradient(270, 360, 40, 270, 360, 360);
+            warmSpot.addColorStop(0, 'rgba(255, 252, 244, 0.75)');
+            warmSpot.addColorStop(1, 'rgba(235, 224, 200, 0)');
+            ctx.fillStyle = warmSpot;
+            ctx.fillRect(0, 0, W, H);
+            ctx.fillStyle = b.floor;
+            ctx.fillRect(0, FLOOR_Y, W, H - FLOOR_Y);
+            ctx.strokeStyle = b.line;
+            ctx.lineWidth = 2.6;
+            ctx.beginPath();
+            ctx.moveTo(0, FLOOR_Y);
+            ctx.lineTo(W, FLOOR_Y);
+            ctx.stroke();
             return;
         }
 
@@ -1363,8 +1543,12 @@
         ctx.ellipse(24, 11, 5.5, 3.8, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // 4-Stage Real Audio Lip-Sync Mouth (rest smile -> soft open -> wide talk with teeth -> shout/shock O)
-        const talkOpen = clamp01(audioLevel * 1.45);
+        // 5-Shape Real Phonetic Viseme Lip-Sync (closed -> soft murmur -> wide vowel w/ teeth -> rounded O -> spread E/I)
+        const talkOpen = clamp01(audioLevel * 1.55);
+        const viseme = audioLevel >= 0.12 && currentAudioViseme >= 0
+            ? currentAudioViseme
+            : (talkOpen > 0.56 ? (Math.sin(t * 17) > 0.35 ? 3 : 2) : (talkOpen > 0.25 ? 4 : (talkOpen > 0.10 ? 1 : 0)));
+        const jawY = 19 + talkOpen * 1.6;
         ctx.strokeStyle = '#1e293b';
         ctx.lineWidth = 2.5;
         if (mood === 'shocked' && talkOpen < 0.25) {
@@ -1373,28 +1557,52 @@
             ctx.ellipse(0, 20, 8.5, 10, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
-        } else if (talkOpen > 0.42) {
-            const mh = 6 + talkOpen * 8.5;
-            const mw = 11 + talkOpen * 3;
+        } else if (viseme === 3 && talkOpen > 0.18) {
+            // Rounded O / Ô / U shape
+            const rX = 7.2 + talkOpen * 2.5;
+            const rY = 8.4 + talkOpen * 3.6;
             ctx.fillStyle = '#881337';
             ctx.beginPath();
-            ctx.ellipse(0, 19, mw, mh, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, jawY, rX, rY, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
-            // White upper teeth
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.roundRect(-mw * 0.65, 19 - mh * 0.85, mw * 1.3, 4.2, 2);
-            ctx.fill();
-            // Pink tongue
             ctx.fillStyle = '#fb7185';
             ctx.beginPath();
-            ctx.ellipse(0, 19 + mh * 0.38, mw * 0.56, mh * 0.34, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, jawY + rY * 0.35, rX * 0.55, rY * 0.3, 0, 0, Math.PI * 2);
             ctx.fill();
-        } else if (talkOpen > 0.12) {
+        } else if (viseme === 4 && talkOpen > 0.14) {
+            // Spread E / I / Ê expressive band with white upper teeth
+            const mw = 13 + talkOpen * 3.2;
+            const mh = 4.6 + talkOpen * 3.8;
+            ctx.fillStyle = '#881337';
+            ctx.beginPath();
+            ctx.ellipse(0, jawY - 0.5, mw, mh, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.roundRect(-mw * 0.72, jawY - mh * 0.85, mw * 1.44, 3.8, 2);
+            ctx.fill();
+        } else if (viseme === 2 || talkOpen > 0.38) {
+            const mh = 6.2 + talkOpen * 8.6;
+            const mw = 11.2 + talkOpen * 3;
+            ctx.fillStyle = '#881337';
+            ctx.beginPath();
+            ctx.ellipse(0, jawY, mw, mh, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.roundRect(-mw * 0.65, jawY - mh * 0.85, mw * 1.3, 4.2, 2);
+            ctx.fill();
+            ctx.fillStyle = '#fb7185';
+            ctx.beginPath();
+            ctx.ellipse(0, jawY + mh * 0.38, mw * 0.56, mh * 0.34, 0, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (viseme === 1 || talkOpen > 0.09) {
             ctx.fillStyle = '#9f1239';
             ctx.beginPath();
-            ctx.ellipse(0, 19, 9.5, 4 + talkOpen * 4, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 19, 9.2, 3.8 + talkOpen * 3.8, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
         } else {
@@ -2709,6 +2917,120 @@
                 ctx.fill();
                 break;
             }
+            case 'scale_icon': {
+                const tilt = Math.sin(t * 2.5 + progress * 3.14) * 0.16;
+                drawOutlinedRect(ctx, -46, 72, 92, 20, 8, '#78350f', '#1e293b', 3, true);
+                drawOutlinedRect(ctx, -8, -72, 16, 146, 6, '#b45309', '#1e293b', 2.8, false);
+                ctx.save();
+                ctx.translate(0, -56);
+                ctx.rotate(tilt);
+                drawOutlinedRect(ctx, -86, -7, 172, 14, 7, '#f59e0b', '#1e293b', 2.8, true);
+                [-72, 72].forEach((px, i) => {
+                    ctx.strokeStyle = '#64748b';
+                    ctx.lineWidth = 2.4;
+                    ctx.beginPath();
+                    ctx.moveTo(px, 6);
+                    ctx.lineTo(px - 22, 54);
+                    ctx.moveTo(px, 6);
+                    ctx.lineTo(px + 22, 54);
+                    ctx.stroke();
+                    drawOutlinedRect(ctx, px - 28, 52, 56, 14, 7, i === 0 ? '#4ade80' : '#fb7185', '#1e293b', 2.4, false);
+                });
+                ctx.restore();
+                break;
+            }
+            case 'hospital_card': {
+                drawOutlinedRect(ctx, -92, -96, 184, 192, 18, '#ffffff', '#1e293b', 3.4, true);
+                drawOutlinedRect(ctx, -92, -96, 184, 42, 16, '#ef4444', '#1e293b', 3.4, false);
+                drawOutlinedRect(ctx, -12, -26, 24, 76, 5, '#ef4444', '#1e293b', 2, false);
+                drawOutlinedRect(ctx, -38, 0, 76, 24, 5, '#ef4444', '#1e293b', 2, false);
+                break;
+            }
+            case 'bank_counter': {
+                drawOutlinedRect(ctx, -110, -78, 220, 128, 12, '#ecfdf5', '#065f46', 3.2, true);
+                drawOutlinedRect(ctx, -94, -60, 188, 66, 8, '#d1fae5', '#059669', 2, false);
+                drawOutlinedRect(ctx, -118, 42, 236, 42, 8, '#047857', '#064e3b', 3.2, true);
+                break;
+            }
+            case 'speedometer': {
+                ctx.fillStyle = '#0f172a';
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(0, 12, 86, Math.PI, Math.PI * 2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                const needleA = Math.PI + clamp01(progress * 1.1) * Math.PI * 0.72 + Math.sin(t * 7) * 0.05;
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.moveTo(0, 12);
+                ctx.lineTo(Math.cos(needleA) * 62, 12 + Math.sin(needleA) * 62);
+                ctx.stroke();
+                break;
+            }
+            case 'scissors_cut': {
+                ctx.rotate(-0.2 + Math.sin(t * 9) * 0.14);
+                ctx.strokeStyle = '#64748b';
+                ctx.lineWidth = 10;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(-40, 20);
+                ctx.lineTo(68, -28);
+                ctx.moveTo(-40, -20);
+                ctx.lineTo(68, 28);
+                ctx.stroke();
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 6;
+                [-34, 34].forEach((ry) => {
+                    ctx.beginPath();
+                    ctx.arc(-58, ry * 0.75, 22, 0, Math.PI * 2);
+                    ctx.stroke();
+                });
+                break;
+            }
+            case 'umbrella': {
+                ctx.fillStyle = '#3b82f6';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 3.2;
+                ctx.beginPath();
+                ctx.arc(0, 8, 92, Math.PI, Math.PI * 2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.moveTo(0, 8);
+                ctx.lineTo(0, 82);
+                ctx.arc(14, 82, 14, Math.PI, 0, true);
+                ctx.stroke();
+                break;
+            }
+            case 'map_pin': {
+                ctx.fillStyle = '#ef4444';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 3.4;
+                ctx.beginPath();
+                ctx.arc(0, -26, 48, Math.PI * 0.85, Math.PI * 2.15);
+                ctx.lineTo(0, 74);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, -26, 18, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+            }
+            case 'formula_chip': {
+                drawOutlinedRect(ctx, -108, -68, 216, 136, 20, '#0f172a', '#38bdf8', 3.2, true);
+                drawOutlinedRect(ctx, -84, -38, 168, 32, 8, '#1e293b', '#6366f1', 2, false);
+                drawOutlinedRect(ctx, -84, 12, 74, 30, 8, '#22c55e', '#1e293b', 2, false);
+                drawOutlinedRect(ctx, 10, 12, 74, 30, 8, '#f59e0b', '#1e293b', 2, false);
+                break;
+            }
             case 'price_tag':
             case 'shopping_bag': {
                 drawOutlinedRect(ctx, -78, -56, 156, 140, 18, '#fb7185', '#1e293b', 3.4, true);
@@ -3013,8 +3335,291 @@
         ctx.restore();
     }
 
+    // ---- Reference-Grade Data-Driven Animated Infographics (02.mp4 - 07.mov) ----
+    function drawDiagramLabelBox(ctx, text, cx, cy, bg = '#ffffff', fg = '#0f172a', stroke = '#1e293b', scale = 1, fontSize = 16) {
+        const clean = String(text || '').trim().slice(0, 18);
+        if (!clean || scale <= 0.04) return;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(scale, scale);
+        ctx.font = `800 ${fontSize}px "Inter", "Plus Jakarta Sans", sans-serif`;
+        const w = Math.min(220, Math.max(72, ctx.measureText(clean).width + 28));
+        drawOutlinedRect(ctx, -w / 2, -18, w, 36, 12, bg, stroke, 2.4, true);
+        ctx.fillStyle = fg;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(clean, 0, 1);
+        ctx.restore();
+    }
+
+    function drawDataDiagramLayout(ctx, layout, scene, cue, progress, t, audioLevel, cast, mood, action, pop1, pop2, pop3, pivot) {
+        const rawD = cue?.diagramData || extractLocalDiagramData(String(scene?.text || '').toLowerCase(), layout, cue?.domainKey || 'home');
+        const leftLbl = String(rawD.leftLabel || cue?.focusTag || 'TRƯỚC').trim().slice(0, 16);
+        const rightLbl = String(rawD.rightLabel || 'SAU').trim().slice(0, 16);
+        const badgeA = String(rawD.badgeA || '').trim().slice(0, 16);
+        const badgeB = String(rawD.badgeB || '').trim().slice(0, 16);
+        const hiNum = String(rawD.highlightNum || cue?.focusTag || '').trim().slice(0, 16);
+
+        if (layout === 'balance-scale') {
+            const tiltTarget = progress >= pivot ? 0.14 : -0.14;
+            const tilt = Math.sin(t * 2.2) * 0.04 + tiltTarget * easeOutCubic(clamp01(progress * 1.4));
+            drawDiagramLabelBox(ctx, hiNum || 'CÂN BẰNG', 270, 178, '#0f172a', '#ffffff', '#38bdf8', pop1, 17);
+
+            ctx.save();
+            ctx.translate(270, 392);
+            ctx.scale(pop1, pop1);
+            drawOutlinedRect(ctx, -74, 134, 148, 24, 10, '#78350f', '#1e293b', 3.2, true);
+            drawOutlinedRect(ctx, -12, -88, 24, 224, 8, '#b45309', '#1e293b', 3, false);
+
+            ctx.save();
+            ctx.translate(0, -78);
+            ctx.rotate(tilt);
+            drawOutlinedRect(ctx, -156, -9, 312, 18, 9, '#f59e0b', '#1e293b', 3, true);
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(0, 0, 14, 0, Math.PI * 2);
+            ctx.fill();
+
+            [[-132, '#22c55e', leftLbl, badgeA], [132, '#fb7185', rightLbl, badgeB]].forEach(([px, col, lbl, val], side) => {
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 2.8;
+                ctx.beginPath();
+                ctx.moveTo(px, 8);
+                ctx.lineTo(px - 36, 98);
+                ctx.moveTo(px, 8);
+                ctx.lineTo(px + 36, 98);
+                ctx.stroke();
+                drawOutlinedRect(ctx, px - 54, 96, 108, 22, 10, col, '#1e293b', 2.8, true);
+                const blocks = side === 0 ? 3 : (progress >= pivot ? 1 : 4);
+                for (let bi = 0; bi < blocks; bi++) {
+                    drawOutlinedRect(ctx, px - 34, 70 - bi * 22, 68, 20, 6, '#fbbf24', '#1e293b', 2.2, false);
+                }
+                if (val) drawDiagramLabelBox(ctx, val, px, 144, '#ffffff', '#0f172a', col, pop2, 15);
+                if (lbl) drawDiagramLabelBox(ctx, lbl, px, -36, col, '#ffffff', '#1e293b', pop2, 14);
+            });
+            ctx.restore();
+            ctx.restore();
+
+            drawAnimatedActor(ctx, 118, 678, pop2 * 0.86, progress, t, action, mood, audioLevel, cast);
+            return;
+        }
+
+        if (layout === 'bar-compare') {
+            if (hiNum) drawDiagramLabelBox(ctx, hiNum, 270, 174, '#0f172a', '#fde047', '#f59e0b', pop1, 17);
+            const grow = easeOutCubic(clamp01(progress * 1.35));
+            const hA = 95 * grow;
+            const hB = (225 + audioLevel * 12) * grow;
+
+            drawOutlinedRect(ctx, 54, 214, 432, 338, 26, 'rgba(255,255,255,0.92)', '#cbd5e1', 2.8, true);
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(92, 488);
+            ctx.lineTo(448, 488);
+            ctx.stroke();
+
+            drawOutlinedRect(ctx, 134, 488 - hA, 92, Math.max(24, hA), 12, '#60a5fa', '#1e293b', 3, true);
+            drawOutlinedRect(ctx, 314, 488 - hB, 92, Math.max(24, hB), 12, '#22c55e', '#1e293b', 3, true);
+
+            if (badgeA) drawDiagramLabelBox(ctx, badgeA, 180, 488 - hA - 28, '#eff6ff', '#1d4ed8', '#3b82f6', pop2, 16);
+            if (badgeB) drawDiagramLabelBox(ctx, badgeB, 360, 488 - hB - 28, '#dcfce7', '#15803d', '#22c55e', pop2, 16);
+            drawDiagramLabelBox(ctx, leftLbl, 180, 522, '#1e293b', '#ffffff', '#1e293b', pop1, 14);
+            drawDiagramLabelBox(ctx, rightLbl, 360, 522, '#15803d', '#ffffff', '#1e293b', pop1, 14);
+
+            drawAnimatedActor(ctx, 432, 682, pop2 * 0.86, progress, t, action, mood, audioLevel, cast);
+            return;
+        }
+
+        if (layout === 'savings-jar-growth') {
+            const fillR = 0.25 + 0.56 * easeOutCubic(clamp01(progress * 1.4));
+            if (hiNum) drawDiagramLabelBox(ctx, hiNum, 270, 174, '#059669', '#ffffff', '#064e3b', pop1, 17);
+
+            ctx.save();
+            ctx.translate(296, 405);
+            ctx.scale(pop1 * 1.12, pop1 * 1.12);
+            // Lid + Transparent Jar Body
+            drawOutlinedRect(ctx, -74, -126, 148, 26, 10, '#94a3b8', '#1e293b', 3.4, true);
+            drawOutlinedRect(ctx, -104, -100, 208, 224, 34, 'rgba(255,255,255,0.88)', '#1e293b', 3.6, true);
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(-94, -90, 188, 204, 26);
+            ctx.clip();
+            const liqH = 190 * fillR;
+            ctx.fillStyle = '#4ade80';
+            ctx.fillRect(-94, 114 - liqH, 188, liqH);
+            // Gold coins piling inside
+            for (let ci = 0; ci < 5; ci++) {
+                ctx.fillStyle = '#fbbf24';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(-52 + ci * 26, 86 - (ci % 2) * 18, 13, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            ctx.restore();
+            // Tier tick marks T1, T2, T3
+            ['T1', 'T2', 'T3'].forEach((tk, idx) => {
+                const ty = 74 - idx * 54;
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 2.4;
+                ctx.beginPath();
+                ctx.moveTo(64, ty);
+                ctx.lineTo(86, ty);
+                ctx.stroke();
+                ctx.fillStyle = '#334155';
+                ctx.font = '800 13px Inter, sans-serif';
+                ctx.fillText(tk, 40, ty + 4);
+            });
+            // Falling coin into jar
+            const coinDrop = (t * 1.1) % 1;
+            ctx.fillStyle = '#facc15';
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(0, -172 + coinDrop * 64, 17, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            if (badgeA) drawDiagramLabelBox(ctx, badgeA, 396, 268, '#fef08a', '#92400e', '#f59e0b', pop2, 16);
+            if (rightLbl) drawDiagramLabelBox(ctx, rightLbl, 296, 560, '#0f172a', '#ffffff', '#22c55e', pop2, 15);
+            drawAnimatedActor(ctx, 108, 675, pop2 * 0.86, progress, t, 'counting-money', mood, audioLevel, cast);
+            return;
+        }
+
+        if (layout === 'calendar-alert') {
+            if (hiNum) drawDiagramLabelBox(ctx, hiNum, 270, 174, '#ef4444', '#ffffff', '#7f1d1d', pop1, 17);
+            const activeMonth = Math.min(11, Math.floor(easeOutCubic(clamp01(progress * 1.25)) * 11));
+
+            ctx.save();
+            ctx.translate(270, 390);
+            ctx.scale(pop1, pop1);
+            drawOutlinedRect(ctx, -182, -148, 364, 296, 24, '#ffffff', '#1e293b', 3.6, true);
+            drawOutlinedRect(ctx, -182, -148, 364, 58, 24, '#dc2626', '#1e293b', 3.6, false);
+            for (let m = 0; m < 12; m++) {
+                const c = m % 4;
+                const r = Math.floor(m / 4);
+                const tx = -148 + c * 78;
+                const ty = -64 + r * 66;
+                const isTarget = m === activeMonth && m >= 9;
+                const isLit = m <= activeMonth;
+                drawOutlinedRect(ctx, tx, ty, 64, 52, 10, isTarget ? '#ef4444' : (isLit ? '#fde047' : '#e2e8f0'), isTarget ? '#7f1d1d' : '#64748b', isTarget ? 3 : 1.8, isTarget);
+                ctx.fillStyle = isTarget ? '#ffffff' : '#1e293b';
+                ctx.font = '800 17px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`T${m + 1}`, tx + 32, ty + 27);
+            }
+            ctx.restore();
+
+            if (badgeA) drawDiagramLabelBox(ctx, badgeA, 162, 566, '#0f172a', '#ffffff', '#38bdf8', pop2, 15);
+            if (badgeB) drawDiagramLabelBox(ctx, badgeB, 378, 566, '#fef2f2', '#dc2626', '#ef4444', pop3, 15);
+            drawAnimatedActor(ctx, 114, 682, pop2 * 0.84, progress, t, action, mood, audioLevel, cast);
+            return;
+        }
+
+        if (layout === 'tech-formula-steps') {
+            // 02.mp4 high-contrast technical diagram + halving visual blocks + badges
+            drawDiagramLabelBox(ctx, hiNum || 'CÔNG THỨC', 270, 184, '#1e1b4b', '#38bdf8', '#6366f1', pop1, 19);
+
+            const splitRatio = progress >= pivot ? 0.5 : 1;
+            drawOutlinedRect(ctx, 56, 236, 428, 128, 22, '#0f172a', '#6366f1', 3.2, true);
+            const segs = progress >= pivot ? 4 : 2;
+            const segW = (380 - (segs - 1) * 10) / segs;
+            for (let si = 0; si < segs; si++) {
+                const bg = si === 0 ? '#22c55e' : (si === 1 ? '#3b82f6' : '#8b5cf6');
+                const drop = stagePop(progress, 0.08 + si * 0.14, 0.16);
+                drawOutlinedRect(ctx, 80 + si * (segW + 10), 258, segW, 84 * Math.max(0.2, drop), 10, bg, '#ffffff', 2, false);
+            }
+
+            if (badgeA) drawDiagramLabelBox(ctx, `${leftLbl}: ${badgeA}`, 160, 408, '#1e293b', '#38bdf8', '#38bdf8', pop2, 15);
+            if (badgeB) drawDiagramLabelBox(ctx, `${rightLbl}: ${badgeB}`, 380, 408, '#1e293b', '#4ade80', '#22c55e', pop3, 15);
+
+            // Bit/Node array bar below
+            drawOutlinedRect(ctx, 76, 456, 388, 66, 16, 'rgba(15, 23, 42, 0.9)', '#475569', 2.4, true);
+            for (let b = 0; b < 8; b++) {
+                const on = (b < Math.round(8 * splitRatio));
+                drawOutlinedRect(ctx, 96 + b * 44, 472, 34, 34, 7, on ? '#38bdf8' : '#1e293b', '#6366f1', 1.8, false);
+            }
+            drawAnimatedActor(ctx, 426, 682, pop2 * 0.86, progress, t, 'pointing', mood, audioLevel, cast);
+            return;
+        }
+
+        if (layout === 'journey-route') {
+            if (hiNum) drawDiagramLabelBox(ctx, hiNum, 270, 174, '#0f172a', '#fde047', '#f59e0b', pop1, 18);
+            // Road card + Curved route + Animated vehicle moving along path
+            drawOutlinedRect(ctx, 48, 224, 444, 290, 26, 'rgba(255,255,255,0.92)', '#94a3b8', 3, true);
+            ctx.save();
+            ctx.setLineDash([12, 10]);
+            ctx.lineDashOffset = -t * 48;
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(116, 434);
+            ctx.quadraticCurveTo(270, 278, 424, 434);
+            ctx.stroke();
+            ctx.restore();
+
+            drawDiagramLabelBox(ctx, leftLbl, 118, 468, '#1e293b', '#ffffff', '#1e293b', pop1, 14);
+            drawDiagramLabelBox(ctx, rightLbl, 422, 468, '#059669', '#ffffff', '#064e3b', pop2, 14);
+
+            const travelT = easeInOutCubic(clamp01((progress - 0.08) / 0.78));
+            const vx = (1 - travelT) * (1 - travelT) * 116 + 2 * (1 - travelT) * travelT * 270 + travelT * travelT * 424;
+            const vy = (1 - travelT) * (1 - travelT) * 434 + 2 * (1 - travelT) * travelT * 278 + travelT * travelT * 434;
+            const vehProp = cue?.props?.includes('bus') ? 'bus' : 'scooter';
+            drawProp(ctx, vehProp, vx, vy - 18, 0.42 * pop1, progress, t, audioLevel);
+
+            drawAnimatedActor(ctx, 118, 682, pop2 * 0.85, progress, t, action, mood, audioLevel, cast);
+            return;
+        }
+
+        // Default of 7: 'checklist-trio' (clean 3 sequential step cards with animated green checks)
+        if (hiNum) drawDiagramLabelBox(ctx, hiNum, 270, 174, '#2563eb', '#ffffff', '#1e3a8a', pop1, 17);
+        const rows = [
+            leftLbl || 'BƯỚC 1',
+            rightLbl || 'BƯỚC 2',
+            badgeA || 'BƯỚC 3'
+        ];
+        rows.forEach((lbl, idx) => {
+            const rowP = stagePop(progress, 0.06 + idx * 0.18, 0.18);
+            if (rowP <= 0.02) return;
+            const ry = 240 + idx * 104;
+            ctx.save();
+            ctx.translate(270, ry);
+            ctx.scale(rowP, rowP);
+            drawOutlinedRect(ctx, -196, -38, 392, 76, 20, '#ffffff', '#cbd5e1', 3, true);
+            const checked = progress >= 0.22 + idx * 0.20;
+            ctx.fillStyle = checked ? '#22c55e' : '#e2e8f0';
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2.4;
+            ctx.beginPath();
+            ctx.arc(-142, 0, 20, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            if (checked) {
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(-150, 1);
+                ctx.lineTo(-144, 7);
+                ctx.lineTo(-132, -6);
+                ctx.stroke();
+            }
+            ctx.fillStyle = '#0f172a';
+            ctx.font = '800 20px "Inter", "Plus Jakarta Sans", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(lbl, -104, 1);
+            ctx.restore();
+        });
+        drawAnimatedActor(ctx, 424, 682, pop2 * 0.84, progress, t, 'pointing', mood, audioLevel, cast);
+    }
+
     // ---- Main Storyboard & UI Motion Choreography ----
-    function renderSingleMotionScene(ctx, scene, progress, sceneIdx, t, audioLevel = 0) {
+    function renderSingleMotionScene(ctx, scene, progress, sceneIdx, t, audioLevel = 0, audioViseme = -1) {
+        currentAudioViseme = audioViseme;
+        try {
         const visualStyle = scene.visualStyle || 'motion';
         const cue = scene.motionCue || analyzeSceneVisualCue(scene.text, sceneIdx, '', {}, visualStyle);
         const backdropId = BACKDROPS[cue.backdrop] ? cue.backdrop : (visualStyle === 'ui-motion' ? 'grid-light' : 'studio-focus');
@@ -3039,6 +3644,17 @@
         const pop3 = stagePop(progress, 0.36, 0.18);
 
         switch (cue.layout) {
+            case 'balance-scale':
+            case 'bar-compare':
+            case 'savings-jar-growth':
+            case 'calendar-alert':
+            case 'tech-formula-steps':
+            case 'journey-route':
+            case 'checklist-trio': {
+                drawDataDiagramLayout(ctx, cue.layout, scene, cue, progress, t, audioLevel, cast, mood, action, pop1, pop2, pop3, pivot);
+                break;
+            }
+
             case 'wide-team': {
                 const camZoom = 1 + easeOutCubic(progress) * 0.055;
                 ctx.save();
@@ -3512,16 +4128,19 @@
 
         drawPhase2Overlay(ctx, phase2Effect, pivot, progress, t, audioLevel);
         drawAmbientEffects(ctx, effect, t, audioLevel);
+        } finally {
+            currentAudioViseme = -1;
+        }
     }
 
-    function drawMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, prevScene = null, audioLevel = 0) {
+    function drawMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, prevScene = null, audioLevel = 0, audioViseme = -1) {
         if (sceneIdx > 0 && prevScene && sceneProgress < 0.14) {
             const cue = scene?.motionCue || {};
             const useWipe = cue.transition === 'diagonal-wipe' || (scene?.visualStyle === 'ui-motion' && sceneIdx % 2 === 1);
             if (useWipe) {
                 const wipeP = easeOutCubic(clamp01(sceneProgress / 0.14));
-                renderSingleMotionScene(ctx, prevScene, 1, sceneIdx - 1, globalTime, 0);
-                // Signature SaaS diagonal color panel sweep (Reference Video 2)
+                renderSingleMotionScene(ctx, prevScene, 1, sceneIdx - 1, globalTime, 0, -1);
+                // Signature SaaS diagonal color panel sweep
                 ctx.save();
                 const sweepX = lerp(-260, W + 240, wipeP);
                 ctx.fillStyle = '#0ea5e9';
@@ -3540,23 +4159,37 @@
                 ctx.lineTo(0, H);
                 ctx.closePath();
                 ctx.clip();
-                renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel);
+                renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel, audioViseme);
+                ctx.restore();
+                return;
+            }
+
+            if (cue.transition === 'zoom-blur' && sceneProgress < 0.11) {
+                const zp = easeOutCubic(sceneProgress / 0.11);
+                const zScale = lerp(0.92, 1.0, zp);
+                renderSingleMotionScene(ctx, prevScene, 1, sceneIdx - 1, globalTime, 0, -1);
+                ctx.save();
+                ctx.globalAlpha = zp;
+                ctx.translate(W / 2, H / 2);
+                ctx.scale(zScale, zScale);
+                ctx.translate(-W / 2, -H / 2);
+                renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel, audioViseme);
                 ctx.restore();
                 return;
             }
 
             if (sceneProgress < 0.08) {
                 const blend = easeOutCubic(sceneProgress / 0.08);
-                renderSingleMotionScene(ctx, prevScene, 1, sceneIdx - 1, globalTime, 0);
+                renderSingleMotionScene(ctx, prevScene, 1, sceneIdx - 1, globalTime, 0, -1);
                 ctx.save();
                 ctx.globalAlpha = blend;
-                renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel);
+                renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel, audioViseme);
                 ctx.restore();
                 return;
             }
         }
 
-        renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel);
+        renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel, audioViseme);
     }
 
     App.motionGraphics = {

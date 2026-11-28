@@ -8,10 +8,10 @@
 
     App.CONFIG = {
         STORAGE_KEYS: {
-            TEMPLATES: 'reels_studio_templates_v6',
+            TEMPLATES: 'reels_studio_templates_ai_v1',
             LEGACY_TEMPLATES_V2: 'reels_studio_templates_v5',
             ROTATION_HISTORY: 'reels_studio_rotation_history',
-            SCRIPTS: 'reels_studio_scripts',
+            SCRIPTS: 'reels_studio_scripts_ai_v1',
             GOALS: 'reels_studio_goals',
             API_KEY: 'reels_studio_gemini_api_key',
             THEME: 'reels_studio_theme',

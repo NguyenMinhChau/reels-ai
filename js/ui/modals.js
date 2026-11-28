@@ -35,12 +35,12 @@
         if (badge && dot && label) {
             if (hasKey) {
                 badge.className =
-                    'px-2.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 hover:bg-emerald-100 dark:hover:bg-emerald-500/25 border border-emerald-200 dark:border-emerald-500/30 text-xs font-bold text-emerald-700 dark:text-emerald-300 transition flex items-center gap-1.5 shrink-0 cursor-pointer';
+                    'h-9 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 hover:bg-emerald-100 dark:hover:bg-emerald-500/25 border border-emerald-200 dark:border-emerald-500/30 text-xs font-bold text-emerald-700 dark:text-emerald-300 transition inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer';
                 dot.className = 'w-2 h-2 rounded-full bg-emerald-500 shrink-0';
                 label.textContent = 'API Key Riêng';
             } else {
                 badge.className =
-                    'px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shrink-0 cursor-pointer';
+                    'h-9 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer';
                 dot.className = 'w-2 h-2 rounded-full bg-indigo-500 shrink-0';
                 label.textContent = 'Cài API Key';
             }
@@ -270,8 +270,8 @@
         document.getElementById('btn-export-backup')?.addEventListener('click', handleExportBackup);
         document.getElementById('input-import-backup')?.addEventListener('change', handleImportBackup);
         document.getElementById('btn-reset-templates')?.addEventListener('click', () => {
-            App.store.resetDefaultTemplates();
-            App.toast.show('Đã khôi phục và làm mới kho 45 kịch bản mẫu!', 'info');
+            App.store.clearTemplates();
+            App.toast.show('Đã xóa sạch kho kịch bản — sẵn sàng để AI tạo mới hoàn toàn!', 'info');
         });
 
         // Close buttons & backdrop click

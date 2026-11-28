@@ -189,13 +189,10 @@
         }
 
         renderSceneInputs(initialScenes);
-        setSocialCaptionPreview(
-            App.geminiApi?.buildLocalSocialCaption?.({
-                title,
-                scenes: initialScenes,
-                existingHashtags: currentTopicHashtags
-            })
-        );
+        const capArea = document.getElementById('vs-social-caption');
+        if (capArea) {
+            capArea.value = currentTopicHashtags ? currentTopicHashtags : '';
+        }
 
         const uploadInput = document.getElementById('vs-upload-images');
         if (uploadInput) uploadInput.value = '';
@@ -209,25 +206,81 @@
         document.getElementById('vs-progress-box')?.classList.add('hidden');
         document.getElementById('btn-unmute-mobile-audio')?.classList.add('hidden');
 
-        App.mediaEngine.drawPlaceholderCanvas(title);
+        App.mediaEngine.drawPlaceholderCanvas(title || 'Nhập từ khóa hoặc dán nội dung để AI dựng video');
         document.getElementById('video-studio-modal')?.classList.remove('hidden');
     }
 
     function openFromScratch() {
         open({
-            title: 'Mẹo nhỏ giúp cuộc sống nhẹ nhàng hơn',
-            scenes: [
-                'Bạn có biết chỉ một thay đổi nhỏ mỗi sáng có thể giúp cả ngày hiệu quả gấp đôi?',
-                'Nhiều người vội vàng lướt điện thoại ngay khi mở mắt khiến não quá tải từ sáng sớm.',
-                'Hậu quả là cả ngày làm việc uể oải, dễ cáu gắt và mất tập trung liên tục.',
-                'Thay vào đó, hãy uống một cốc nước ấm để đánh thức cơ thể trong 2 phút.',
-                'Tiếp theo, mở rèm đón ánh nắng tự nhiên giúp đồng hồ sinh học tỉnh táo hẳn lên.',
-                'Sau đó viết ra giấy đúng 3 việc quan trọng nhất cần xong trong hôm nay.',
-                'Làm đều đặn 7 ngày bạn sẽ thấy tinh thần nhẹ nhàng và dư thời gian rõ rệt.',
-                'Thử áp dụng ngay sáng mai nhé, bạn thường làm gì đầu tiên khi thức dậy?'
-            ],
-            hashtags: '#thoiquensang #nangsuat #meohaydoisong #phattrienbanthan #reelsvn #xuhuong'
+            title: '',
+            scenes: ['', ''],
+            hashtags: ''
         });
+        const kwInput = document.getElementById('vs-keyword-input');
+        if (kwInput) {
+            kwInput.value = '';
+            setTimeout(() => kwInput.focus(), 60);
+        }
+    }
+
+    let keywordDumpAbortController = null;
+    async function handleStudioDumpKeyword(autoGenerate = false) {
+        const kwInput = document.getElementById('vs-keyword-input');
+        const btn = document.getElementById('btn-studio-dump-keyword');
+        const keyword = kwInput?.value.trim() || '';
+        if (!keyword) {
+            App.toast.show('Hãy nhập từ khóa chủ đề để AI tự viết kịch bản & các cảnh quay!', 'warning');
+            kwInput?.focus();
+            return;
+        }
+        if (!btn || btn.disabled) return;
+
+        const tone = document.getElementById('vs-tone')?.value || 'viral';
+        const targetCount = parseInt(document.getElementById('vs-target-scenes')?.value || '8', 10) || 8;
+
+        btn.disabled = true;
+        const prevHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>AI đang dump...</span>';
+
+        if (keywordDumpAbortController) keywordDumpAbortController.abort();
+        keywordDumpAbortController = new AbortController();
+
+        try {
+            const res = await App.geminiApi.dumpTopicToStudioContent({
+                keyword,
+                tone,
+                targetCount,
+                signal: keywordDumpAbortController.signal
+            });
+            const titleInput = document.getElementById('vs-title');
+            if (titleInput) titleInput.value = res.title || keyword;
+            currentTopicHashtags = res.hashtags || '';
+            if (Array.isArray(res.scenes) && res.scenes.length >= 2) {
+                renderSceneInputs(res.scenes);
+            }
+            if (res.fullPost) setSocialCaptionPreview(res);
+            lastChapterAudioMeta = [];
+            cachedChapterAudios = [];
+            App.mediaEngine.drawPlaceholderCanvas(res.title || keyword);
+            App.toast.show(`AI đã dump xong "${res.title}" gồm ${res.scenes.length} cảnh lời thoại!`);
+            if (autoGenerate) {
+                setTimeout(() => handleGenerateAssets(), 60);
+            }
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            if (err.code === 'INVALID_API_KEY') {
+                App.toast.show(err.message, 'warning', {
+                    actionLabel: 'Cài Key',
+                    onAction: () => App.modals.openSettingsModal()
+                });
+            } else {
+                App.toast.show(err.message || 'Không thể dump nội dung từ khóa lúc này.', 'error');
+            }
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = prevHtml;
+            keywordDumpAbortController = null;
+        }
     }
 
     function openFromTemplate(templateId) {
@@ -278,6 +331,10 @@
         if (socialAbortController) {
             socialAbortController.abort();
             socialAbortController = null;
+        }
+        if (keywordDumpAbortController) {
+            keywordDumpAbortController.abort();
+            keywordDumpAbortController = null;
         }
     }
 
@@ -605,7 +662,7 @@
                 finalCue = {
                     layout: lay,
                     backdrop: bd,
-                    transition: aiItem.transition === 'diagonal-wipe' ? 'diagonal-wipe' : 'cut',
+                    transition: ['diagonal-wipe', 'zoom-blur'].includes(aiItem.transition) ? aiItem.transition : (localCue.transition || 'cut'),
                     cast,
                     action: aiItem.action || localCue.action,
                     stage2Action: aiItem.stage2Action || '',
@@ -614,6 +671,13 @@
                     visualSubject: aiItem.visualSubject || '',
                     roleTag: String(aiItem.roleTag || '').trim().slice(0, 22),
                     focusTag: String(aiItem.focusTag || '').trim().slice(0, 20),
+                    diagramData: {
+                        leftLabel: String(aiItem.diagramData?.leftLabel || localCue.diagramData?.leftLabel || '').trim().slice(0, 16),
+                        rightLabel: String(aiItem.diagramData?.rightLabel || localCue.diagramData?.rightLabel || '').trim().slice(0, 16),
+                        badgeA: String(aiItem.diagramData?.badgeA || localCue.diagramData?.badgeA || '').trim().slice(0, 16),
+                        badgeB: String(aiItem.diagramData?.badgeB || localCue.diagramData?.badgeB || '').trim().slice(0, 16),
+                        highlightNum: String(aiItem.diagramData?.highlightNum || localCue.diagramData?.highlightNum || '').trim().slice(0, 16)
+                    },
                     effect: aiItem.effect || localCue.effect,
                     sfx,
                     props: chosenProps,
@@ -677,6 +741,14 @@
         const scenePacing = document.getElementById('vs-scene-pacing')?.value || 'balanced';
         const imageSourceMode = document.getElementById('vs-image-source')?.value || 'stock';
         const hasApiKey = Boolean((App.store.getState().apiKey || '').trim());
+        if (!hasApiKey) {
+            App.toast.show('Vui lòng nhập Gemini API Key để AI tạo giọng đọc & dựng video thật (không dùng dữ liệu mẫu).', 'warning', {
+                actionLabel: 'Cài Key',
+                onAction: () => App.modals.openSettingsModal()
+            });
+            btn.disabled = false;
+            return;
+        }
 
         const audioCtx = App.mediaEngine.unlockAudioSync();
         isSeeking = false;
@@ -1497,6 +1569,13 @@
         });
 
         document.getElementById('btn-open-studio-scratch')?.addEventListener('click', openFromScratch);
+        document.getElementById('btn-studio-dump-keyword')?.addEventListener('click', () => handleStudioDumpKeyword(false));
+        document.getElementById('vs-keyword-input')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleStudioDumpKeyword(false);
+            }
+        });
         document.getElementById('btn-toggle-import-content')?.addEventListener('click', () => {
             const panel = document.getElementById('vs-import-content-panel');
             if (!panel) return;

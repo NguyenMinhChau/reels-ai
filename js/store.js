@@ -6,71 +6,17 @@
 
     const App = (global.ReelsStudio = global.ReelsStudio || {});
     const { STORAGE_KEYS, MAX_TEMPLATES } = App.CONFIG;
-    const { safeStorage, getDefaultTomorrowSchedule } = App.utils;
-
-    function getRotatedPool() {
-        const pool = App.DEFAULT_SCRIPTS.map((item) => ({ ...item }));
-        const history = safeStorage.get(STORAGE_KEYS.ROTATION_HISTORY, []);
-        const recentSet = new Set(Array.isArray(history) ? history : []);
-
-        // Split into unseen scripts vs recently shown at top, shuffle each bucket
-        const unseen = [];
-        const recent = [];
-        pool.forEach((item) => {
-            if (recentSet.has(item.id)) recent.push(item);
-            else unseen.push(item);
-        });
-
-        const shuffle = (arr) => {
-            for (let i = arr.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [arr[i], arr[j]] = [arr[j], arr[i]];
-            }
-            return arr;
-        };
-
-        // Always prioritize unseen scripts at the top so every F5 surfaces fresh topics!
-        const ordered = [...shuffle(unseen), ...shuffle(recent)];
-        const topSliceIds = ordered.slice(0, 6).map((item) => item.id);
-        let nextHistory = [...(Array.isArray(history) ? history : []), ...topSliceIds];
-        if (nextHistory.length >= pool.length - 3) {
-            nextHistory = topSliceIds;
-        }
-        safeStorage.set(STORAGE_KEYS.ROTATION_HISTORY, nextHistory);
-        return ordered;
-    }
+    const { safeStorage } = App.utils;
 
     function loadInitialTemplates() {
-        const rotatedPool = getRotatedPool();
         const saved = safeStorage.get(STORAGE_KEYS.TEMPLATES, null);
-        const legacySaved = !saved ? safeStorage.get(STORAGE_KEYS.LEGACY_TEMPLATES_V2, null) : null;
-        const source = Array.isArray(saved) ? saved : Array.isArray(legacySaved) ? legacySaved : [];
-
-        // Preserve any AI-generated or custom user templates, then place freshly rotated curated scripts
-        const customAiTemplates = source.filter((t) => t && t.isNew);
-        const combined = [...customAiTemplates, ...rotatedPool].slice(0, MAX_TEMPLATES || 60);
-        safeStorage.set(STORAGE_KEYS.TEMPLATES, combined);
-        return combined;
+        if (!Array.isArray(saved)) return [];
+        return saved.filter((t) => t && t.title && t.hook).slice(0, MAX_TEMPLATES || 120);
     }
 
     function loadInitialScripts() {
         const saved = safeStorage.get(STORAGE_KEYS.SCRIPTS, null);
-        if (Array.isArray(saved) && saved.length > 0) return saved;
-
-        const seed = [
-            {
-                id: 'user-init-1',
-                title: 'Mẹo giữ hành lá tươi cả tháng không úng',
-                status: 'scheduled',
-                schedule: getDefaultTomorrowSchedule(20, 0),
-                hook: 'Đừng vứt hành lá thẳng vào tủ lạnh nữa nếu không muốn ngày nào cũng phải đi chợ!',
-                body: '• Bỏ hành vào ngăn mát thông thường chỉ sau 3 ngày là vàng úa, chảy nước.\n• Bí quyết cực dễ: Rửa sạch hành lá rồi dùng khăn giấy thấm thật khô nước.\n• Cắt nhỏ vừa ăn, cho toàn bộ vào một chiếc chai nhựa sạch và khô ráo.\n• Đậy kín nắp và để thẳng vào ngăn đá tủ lạnh, mỗi lần nấu chỉ cần lắc nhẹ là hành tơi rời từng miếng.',
-                cta: 'Lưu ngay video này lại để dùng dần và Follow mình để biết thêm mẹo bếp hay nhé!',
-                hashtags: '#meovatnhabep #meohay #cuocsonghangngay #reelsvn'
-            }
-        ];
-        safeStorage.set(STORAGE_KEYS.SCRIPTS, seed);
-        return seed;
+        return Array.isArray(saved) ? saved : [];
     }
 
     function loadInitialGoals() {
@@ -81,7 +27,7 @@
                 follows: Math.max(0, Number(saved.follows) || 0)
             };
         }
-        return { views: 125000, follows: 840 };
+        return { views: 0, follows: 0 };
     }
 
     const state = {
@@ -210,21 +156,12 @@
             return true;
         },
 
-        resetDefaultTemplates() {
-            safeStorage.set(STORAGE_KEYS.ROTATION_HISTORY, []);
-            state.templates = getRotatedPool();
+        clearTemplates() {
+            state.templates = [];
             state.currentCategory = 'all';
             state.searchQuery = '';
             state.onlyNewTemplates = false;
-            safeStorage.set(STORAGE_KEYS.TEMPLATES, state.templates);
-            notify('templates');
-        },
-
-        rotateCuratedTemplates() {
-            const customAiTemplates = state.templates.filter((t) => t && t.isNew);
-            const rotatedPool = getRotatedPool();
-            state.templates = [...customAiTemplates, ...rotatedPool].slice(0, MAX_TEMPLATES || 60);
-            safeStorage.set(STORAGE_KEYS.TEMPLATES, state.templates);
+            safeStorage.set(STORAGE_KEYS.TEMPLATES, []);
             notify('templates');
         },
 

@@ -533,6 +533,73 @@ Trả về đúng 1 JSON object có:
         });
     }
 
+    async function dumpTopicToStudioContent({ keyword, tone = 'viral', targetCount = 8, signal } = {}) {
+        const cleanKw = String(keyword || '').trim();
+        if (!cleanKw) {
+            throw new ApiError('EMPTY_KEYWORD', 'Vui lòng nhập từ khóa chủ đề trước khi AI dump nội dung.');
+        }
+        const count = Math.max(5, Math.min(12, parseInt(targetCount, 10) || 8));
+        const toneRule = TONE_GUIDES[tone] || TONE_GUIDES.viral;
+        const cacheKey = `kw-studio-v1:${tone}:${count}:${hashString(cleanKw.toLowerCase())}`;
+        if (caches.prompts.has(cacheKey)) {
+            return caches.prompts.get(cacheKey);
+        }
+
+        return dedupedCall(cacheKey, async () => {
+            if (!getApiKey()) {
+                throw new ApiError('INVALID_API_KEY', 'Bạn chưa nhập Gemini API Key Free. Hãy bấm "Cài API Key" để dán key miễn phí.');
+            }
+            checkCooldown('dumpKeywordStudio', API_POLICY.REWRITE_COOLDOWN_MS);
+            const prompt = `Bạn là Đạo Diễn & Biên Kịch Video Ngắn (Facebook Reels / TikTok / YouTube Shorts) hàng đầu Việt Nam.
+Từ khóa / Chủ đề người dùng nhập: "${cleanKw}"
+${toneRule}
+${CREATOR_ETHICS_AND_POLICY_RULE}
+
+NHIỆM VỤ:
+Dựa hoàn toàn vào từ khóa "${cleanKw}", tự sáng tạo ngay 1 kịch bản video ngắn hoàn chỉnh, văn nói tự nhiên đời thường, cuốn hút từ giây đầu tiên và khớp nhịp hoạt hình 2D:
+1. "title": Tiêu đề cực hút (tối đa 12 từ).
+2. "scenes": Mảng ĐÚNG ${count} câu lời thoại nối tiếp nhau theo diễn biến (mỗi câu 10–20 từ, đọc mượt mà trong ~2–3 giây/cảnh, có Hook cảnh 1 -> Thân bài/ví dụ thực tế/so sánh số liệu -> Chốt & CTA đặt câu hỏi ở cảnh cuối).
+3. "caption": Caption 2–3 đoạn ngắn sẵn sàng copy đăng Reels.
+4. "hashtags": 5–7 hashtag tiếng Việt không dấu sát từ khóa "${cleanKw}".`;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: 'OBJECT',
+                        properties: {
+                            title: { type: 'STRING' },
+                            scenes: { type: 'ARRAY', items: { type: 'STRING' } },
+                            caption: { type: 'STRING' },
+                            hashtags: { type: 'STRING' }
+                        },
+                        required: ['title', 'scenes', 'caption', 'hashtags']
+                    }
+                }
+            };
+
+            const res = await fetchTextWithFallback(payload, { signal });
+            const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const parsed = JSON.parse(raw);
+            if (!parsed || !Array.isArray(parsed.scenes) || parsed.scenes.length < 3) {
+                throw new ApiError('INVALID_JSON', 'AI chưa trả về đủ các phân cảnh nội dung cho từ khóa này.');
+            }
+            const scenes = parsed.scenes.slice(0, 16).map((s) => String(s || '').trim()).filter(Boolean);
+            const caption = String(parsed.caption || '').trim();
+            const hashtags = String(parsed.hashtags || '').trim();
+            const out = {
+                title: String(parsed.title || cleanKw).trim(),
+                scenes,
+                caption,
+                hashtags,
+                fullPost: [caption, hashtags].filter(Boolean).join('\n\n').trim()
+            };
+            caches.prompts.set(cacheKey, out);
+            return out;
+        });
+    }
+
     async function generateRealisticVisualPrompts({ title, sceneTexts, signal }) {
         const cleanTexts = (sceneTexts || []).map((t) => String(t || '').trim()).filter(Boolean);
         const cacheKey = `prompts-v2:${hashString(title + '|' + cleanTexts.join('|'))}`;
@@ -540,15 +607,8 @@ Trả về đúng 1 JSON object có:
             return caches.prompts.get(cacheKey);
         }
 
-        const fallback = () =>
-            cleanTexts.map(
-                (t, i) =>
-                    `Realistic candid editorial scene in Vietnam depicting specifically: "${t}", natural authentic lighting, vertical 9:16 framing, rich detail, no watermark`
-            );
-
         return dedupedCall(cacheKey, async () => {
-            try {
-                const prompt = `You are a Viral Reels Visual Director in Vietnam. Given a vertical 9:16 video titled "${title}" and ${cleanTexts.length} Vietnamese narration segments, write ${cleanTexts.length} distinct English image prompts (1 per segment).
+            const prompt = `You are a Viral Reels Visual Director in Vietnam. Given a vertical 9:16 video titled "${title}" and ${cleanTexts.length} Vietnamese narration segments, write ${cleanTexts.length} distinct English image prompts (1 per segment).
 CRITICAL RULES:
 - Every prompt MUST visually depict the EXACT specific situation, objects, setting, emotion, and action described in its corresponding narration segment!
 - Vary camera angles (extreme close-up POV hands, over-the-shoulder desk view, wide atmospheric room, moody night lighting, sunlit cafe, bustling office) so NO two consecutive scenes look repetitive!
@@ -556,30 +616,26 @@ CRITICAL RULES:
 Narration segments:
 ${cleanTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
 
-                const payload = {
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        responseMimeType: 'application/json',
-                        responseSchema: {
-                            type: 'ARRAY',
-                            items: { type: 'STRING' }
-                        }
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: 'ARRAY',
+                        items: { type: 'STRING' }
                     }
-                };
-
-                const result = await fetchTextWithFallback(payload, { signal });
-                const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed) && parsed.length >= cleanTexts.length) {
-                    const sliced = parsed.slice(0, cleanTexts.length);
-                    caches.prompts.set(cacheKey, sliced);
-                    return sliced;
                 }
-            } catch (err) {
-                if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
-                console.warn('Fallback visual prompts used:', err.message);
+            };
+
+            const result = await fetchTextWithFallback(payload, { signal });
+            const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed) || parsed.length < cleanTexts.length) {
+                throw new ApiError('INVALID_JSON', 'AI chưa trả về đủ gợi ý khung hình cho từng cảnh.');
             }
-            return fallback();
+            const sliced = parsed.slice(0, cleanTexts.length);
+            caches.prompts.set(cacheKey, sliced);
+            return sliced;
         });
     }
 
@@ -591,23 +647,16 @@ ${cleanTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
             return caches.prompts.get(cacheKey);
         }
 
-        const fallback = () =>
-            cleanTexts.map(
-                (t, i) =>
-                    `Flat 2D cel-shaded vector cartoon illustration, crisp #1e293b ink outlines, warm modern pastel & indigo palette, vertical 9:16 composition depicting literally: "${t}", expressive character pose and props, NO text, NO letters, NO speech bubbles`
-            );
-
         return dedupedCall(cacheKey, async () => {
-            try {
-                const specs = cleanTexts
-                    .map((s, idx) => {
-                        const sb = Array.isArray(storyboard) ? storyboard[idx] : null;
-                        const hint = sb?.visualSubject ? ` (Scene focus: ${sb.visualSubject}, angle: ${sb.layout || 'medium shot'})` : '';
-                        return `${idx + 1}. "${s}"${hint}`;
-                    })
-                    .join('\n');
+            const specs = cleanTexts
+                .map((s, idx) => {
+                    const sb = Array.isArray(storyboard) ? storyboard[idx] : null;
+                    const hint = sb?.visualSubject ? ` (Scene focus: ${sb.visualSubject}, angle: ${sb.layout || 'medium shot'})` : '';
+                    return `${idx + 1}. "${s}"${hint}`;
+                })
+                .join('\n');
 
-                const prompt = `You are a 2D Cel-Shaded Animation Art Director creating prompts for Imagen / Nano Banana 2D cartoon frames (9:16 vertical Reels).
+            const prompt = `You are a 2D Cel-Shaded Animation Art Director creating prompts for Imagen / Nano Banana 2D cartoon frames (9:16 vertical Reels).
 Video title: "${title}"
 Maintain consistent lead character styling across all frames (friendly modern young Vietnamese creator/office character, crisp clean #1e293b ink linework, flat cel-shading with soft highlights, cozy/modern palette matching clean 2D animated explainer videos).
 Write ${cleanTexts.length} English image prompts (1 per spoken line) following these strict rules:
@@ -617,29 +666,25 @@ Write ${cleanTexts.length} English image prompts (1 per spoken line) following t
 Spoken lines:
 ${specs}`;
 
-                const payload = {
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        responseMimeType: 'application/json',
-                        responseSchema: {
-                            type: 'ARRAY',
-                            items: { type: 'STRING' }
-                        }
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: 'ARRAY',
+                        items: { type: 'STRING' }
                     }
-                };
-                const result = await fetchTextWithFallback(payload, { signal });
-                const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed) && parsed.length >= cleanTexts.length) {
-                    const sliced = parsed.slice(0, cleanTexts.length);
-                    caches.prompts.set(cacheKey, sliced);
-                    return sliced;
                 }
-            } catch (err) {
-                if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
-                console.warn('Cartoon visual prompt fallback used:', err.message);
+            };
+            const result = await fetchTextWithFallback(payload, { signal });
+            const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed) || parsed.length < cleanTexts.length) {
+                throw new ApiError('INVALID_JSON', 'AI chưa trả về đủ mô tả hoạt hình 2D cho từng cảnh.');
             }
-            return fallback();
+            const sliced = parsed.slice(0, cleanTexts.length);
+            caches.prompts.set(cacheKey, sliced);
+            return sliced;
         });
     }
 
@@ -649,41 +694,15 @@ ${specs}`;
             throw new ApiError('EMPTY_CONTENT', 'Vui lòng dán nội dung có sẵn trước khi tách cảnh.');
         }
 
-        const offlineFallback = () => {
-            const lines = cleanRaw
-                .split(/\n+/)
-                .map((l) => l.trim())
-                .filter(Boolean);
-            const beats = [];
-            lines.forEach((line) => {
-                const sub = typeof App.utils?.splitTextIntoVisualBeats === 'function'
-                    ? App.utils.splitTextIntoVisualBeats(line, 3)
-                    : [line];
-                sub.forEach((s) => {
-                    if (s && beats.length < 16) beats.push(s);
-                });
-            });
-            const finalBeats = beats.length >= 2 ? beats : [cleanRaw, 'Áp dụng ngay hôm nay để thấy sự khác biệt nhé!'];
-            return {
-                title: titleHint || (finalBeats[0] || '').slice(0, 48),
-                scenes: finalBeats.slice(0, 16),
-                storyboard: null
-            };
-        };
-
-        if (!getApiKey()) {
-            return offlineFallback();
-        }
-
         const layoutList = Array.isArray(layouts) && layouts.length > 0
             ? layouts
-            : ['wide-team', 'desk-closeup', 'two-shot-dialogue', 'back-monitors', 'hand-viewfinder', 'hand-pov', 'screen-pointer', 'laptop-popup', 'character-action', 'character-left', 'split-compare', 'multi-trio', 'thought-bubble', 'document-card', 'action-flow', 'center-hero', 'ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
+            : ['balance-scale', 'bar-compare', 'savings-jar-growth', 'calendar-alert', 'tech-formula-steps', 'journey-route', 'checklist-trio', 'wide-team', 'desk-closeup', 'two-shot-dialogue', 'back-monitors', 'hand-viewfinder', 'hand-pov', 'screen-pointer', 'laptop-popup', 'character-action', 'character-left', 'split-compare', 'multi-trio', 'thought-bubble', 'document-card', 'action-flow', 'center-hero', 'ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
         const backdropList = Array.isArray(backdrops) && backdrops.length > 0
             ? backdrops
-            : ['studio-focus', 'office-shelf', 'office-desk', 'work-late', 'gym-fresh', 'bank-vault', 'home-living', 'street-rain', 'warning-stage', 'bedroom-night', 'kitchen-cozy', 'cafe-chill', 'server-tech', 'cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint', 'grid-light', 'blueprint-dark'];
+            : ['warm-cream-stage', 'tech-dark-indigo', 'studio-focus', 'office-shelf', 'office-desk', 'work-late', 'gym-fresh', 'bank-vault', 'home-living', 'street-rain', 'warning-stage', 'bedroom-night', 'kitchen-cozy', 'cafe-chill', 'server-tech', 'cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint', 'grid-light', 'blueprint-dark'];
         const propList = Array.isArray(props) && props.length > 0
             ? props
-            : ['ergo_chair', 'spine_back', 'empty_wallet', 'stretching_pose', 'price_tag', 'shopping_bag', 'house', 'envelope', 'jar', 'phone', 'lightbulb', 'clock', 'water_glass', 'plug_socket', 'laptop', 'card_doc', 'chart_bars', 'cash_stack'];
+            : ['scale_icon', 'hospital_card', 'bank_counter', 'speedometer', 'scissors_cut', 'umbrella', 'map_pin', 'formula_chip', 'ergo_chair', 'spine_back', 'empty_wallet', 'stretching_pose', 'price_tag', 'shopping_bag', 'house', 'envelope', 'jar', 'phone', 'lightbulb', 'clock', 'water_glass', 'plug_socket', 'laptop', 'card_doc', 'chart_bars', 'cash_stack'];
         const actionList = Array.isArray(actions) && actions.length > 0
             ? actions
             : ['pointing', 'typing', 'hunched-pain', 'stretching', 'empty-wallet', 'back-ache', 'calling', 'phone-scroll', 'shocked-phone', 'cooking', 'counting-money', 'sleeping', 'running', 'drinking', 'celebrating'];
@@ -700,7 +719,9 @@ ${specs}`;
             ? screenTypes
             : ['chat_msg', 'excel_err', 'revenue_up', 'revenue_down', 'checklist_done', 'calendar_due', 'notification_bell', 'wallet_cash', 'code_bug', 'contract_sign', 'tea_break', 'night_scroll'];
         const phase2List = ['none', 'wallet_empty', 'back_pain', 'stretch_up', 'cross_mistake', 'check_win', 'shock_alert', 'money_fly'];
-        const transitionList = ['cut', 'diagonal-wipe'];
+        const transitionList = ['cut', 'zoom-blur', 'diagonal-wipe'];
+
+        const clampTag = (v, max = 16) => String(v || '').trim().slice(0, max);
 
         const modeRule = mode === 'preserve'
             ? 'CHẾ ĐỘ GIỮ NGUYÊN CÂU CHỮ: Tuyệt đối giữ nguyên văn từng từ/ý trong bài gốc của người dùng (chỉ ngắt thành từng đoạn ngắn 6-14 từ ở các dấu phẩy/chấm/mạch ý để mỗi cảnh khớp đúng ~2-3 giây giọng nói, KHÔNG bịa thêm ý ngoài).'
@@ -717,12 +738,13 @@ NHIỆM VỤ:
 ${modeRule}
 Trả về 1 đối tượng JSON gồm:
 - "title": Tiêu đề ngắn gọn cực hút (tối đa 10 từ).
-- "scenes": Mảng 6 đến 15 phân cảnh, mỗi phần tử đại diện ĐÚNG 1 nhịp hình-tiếng (6-14 từ) kèm đầy đủ chỉ đạo diễn xuất 2D khớp chính xác từng câu chữ nói:
+- "scenes": Mảng 6 đến 15 phân cảnh, mỗi phần tử đại diện ĐÚNG 1 nhịp hình-tiếng (6-14 từ) kèm đầy đủ chỉ đạo diễn xuất 2D khớp chính xác từng câu chữ nói (CHỌN ĐÚNG THẾ GIỚI CHỦ ĐỀ — Công nghệ/Công thức dùng tech-dark-indigo + tech-formula-steps; Tài chính/Lương/So sánh dùng warm-cream-stage + balance-scale/bar-compare/savings-jar-growth/calendar-alert; Quãng đường dùng journey-route; Bếp/Gia đình dùng kitchen-cozy/home-living; Cảnh báo dùng warning-stage):
   + text: Câu lời thoại cho cảnh này.
   + visualSubject: Mô tả ngắn vật thể/hành động chính (6-14 từ).
   + roleTag: Nhãn vai RẤT NGẮN 1-2 từ nếu là lời nhân vật, không cần để "".
   + focusTag: Nhãn từ khóa RẤT NGẮN 1-3 từ nhấn mạnh (tuyệt đối KHÔNG viết câu dài), không cần để "".
-  + layout, backdrop, transition, cast, action, stage2Action (động tác chuyển biến ở nửa sau câu), characterMood, stage2Mood, screenType, phase2Effect, effect, sfx, props (1-2 đạo cụ: props[0] đầu câu -> props[1] cuối câu), crossOut.`;
+  + diagramData: Object chứa số liệu/nhãn 1-3 từ RÚT TRỰC TIẾP TỪ CÂU NÓI để vẽ vào biểu đồ/cân/lịch/hũ ({ leftLabel, rightLabel, badgeA, badgeB, highlightNum }, tối đa 16 ký tự mỗi trường, không cần để "").
+  + layout, backdrop, transition ("cut", "zoom-blur", "diagonal-wipe"), cast, action, stage2Action (động tác chuyển biến ở nửa sau câu), characterMood, stage2Mood, screenType, phase2Effect, effect, sfx, props (1-2 đạo cụ: props[0] đầu câu -> props[1] cuối câu), crossOut.`;
 
         const payload = {
             contents: [{ parts: [{ text: prompt }] }],
@@ -741,6 +763,16 @@ Trả về 1 đối tượng JSON gồm:
                                     visualSubject: { type: 'STRING' },
                                     roleTag: { type: 'STRING' },
                                     focusTag: { type: 'STRING' },
+                                    diagramData: {
+                                        type: 'OBJECT',
+                                        properties: {
+                                            leftLabel: { type: 'STRING' },
+                                            rightLabel: { type: 'STRING' },
+                                            badgeA: { type: 'STRING' },
+                                            badgeB: { type: 'STRING' },
+                                            highlightNum: { type: 'STRING' }
+                                        }
+                                    },
                                     layout: { type: 'STRING', enum: layoutList },
                                     backdrop: { type: 'STRING', enum: backdropList },
                                     transition: { type: 'STRING', enum: transitionList },
@@ -765,42 +797,44 @@ Trả về 1 đối tượng JSON gồm:
             }
         };
 
-        try {
-            const res = await fetchTextWithFallback(payload, { signal });
-            const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
-            const parsed = JSON.parse(raw);
-            if (parsed && Array.isArray(parsed.scenes) && parsed.scenes.length >= 2) {
-                const sliced = parsed.scenes.slice(0, 16);
-                const beatTexts = sliced.map((s) => String(s.text || '').trim()).filter(Boolean);
-                const resolvedTitle = String(parsed.title || titleHint || beatTexts[0] || '').trim();
-                const normalizedBoard = sliced.map((item, idx) => ({
-                    visualSubject: String(item.visualSubject || beatTexts[idx] || '').trim(),
-                    roleTag: String(item.roleTag || '').trim().slice(0, 22),
-                    focusTag: String(item.focusTag || '').trim().slice(0, 20),
-                    layout: layoutList.includes(item.layout) ? item.layout : '',
-                    backdrop: backdropList.includes(item.backdrop) ? item.backdrop : '',
-                    transition: transitionList.includes(item.transition) ? item.transition : 'cut',
-                    cast: castList.includes(item.cast) ? item.cast : '',
-                    action: actionList.includes(item.action) ? item.action : '',
-                    stage2Action: actionList.includes(item.stage2Action) ? item.stage2Action : '',
-                    screenType: screenList.includes(item.screenType) ? item.screenType : '',
-                    phase2Effect: phase2List.includes(item.phase2Effect) ? item.phase2Effect : 'none',
-                    effect: effectList.includes(item.effect) ? item.effect : 'sparkles',
-                    sfx: sfxOptions.includes(item.sfx) ? item.sfx : 'none',
-                    props: Array.isArray(item.props) ? item.props.filter((p) => propList.includes(p)).slice(0, 3) : [],
-                    characterMood: ['happy', 'shocked', 'thinking', 'sleepy'].includes(item.characterMood) ? item.characterMood : 'happy',
-                    stage2Mood: ['happy', 'shocked', 'thinking', 'sleepy'].includes(item.stage2Mood) ? item.stage2Mood : '',
-                    crossOut: Boolean(item.crossOut)
-                }));
-                const cacheKey = `storyboard-v9:${hashString(resolvedTitle + '|' + visualStyle + '|' + beatTexts.join('|'))}`;
-                caches.prompts.set(cacheKey, normalizedBoard);
-                return { title: resolvedTitle, scenes: beatTexts, storyboard: normalizedBoard };
-            }
-        } catch (err) {
-            if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
-            console.warn('dumpContentTo2DScenes fallback:', err.message);
+        const res = await fetchTextWithFallback(payload, { signal });
+        const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.scenes) && parsed.scenes.length >= 2) {
+            const sliced = parsed.scenes.slice(0, 16);
+            const beatTexts = sliced.map((s) => String(s.text || '').trim()).filter(Boolean);
+            const resolvedTitle = String(parsed.title || titleHint || beatTexts[0] || '').trim();
+            const normalizedBoard = sliced.map((item, idx) => ({
+                visualSubject: String(item.visualSubject || beatTexts[idx] || '').trim(),
+                roleTag: String(item.roleTag || '').trim().slice(0, 22),
+                focusTag: String(item.focusTag || '').trim().slice(0, 20),
+                diagramData: item.diagramData && typeof item.diagramData === 'object' ? {
+                    leftLabel: clampTag(item.diagramData.leftLabel),
+                    rightLabel: clampTag(item.diagramData.rightLabel),
+                    badgeA: clampTag(item.diagramData.badgeA),
+                    badgeB: clampTag(item.diagramData.badgeB),
+                    highlightNum: clampTag(item.diagramData.highlightNum)
+                } : null,
+                layout: layoutList.includes(item.layout) ? item.layout : '',
+                backdrop: backdropList.includes(item.backdrop) ? item.backdrop : '',
+                transition: transitionList.includes(item.transition) ? item.transition : 'cut',
+                cast: castList.includes(item.cast) ? item.cast : '',
+                action: actionList.includes(item.action) ? item.action : '',
+                stage2Action: actionList.includes(item.stage2Action) ? item.stage2Action : '',
+                screenType: screenList.includes(item.screenType) ? item.screenType : '',
+                phase2Effect: phase2List.includes(item.phase2Effect) ? item.phase2Effect : 'none',
+                effect: effectList.includes(item.effect) ? item.effect : 'sparkles',
+                sfx: sfxOptions.includes(item.sfx) ? item.sfx : 'none',
+                props: Array.isArray(item.props) ? item.props.filter((p) => propList.includes(p)).slice(0, 3) : [],
+                characterMood: ['happy', 'shocked', 'thinking', 'sleepy'].includes(item.characterMood) ? item.characterMood : 'happy',
+                stage2Mood: ['happy', 'shocked', 'thinking', 'sleepy'].includes(item.stage2Mood) ? item.stage2Mood : '',
+                crossOut: Boolean(item.crossOut)
+            }));
+            const cacheKey = `storyboard-v10:${hashString(resolvedTitle + '|' + visualStyle + '|' + beatTexts.join('|'))}`;
+            caches.prompts.set(cacheKey, normalizedBoard);
+            return { title: resolvedTitle, scenes: beatTexts, storyboard: normalizedBoard };
         }
-        return offlineFallback();
+        throw new ApiError('INVALID_JSON', 'AI chưa tách được cấu trúc phân cảnh 2D từ nội dung này.');
     }
 
     function sanitizeAndWrapSvg(rawSvg, defaultViewBox = '0 0 540 960', defaultW = 540, defaultH = 960) {
@@ -1047,20 +1081,20 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
         const cleanBeats = (beatTexts || []).map((b) => String(b || '').trim()).filter(Boolean);
         if (cleanBeats.length === 0) return null;
 
-        const cacheKey = `storyboard-v9:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
+        const cacheKey = `storyboard-v10:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
         if (caches.prompts.has(cacheKey)) {
             return caches.prompts.get(cacheKey);
         }
 
         const layoutList = Array.isArray(layouts) && layouts.length > 0
             ? layouts
-            : ['wide-team', 'desk-closeup', 'two-shot-dialogue', 'back-monitors', 'hand-viewfinder', 'hand-pov', 'screen-pointer', 'laptop-popup', 'character-action', 'character-left', 'split-compare', 'multi-trio', 'thought-bubble', 'document-card', 'action-flow', 'center-hero', 'ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
+            : ['balance-scale', 'bar-compare', 'savings-jar-growth', 'calendar-alert', 'tech-formula-steps', 'journey-route', 'checklist-trio', 'wide-team', 'desk-closeup', 'two-shot-dialogue', 'back-monitors', 'hand-viewfinder', 'hand-pov', 'screen-pointer', 'laptop-popup', 'character-action', 'character-left', 'split-compare', 'multi-trio', 'thought-bubble', 'document-card', 'action-flow', 'center-hero', 'ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
         const backdropList = Array.isArray(backdrops) && backdrops.length > 0
             ? backdrops
-            : ['studio-focus', 'office-shelf', 'office-desk', 'work-late', 'gym-fresh', 'bank-vault', 'home-living', 'street-rain', 'warning-stage', 'bedroom-night', 'kitchen-cozy', 'cafe-chill', 'server-tech', 'cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint', 'grid-light', 'blueprint-dark'];
+            : ['warm-cream-stage', 'tech-dark-indigo', 'studio-focus', 'office-shelf', 'office-desk', 'work-late', 'gym-fresh', 'bank-vault', 'home-living', 'street-rain', 'warning-stage', 'bedroom-night', 'kitchen-cozy', 'cafe-chill', 'server-tech', 'cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint', 'grid-light', 'blueprint-dark'];
         const propList = Array.isArray(props) && props.length > 0
             ? props
-            : ['ergo_chair', 'spine_back', 'empty_wallet', 'stretching_pose', 'price_tag', 'shopping_bag', 'house', 'envelope', 'jar', 'phone', 'lightbulb', 'clock', 'water_glass', 'plug_socket', 'laptop', 'card_doc', 'chart_bars', 'cash_stack'];
+            : ['scale_icon', 'hospital_card', 'bank_counter', 'speedometer', 'scissors_cut', 'umbrella', 'map_pin', 'formula_chip', 'ergo_chair', 'spine_back', 'empty_wallet', 'stretching_pose', 'price_tag', 'shopping_bag', 'house', 'envelope', 'jar', 'phone', 'lightbulb', 'clock', 'water_glass', 'plug_socket', 'laptop', 'card_doc', 'chart_bars', 'cash_stack'];
         const actionList = Array.isArray(actions) && actions.length > 0
             ? actions
             : ['pointing', 'typing', 'hunched-pain', 'stretching', 'empty-wallet', 'back-ache', 'calling', 'phone-scroll', 'shocked-phone', 'cooking', 'counting-money', 'sleeping', 'running', 'drinking', 'celebrating'];
@@ -1077,28 +1111,30 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
             ? screenTypes
             : ['chat_msg', 'excel_err', 'revenue_up', 'revenue_down', 'checklist_done', 'calendar_due', 'notification_bell', 'wallet_cash', 'code_bug', 'contract_sign', 'tea_break', 'night_scroll'];
         const phase2List = ['none', 'wallet_empty', 'back_pain', 'stretch_up', 'cross_mistake', 'check_win', 'shock_alert', 'money_fly'];
-        const transitionList = ['cut', 'diagonal-wipe'];
+        const transitionList = ['cut', 'zoom-blur', 'diagonal-wipe'];
+        const clampTag = (v, max = 16) => String(v || '').trim().slice(0, max);
 
         return dedupedCall(cacheKey, async () => {
             try {
                 const numberedBeats = cleanBeats.map((b, i) => `${i + 1}. "${b}"`).join('\n');
                 const isUiMode = visualStyle === 'ui-motion';
                 const styleDirective = isUiMode
-                    ? `PHONG CÁCH HIỆN ĐẠI DOT-GRID UI MOTION:
-- Ưu tiên các bố cục [back-monitors, ui-window, ui-checklist, ui-flow, ui-grid-hero] và xen kẽ 1-2 cảnh action-flow hoặc split-compare. KHÔNG lặp cùng layout 2 cảnh liền nhau.
-- backdrop: Chọn từ [grid-light, blueprint-dark, studio-focus, mint-fresh].
-- Dùng transition="diagonal-wipe" ở các bước chuyển ý lớn để tạo hiệu ứng gạt chéo chuyên nghiệp.`
-                    : `PHONG CÁCH HOẠT HÌNH 2D KỂ CHUYỆN THEO ĐÚNG CHỦ ĐỀ (ĐA GÓC MÁY ĐIỆN ẢNH):
-- PHÂN BIỆT RÕ TỪNG THẾ GIỚI CHỦ ĐỀ:
-  + Chủ đề Nấu ăn / Gia đình / Mẹo vặt nhà cửa: dùng [kitchen-cozy, home-living, cream-room] & góc máy [character-action, character-left, hand-viewfinder, split-compare, multi-trio, center-hero] (TUYỆT ĐỐI KHÔNG dùng office-shelf, wide-team, two-shot-dialogue hay desk-closeup!).
-  + Chủ đề Tài chính / Tiết kiệm / Thu chi: dùng [bank-vault, mint-fresh, sunset-warm] & [back-monitors, character-action, split-compare, action-flow, center-hero].
-  + Chủ đề Cảnh báo / Lừa đảo / An toàn: dùng [warning-stage, alert-tint, work-late] & [hand-viewfinder, hand-pov, split-compare, character-action].
-  + Chủ đề Nhạc / Mood / Mini Vlog / Du lịch / Quê hương: dùng [cafe-chill, hills-nature, street-rain, city-skyline, night-calm].
+                    ? `PHONG CÁCH HIỆN ĐẠI DOT-GRID & DATA MOTION UI:
+- Ưu tiên các bố cục [tech-formula-steps, back-monitors, bar-compare, checklist-trio, ui-window, ui-checklist, ui-flow, ui-grid-hero]. KHÔNG lặp cùng layout 2 cảnh liền nhau.
+- backdrop: Chọn từ [grid-light, tech-dark-indigo, blueprint-dark, studio-focus, mint-fresh].
+- Dùng transition="diagonal-wipe" hoặc "zoom-blur" ở các bước chuyển ý lớn.`
+                    : `PHONG CÁCH HOẠT HÌNH 2D CHỦ ĐỀ CHUYÊN NGHIỆP (CHỌN ĐÚNG THẾ GIỚI CHO TỪNG CHỦ ĐỀ):
+- PHÂN BIỆT RÕ TỪNG THẾ GIỚI CHỦ ĐỀ (KHÔNG RẬP KHUÔN 1 STYLE):
+  + Chủ đề Tech / Mạng / Công thức / Thuật toán / Code: dùng [tech-dark-indigo, blueprint-dark, server-tech] & [tech-formula-steps, bar-compare, back-monitors, checklist-trio] + props [formula_chip, laptop].
+  + Chủ đề Tài chính / Tiết kiệm / Thu chi / Mua sắm: dùng [warm-cream-stage, bank-vault, mint-fresh] & [balance-scale, bar-compare, savings-jar-growth, calendar-alert, journey-route, split-compare].
+  + Chủ đề Nấu ăn / Gia đình / Mẹo vặt nhà cửa: dùng [kitchen-cozy, home-living, cream-room] & [character-action, character-left, hand-viewfinder, split-compare, checklist-trio, multi-trio] (TUYỆT ĐỐI KHÔNG dùng office-shelf, wide-team, desk-closeup!).
+  + Chủ đề Cảnh báo / Lừa đảo / An toàn: dùng [warning-stage, alert-tint, work-late] & [hand-viewfinder, hand-pov, split-compare, calendar-alert, character-action].
+  + Chủ đề Nhạc / Mood / Mini Vlog / Du lịch / Quê hương: dùng [cafe-chill, hills-nature, street-rain, city-skyline, night-calm] + [journey-route, character-left, center-hero].
   + Chủ đề Sức khỏe / Giãn cơ / Nhắc nhở: dùng [gym-fresh, mint-fresh, home-living, bedroom-night (chỉ khi nói về giấc ngủ)].
-  + Chủ đề Công sở / IT / MKT / Sale: dùng đa góc máy [wide-team, desk-closeup, two-shot-dialogue, back-monitors, screen-pointer, hand-viewfinder].
-- Đổi góc máy (layout) và bối cảnh (backdrop) linh hoạt giữa các cảnh trong cùng chủ đề để không bị lặp lại.`;
+  + Chủ đề Công sở / MKT / Sale: dùng đa góc máy [wide-team, desk-closeup, two-shot-dialogue, back-monitors, screen-pointer, checklist-trio].
+- Đổi góc máy (layout) và transition ("cut", "zoom-blur", "diagonal-wipe") linh hoạt giữa các cảnh để không lặp lại.`;
 
-                const prompt = `Bạn là Đạo diễn Hoạt Hình 2D chuyên dựng phim ngắn hành động khớp chặt từng câu chữ lời thoại (KHÔNG viết câu phụ đề lên video).
+                const prompt = `Bạn là Đạo diễn Hoạt Hình 2D chuyên dựng phim ngắn hành động khớp chặt từng câu chữ lời thoại (KHÔNG viết câu phụ đề dài lên video).
 Tiêu đề tổng thể: "${title}"
 Danh sách ${cleanBeats.length} nhịp lời thoại theo thứ tự:
 ${numberedBeats}
@@ -1106,9 +1142,10 @@ ${numberedBeats}
 ${styleDirective}
 
 Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân cảnh riêng) khớp 100% ý nghĩa câu nói:
-- visualSubject: Mô tả ngắn 6-14 từ vật thể/tình huống trung tâm cần vẽ minh họa (VD: "Ghế công thái học lưới đen kèm thẻ giá 5 triệu", "Ví da xẹp lép mở toang bay hết tiền", "Cột sống cong màu đỏ bên cạnh laptop").
-- roleTag: Nhãn vai nhân vật RẤT NGẮN 1-2 từ nếu đang đối thoại/giải thích (VD: "Sếp", "Kế toán", "Nhân vật"), nếu không rõ để rỗng "".
-- focusTag: Nhãn từ khóa RẤT NGẮN 1-3 từ trên màn hình/bảng soi nếu cần nhấn mạnh (VD: "5 TRIỆU", "ĐAU LƯNG", "BƯỚC 1"), TUYỆT ĐỐI KHÔNG ghi câu dài, nếu không cần để rỗng "".
+- visualSubject: Mô tả ngắn 6-14 từ vật thể/tình huống trung tâm cần vẽ minh họa.
+- roleTag: Nhãn vai nhân vật RẤT NGẮN 1-2 từ nếu đang đối thoại/giải thích, không cần để rỗng "".
+- focusTag: Nhãn từ khóa RẤT NGẮN 1-3 từ nhấn mạnh, không cần để rỗng "".
+- diagramData: Object trích xuất trực tiếp con số / nhãn 1-3 từ từ câu nói để vẽ lên biểu đồ/cân/lịch/hũ ({ leftLabel, rightLabel, badgeA, badgeB, highlightNum }, mỗi trường tối đa 16 ký tự).
 - layout: Chọn từ [${layoutList.join(', ')}].
 - backdrop: Chọn từ [${backdropList.join(', ')}].
 - transition: Chọn [${transitionList.join(', ')}].
@@ -1136,6 +1173,16 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                                     visualSubject: { type: 'STRING' },
                                     roleTag: { type: 'STRING' },
                                     focusTag: { type: 'STRING' },
+                                    diagramData: {
+                                        type: 'OBJECT',
+                                        properties: {
+                                            leftLabel: { type: 'STRING' },
+                                            rightLabel: { type: 'STRING' },
+                                            badgeA: { type: 'STRING' },
+                                            badgeB: { type: 'STRING' },
+                                            highlightNum: { type: 'STRING' }
+                                        }
+                                    },
                                     layout: { type: 'STRING', enum: layoutList },
                                     backdrop: { type: 'STRING', enum: backdropList },
                                     transition: { type: 'STRING', enum: transitionList },
@@ -1165,6 +1212,13 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                         visualSubject: String(item.visualSubject || cleanBeats[idx] || '').trim(),
                         roleTag: String(item.roleTag || '').trim().slice(0, 22),
                         focusTag: String(item.focusTag || '').trim().slice(0, 20),
+                        diagramData: item.diagramData && typeof item.diagramData === 'object' ? {
+                            leftLabel: clampTag(item.diagramData.leftLabel),
+                            rightLabel: clampTag(item.diagramData.rightLabel),
+                            badgeA: clampTag(item.diagramData.badgeA),
+                            badgeB: clampTag(item.diagramData.badgeB),
+                            highlightNum: clampTag(item.diagramData.highlightNum)
+                        } : null,
                         layout: layoutList.includes(item.layout) ? item.layout : '',
                         backdrop: backdropList.includes(item.backdrop) ? item.backdrop : '',
                         transition: transitionList.includes(item.transition) ? item.transition : 'cut',
@@ -1183,11 +1237,11 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                     caches.prompts.set(cacheKey, normalized);
                     return normalized;
                 }
+                throw new ApiError('INVALID_JSON', 'AI chưa trả về đủ phân cảnh storyboard cho video.');
             } catch (err) {
                 if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
-                console.warn('Storyboard fallback to local analyzer:', err.message);
+                throw err;
             }
-            return null;
         });
     }
 
@@ -1733,8 +1787,6 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
         const cleanScenes = (Array.isArray(scenes) ? scenes : [])
             .map((s) => String(s || '').trim())
             .filter(Boolean);
-        const fallback = buildLocalSocialCaption({ title: cleanTitle, scenes: cleanScenes, existingHashtags });
-        if (!getApiKey()) return fallback;
 
         const cacheKey = `social-cap:${tone}:${hashString(cleanTitle + '|' + cleanScenes.join('|'))}`;
         if (!forceRefresh && caches.prompts.has(cacheKey)) {
@@ -1756,44 +1808,39 @@ YÊU CẦU ĐẦU RA:
    - Dòng 3: Câu hỏi CTA ngắn kích thích người xem bình luận, tag bạn bè hoặc lưu video.
 2. "hashtags": 6–8 hashtag tiếng Việt KHÔNG DẤU gắn sát đúng ngành/chủ đề video + hashtag khám phá (ví dụ: #reelsvn #xuhuong ...), cách nhau bằng dấu cách.`;
 
-        try {
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    responseMimeType: 'application/json',
-                    responseSchema: {
-                        type: 'OBJECT',
-                        properties: {
-                            caption: { type: 'STRING' },
-                            hashtags: { type: 'STRING' }
-                        },
-                        required: ['caption', 'hashtags']
-                    }
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: 'OBJECT',
+                    properties: {
+                        caption: { type: 'STRING' },
+                        hashtags: { type: 'STRING' }
+                    },
+                    required: ['caption', 'hashtags']
                 }
-            };
-            const res = await fetchTextWithFallback(payload, { signal });
-            const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
-            const parsed = JSON.parse(raw);
-            if (parsed?.caption && parsed?.hashtags) {
-                const normalizedTags = String(parsed.hashtags)
-                    .split(/\s+/)
-                    .filter(Boolean)
-                    .map((t) => (t.startsWith('#') ? t : `#${t}`))
-                    .join(' ');
-                const caption = String(parsed.caption).trim();
-                const result = {
-                    caption,
-                    hashtags: normalizedTags,
-                    fullPost: `${caption}\n\n${normalizedTags}`.trim()
-                };
-                caches.prompts.set(cacheKey, result);
-                return result;
             }
-        } catch (err) {
-            if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
-            console.warn('Social caption fallback:', err.message);
+        };
+        const res = await fetchTextWithFallback(payload, { signal });
+        const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.caption || !parsed?.hashtags) {
+            throw new ApiError('INVALID_JSON', 'AI chưa trả về Caption và Hashtag hợp lệ.');
         }
-        return fallback;
+        const normalizedTags = String(parsed.hashtags)
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((t) => (t.startsWith('#') ? t : `#${t}`))
+            .join(' ');
+        const caption = String(parsed.caption).trim();
+        const result = {
+            caption,
+            hashtags: normalizedTags,
+            fullPost: `${caption}\n\n${normalizedTags}`.trim()
+        };
+        caches.prompts.set(cacheKey, result);
+        return result;
     }
 
     function safeExtractJsonFromText(rawText) {
@@ -2154,20 +2201,6 @@ Hãy chuyển thể CHÍNH XÁC 4 tin trên thành 4 kịch bản Reels ngắn t
         const combined = [title, ...cleanScenes].filter(Boolean).join('\n');
         const localScan = quickLocalPolicyScan(combined);
 
-        if (!getApiKey()) {
-            return {
-                status: localScan.status,
-                score: localScan.status === 'safe' ? 92 : localScan.status === 'caution' ? 72 : 48,
-                summary:
-                    localScan.flags.length === 0
-                        ? 'Kiểm tra nhanh ngoại tuyến: Chưa phát hiện từ khóa rủi ro vi phạm chính sách. Hãy nhập API Key để kiểm duyệt sâu ngữ cảnh & chống tin giả.'
-                        : 'Phát hiện câu từ có nguy cơ vi phạm chính sách hoặc phóng đại quá mức.',
-                flags: localScan.flags,
-                factCheckNotes: ['Khi trích dẫn số liệu y tế, tài chính hoặc tin nóng, nên dẫn rõ nguồn hoặc nói ở mức kinh nghiệm chia sẻ.'],
-                improvedScenes: cleanScenes
-            };
-        }
-
         const prompt = `Bạn là Chuyên gia Kiểm Duyệt Chính Sách Nền Tảng (Facebook Reels / TikTok / YouTube Shorts Trust & Safety) và Kiểm Chứng Sự Thật (Fact-Checker).
 Hãy rà soát kịch bản video ngắn sau:
 Tiêu đề: "${title}"
@@ -2242,6 +2275,7 @@ Trả về JSON object có đúng các trường:
         ApiError,
         testApiKey,
         dumpFreshScripts,
+        dumpTopicToStudioContent,
         enhanceStorytelling,
         generateConnectedSeries,
         generateNextSeriesEpisode,

@@ -39,15 +39,15 @@
         document.querySelectorAll('.cat-btn').forEach((btn) => {
             const active = btn.dataset.cat === state.currentCategory;
             btn.className = active
-                ? 'cat-btn active shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 dark:bg-indigo-600 text-white transition cursor-pointer'
-                : 'cat-btn shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer';
+                ? 'cat-btn active shrink-0 h-8 px-3 rounded-xl text-xs font-bold bg-slate-900 dark:bg-indigo-600 text-white transition cursor-pointer inline-flex items-center justify-center whitespace-nowrap'
+                : 'cat-btn shrink-0 h-8 px-3 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer inline-flex items-center justify-center whitespace-nowrap';
         });
 
         const newToggle = document.getElementById('btn-filter-new');
         if (newToggle) {
             newToggle.className = state.onlyNewTemplates
-                ? 'shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500 text-white transition cursor-pointer flex items-center gap-1'
-                : 'shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-200/70 dark:border-amber-500/30 hover:bg-amber-100 transition cursor-pointer flex items-center gap-1';
+                ? 'shrink-0 h-8 px-3 rounded-xl text-xs font-bold bg-amber-500 text-white transition cursor-pointer inline-flex items-center justify-center gap-1 whitespace-nowrap'
+                : 'shrink-0 h-8 px-3 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-200/70 dark:border-amber-500/30 hover:bg-amber-100 transition cursor-pointer inline-flex items-center justify-center gap-1 whitespace-nowrap';
         }
     }
 
@@ -143,13 +143,24 @@
         renderPagination(totalItems, totalPages, startIdx, endIdx);
 
         if (filtered.length === 0) {
-            grid.innerHTML = `
+            const isEmptyStore = state.templates.length === 0;
+            grid.innerHTML = isEmptyStore
+                ? `
+                <div class="col-span-full bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-amber-300 dark:border-amber-500/40 p-10 text-center space-y-3">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-500/15 text-amber-500 mx-auto flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <p class="text-sm font-extrabold text-slate-800 dark:text-slate-100">Kho đang trống — 100% hiển thị kịch bản do AI tạo</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">Nhập từ khóa chủ đề vào ô phía trên rồi bấm <strong>"AI Dump Từ Khóa"</strong>, hoặc bấm <strong>"Dump Thêm 5 Ý Tưởng Mới"</strong> để Gemini AI trả về kịch bản thật cho bạn.</p>
+                </div>
+            `
+                : `
                 <div class="col-span-full bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-10 text-center space-y-3">
                     <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 mx-auto flex items-center justify-center text-xl">
                         <i class="fa-solid fa-magnifying-glass"></i>
                     </div>
                     <p class="text-sm font-bold text-slate-700 dark:text-slate-200">Không tìm thấy kịch bản phù hợp</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Thử từ khóa khác hoặc bấm "Dump Thêm 5 Ý Tưởng Mới" để AI gợi ý nhé.</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Thử từ khóa khác hoặc bấm "AI Dump Từ Khóa" để AI tạo kịch bản mới đúng chủ đề bạn muốn.</p>
                 </div>
             `;
             return;
@@ -198,13 +209,13 @@
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
-                    <button type="button" data-action="studio" data-id="${escapeHtml(item.id)}" class="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 active:scale-[0.98] text-white text-xs font-extrabold shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer">
+                    <button type="button" data-action="studio" data-id="${escapeHtml(item.id)}" class="flex-1 h-9 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 active:scale-[0.98] text-white text-xs font-extrabold shadow-sm transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
                         <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Tạo Video AI</span>
                     </button>
-                    <button type="button" data-action="copy-tpl" data-id="${escapeHtml(item.id)}" class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] text-slate-800 dark:text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer" title="Copy nội dung &amp; Hashtag đăng MXH">
+                    <button type="button" data-action="copy-tpl" data-id="${escapeHtml(item.id)}" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] text-slate-800 dark:text-slate-200 text-xs font-bold transition inline-flex items-center justify-center shrink-0 cursor-pointer" title="Copy nội dung &amp; Hashtag đăng MXH">
                         <i class="fa-regular fa-copy text-emerald-600 dark:text-emerald-400"></i>
                     </button>
-                    <button type="button" data-action="schedule" data-id="${escapeHtml(item.id)}" class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] text-slate-800 dark:text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer" title="Đưa vào bảng lịch đăng">
+                    <button type="button" data-action="schedule" data-id="${escapeHtml(item.id)}" class="h-9 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] text-slate-800 dark:text-slate-200 text-xs font-bold transition inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer" title="Đưa vào bảng lịch đăng">
                         <i class="fa-solid fa-calendar-plus text-indigo-600 dark:text-indigo-400"></i> <span>Lên lịch</span>
                     </button>
                 </div>
@@ -218,16 +229,22 @@
 
     async function handleDumpFreshScripts({ isAuto = false } = {}) {
         const btn = document.getElementById('btn-dump-scripts');
+        const btnKw = document.getElementById('btn-dump-keyword');
         const autoBanner = document.getElementById('library-auto-dump-status');
         if (!btn || btn.disabled) return;
 
         const state = App.store.getState();
 
         btn.disabled = true;
+        if (btnKw) btnKw.disabled = true;
         const originalHTML = btn.innerHTML;
+        const originalKwHtml = btnKw ? btnKw.innerHTML : '';
         btn.innerHTML = isAuto
             ? '<i class="fa-solid fa-spinner fa-spin"></i> <span>AI đang tự động Dump...</span>'
             : '<i class="fa-solid fa-spinner fa-spin"></i> <span>AI đang sáng tạo...</span>';
+        if (btnKw) {
+            btnKw.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Đang Dump...</span>';
+        }
 
         if (isAuto && autoBanner) {
             autoBanner.classList.remove('hidden');
@@ -267,7 +284,7 @@
                 if (autoBanner && err.code === 'INVALID_API_KEY') {
                     autoBanner.classList.remove('hidden');
                     autoBanner.innerHTML =
-                        '🔄 Đang luân phiên kho 30 mẫu mỗi lần F5. <button type="button" id="btn-banner-open-key" class="underline font-extrabold text-indigo-600 dark:text-indigo-400 cursor-pointer">Nhập Gemini API Key</button> nếu muốn AI tự tạo thêm kịch bản.';
+                        '🔑 Chưa cài Gemini API Key — bấm <button type="button" id="btn-banner-open-key" class="underline font-extrabold text-indigo-600 dark:text-indigo-400 cursor-pointer">Nhập Gemini API Key</button> để AI tự tạo kịch bản &amp; video hoàn toàn thật (không dùng dữ liệu mẫu).';
                     document.getElementById('btn-banner-open-key')?.addEventListener('click', () => App.modals.openSettingsModal());
                 } else if (autoBanner) {
                     autoBanner.classList.add('hidden');
@@ -287,6 +304,10 @@
         } finally {
             btn.disabled = false;
             btn.innerHTML = originalHTML;
+            if (btnKw) {
+                btnKw.disabled = false;
+                btnKw.innerHTML = originalKwHtml;
+            }
             dumpAbortController = null;
         }
     }
@@ -357,11 +378,11 @@
                     ${safeSourcesHtml ? `<div class="flex flex-wrap gap-1 pt-0.5">${safeSourcesHtml}</div>` : ''}
                 </div>
                 <div class="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <button type="button" data-trend-action="studio" data-trend-idx="${idx}" class="flex-1 py-2 px-2.5 rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5">
+                    <button type="button" data-trend-action="studio" data-trend-idx="${idx}" class="flex-1 h-9 px-3 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white text-xs font-extrabold transition cursor-pointer inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
                         <i class="fa-solid fa-clapperboard"></i><span>Dựng Video 2D</span>
                     </button>
-                    <button type="button" data-trend-action="save" data-trend-idx="${idx}" class="py-2 px-3 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition cursor-pointer">
-                        <i class="fa-solid fa-bookmark mr-1 text-amber-500"></i>Lưu
+                    <button type="button" data-trend-action="save" data-trend-idx="${idx}" class="h-9 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition cursor-pointer inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0">
+                        <i class="fa-solid fa-bookmark text-amber-500"></i><span>Lưu</span>
                     </button>
                 </div>
             `;
@@ -537,6 +558,22 @@
         });
 
         document.getElementById('btn-dump-scripts')?.addEventListener('click', () => handleDumpFreshScripts({ isAuto: false }));
+        document.getElementById('btn-dump-keyword')?.addEventListener('click', () => {
+            const kwInput = document.getElementById('library-custom-topic');
+            const kw = kwInput?.value.trim() || '';
+            if (!kw) {
+                App.toast.show('Hãy nhập từ khóa chủ đề muốn AI tạo kịch bản nhé!', 'warning');
+                kwInput?.focus();
+                return;
+            }
+            handleDumpFreshScripts({ isAuto: false });
+        });
+        document.getElementById('library-custom-topic')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('btn-dump-keyword')?.click();
+            }
+        });
         document.getElementById('library-niche-chips')?.addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-niche]');
             if (!btn) return;
@@ -547,9 +584,9 @@
             }
             handleDumpFreshScripts({ isAuto: false });
         });
-        document.getElementById('btn-shuffle-topics')?.addEventListener('click', () => {
-            App.store.rotateCuratedTemplates();
-            App.toast.show('Đã làm mới danh sách chủ đề lên đầu trang!');
+        document.getElementById('btn-clear-templates')?.addEventListener('click', () => {
+            App.store.clearTemplates();
+            App.toast.show('Đã xóa kho kịch bản cũ!', 'info');
         });
 
         App.store.subscribe('apiKey', () => {
