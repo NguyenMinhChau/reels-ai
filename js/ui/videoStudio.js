@@ -405,15 +405,16 @@
             if (aiItem && layouts.includes(aiItem.layout)) {
                 const isOfficeDomain = localCue.domainKey === 'office' || localCue.domainKey === 'tech';
                 const beatMentionsOffice = /văn phòng|công ty|họp|laptop|excel|code|server|sếp|nhân viên/.test((beat.text || '').toLowerCase());
+                const officeOnlyLayouts = ['wide-team', 'desk-closeup', 'two-shot-dialogue', 'laptop-popup', 'screen-pointer'];
                 let lay = aiItem.layout;
-                if (!isOfficeDomain && !beatMentionsOffice && ['wide-team', 'desk-closeup', 'laptop-popup'].includes(lay)) {
+                if (!isOfficeDomain && !beatMentionsOffice && officeOnlyLayouts.includes(lay)) {
                     lay = localCue.layout;
                 }
                 if (lay === prevLayout) {
                     if (localCue.layout && localCue.layout !== prevLayout) {
                         lay = localCue.layout;
                     } else if (layouts.length > 1) {
-                        const alts = layouts.filter((l) => l !== prevLayout && (isOfficeDomain || !['wide-team', 'desk-closeup', 'laptop-popup'].includes(l)));
+                        const alts = layouts.filter((l) => l !== prevLayout && (isOfficeDomain || !officeOnlyLayouts.includes(l)));
                         const pool = alts.length > 0 ? alts : layouts.filter((l) => l !== prevLayout);
                         lay = pool[idx % pool.length];
                     }
@@ -441,11 +442,14 @@
                 finalCue = {
                     layout: lay,
                     backdrop: bd,
+                    transition: aiItem.transition === 'diagonal-wipe' ? 'diagonal-wipe' : 'cut',
                     cast,
                     action: aiItem.action || localCue.action,
                     screenType,
                     phase2Effect: aiItem.phase2Effect || localCue.phase2Effect || 'none',
                     visualSubject: aiItem.visualSubject || '',
+                    roleTag: String(aiItem.roleTag || '').trim().slice(0, 22),
+                    focusTag: String(aiItem.focusTag || '').trim().slice(0, 20),
                     effect: aiItem.effect || localCue.effect,
                     sfx,
                     props: chosenProps,

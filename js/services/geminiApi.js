@@ -633,7 +633,7 @@ ${cleanTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
         const results = new Array(cleanBeats.length).fill('');
         const missingIndices = [];
         cleanBeats.forEach((sc, idx) => {
-            const key = `scene-svg-v2:${hashString(title + '|' + idx + '|' + sc + '|' + subjects[idx])}`;
+            const key = `prop-svg-v3:${hashString(title + '|' + idx + '|' + sc + '|' + subjects[idx])}`;
             if (caches.images.has(key)) {
                 results[idx] = caches.images.get(key);
             } else {
@@ -645,18 +645,19 @@ ${cleanTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
 
         const buildScenePrompt = (indices) => {
             const itemLines = indices
-                .map((idx) => `- Cảnh ${idx + 1}: GIỌNG ĐỌC NÓI CHÍNH XÁC: "${cleanBeats[idx]}"\n  -> YÊU CẦU VẼ: ${subjects[idx]}`)
+                .map((idx) => `- Cảnh ${idx + 1}: GIỌNG ĐỌC NÓI CHÍNH XÁC: "${cleanBeats[idx]}"\n  -> ĐỐI TƯỢNG VẼ: ${subjects[idx]}`)
                 .join('\n');
-            return `Bạn là Đạo diễn Họa sĩ Hoạt Hình 2D chuyên vẽ minh họa truyện kể theo TỪNG CÂU NÓI (phong cách Flat Cel-Shaded Cartoon hiện đại, sắc nét như video giải thích triệu view).
+            return `Bạn là Họa sĩ Vector 2D Flat Cel-Shaded Cartoon chuyên vẽ ĐỐI TƯỢNG & NHÂN VẬT HÀNH ĐỘNG TRONG SUỐT (KHÔNG NỀN) để ghép trực tiếp vào cảnh phim 2D!
 Tiêu đề video: "${title}".
 
-NHIỆM VỤ BẮT BUỘC: Giọng đọc nói gì, BẮT BUỘC PHẢI VẼ ĐÚNG BỐI CẢNH, NHÂN VẬT ĐANG HÀNH ĐỘNG VÀ ĐỒ VẬT ĐÓ LÊN TRANH! TUYỆT ĐỐI KHÔNG vẽ chung chung hay lệch sang đồ vật khác!
+NHIỆM VỤ BẮT BUỘC: Giọng đọc nói gì, vẽ CHÍNH XÁC ĐỐI TƯỢNG / HÀNH ĐỘNG ĐÓ thành vector trong suốt rõ ràng (KHÔNG vẽ chung chung!).
 ${itemLines}
 
 YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
-1. Trả về mảng JSON đúng ${indices.length} chuỗi SVG theo đúng thứ tự, mỗi chuỗi là <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 560" width="460" height="560">...</svg> hợp lệ XML.
-2. MÔ TẢ CỤ THỂ ĐẦY KHUNG 460x560: Vẽ đầy đủ bối cảnh nền hài hòa, nhân vật đang làm ĐÚNG hành động trong câu nói (VD: đang ngồi gù lưng sát màn hình với cột sống cong đỏ đau nhói; đang giơ ví da rỗng tuếch có tiền bay ra; đang mở cửa ngăn đá tủ lạnh lấy chai nhựa đựng hành lá; đang đứng vươn vai giãn cơ bên cạnh ghế; đang đi xe máy dưới mưa kẹt xe), chi tiết rõ ràng với 15–30 hình khối/path cel-shaded, viền đậm stroke="#1e293b" stroke-width="4" stroke-linejoin="round".
-3. TUYỆT ĐỐI KHÔNG dùng thẻ <text> hay viết bất kỳ chữ tiếng Việt/ký tự chữ nào vào trong SVG; kể chuyện 100% bằng hình ảnh hành động và biểu tượng; mọi ký tự "&" viết là "&amp;".`;
+1. Trả về mảng JSON đúng ${indices.length} chuỗi SVG theo đúng thứ tự, mỗi chuỗi là <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300">...</svg> hợp lệ XML.
+2. NỀN TRONG SUỐT 100%: TUYỆT ĐỐI KHÔNG vẽ hình chữ nhật/khung nền phủ toàn bộ 300x300! Chỉ vẽ nhân vật/đồ vật nổi bật nằm gọn ở giữa vùng an toàn (x từ 25..275, y từ 25..275).
+3. VẼ RÕ NÉT HÀNH ĐỘNG (12-26 khối path sắc nét, màu tươi sáng hiện đại, viền đậm stroke="#1e293b" stroke-width="4" stroke-linejoin="round"): VD ghế công thái học lưới đen kèm thẻ giá, cột sống đỏ cong đau, ví da rỗng tiền bay, ngăn đá tủ lạnh có chai hành lá, đồng hồ báo thức 5 phút...
+4. TUYỆT ĐỐI KHÔNG dùng thẻ <text> hay chữ viết trong SVG; mọi ký tự "&" viết là "&amp;".`;
         };
 
         const fetchSvgChunk = async (indices) => {
@@ -676,11 +677,11 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
             const svgList = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.svgs) ? parsed.svgs : null;
             if (Array.isArray(svgList)) {
                 indices.forEach((sceneIdx, pos) => {
-                    const clean = sanitizeAndWrapSvg(svgList[pos], '0 0 460 560', 460, 560);
+                    const clean = sanitizeAndWrapSvg(svgList[pos], '0 0 300 300', 300, 300);
                     if (clean) {
                         const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clean)}`;
                         results[sceneIdx] = dataUrl;
-                        const key = `scene-svg-v2:${hashString(title + '|' + sceneIdx + '|' + cleanBeats[sceneIdx] + '|' + subjects[sceneIdx])}`;
+                        const key = `prop-svg-v3:${hashString(title + '|' + sceneIdx + '|' + cleanBeats[sceneIdx] + '|' + subjects[sceneIdx])}`;
                         caches.images.set(key, dataUrl);
                     }
                 });
@@ -817,14 +818,14 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
         const cleanBeats = (beatTexts || []).map((b) => String(b || '').trim()).filter(Boolean);
         if (cleanBeats.length === 0) return null;
 
-        const cacheKey = `storyboard-v7:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
+        const cacheKey = `storyboard-v8:${hashString(title + '|' + visualStyle + '|' + cleanBeats.join('|'))}`;
         if (caches.prompts.has(cacheKey)) {
             return caches.prompts.get(cacheKey);
         }
 
         const layoutList = Array.isArray(layouts) && layouts.length > 0
             ? layouts
-            : ['wide-team', 'desk-closeup', 'hand-pov', 'laptop-popup', 'character-action', 'character-left', 'split-compare', 'multi-trio', 'thought-bubble', 'document-card', 'action-flow', 'center-hero', 'ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
+            : ['wide-team', 'desk-closeup', 'two-shot-dialogue', 'back-monitors', 'hand-viewfinder', 'hand-pov', 'screen-pointer', 'laptop-popup', 'character-action', 'character-left', 'split-compare', 'multi-trio', 'thought-bubble', 'document-card', 'action-flow', 'center-hero', 'ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
         const backdropList = Array.isArray(backdrops) && backdrops.length > 0
             ? backdrops
             : ['studio-focus', 'office-shelf', 'office-desk', 'work-late', 'gym-fresh', 'bank-vault', 'home-living', 'street-rain', 'warning-stage', 'bedroom-night', 'kitchen-cozy', 'cafe-chill', 'server-tech', 'cream-room', 'hills-nature', 'city-skyline', 'sunset-warm', 'mint-fresh', 'night-calm', 'alert-tint', 'grid-light', 'blueprint-dark'];
@@ -847,6 +848,7 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
             ? screenTypes
             : ['chat_msg', 'excel_err', 'revenue_up', 'revenue_down', 'checklist_done', 'calendar_due', 'notification_bell', 'wallet_cash', 'code_bug', 'contract_sign', 'tea_break', 'night_scroll'];
         const phase2List = ['none', 'wallet_empty', 'back_pain', 'stretch_up', 'cross_mistake', 'check_win', 'shock_alert', 'money_fly'];
+        const transitionList = ['cut', 'diagonal-wipe'];
 
         return dedupedCall(cacheKey, async () => {
             try {
@@ -854,20 +856,20 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
                 const isUiMode = visualStyle === 'ui-motion';
                 const styleDirective = isUiMode
                     ? `PHONG CÁCH HIỆN ĐẠI DOT-GRID UI MOTION:
-- Ưu tiên các bố cục UI sạch tối giản [ui-window, ui-checklist, ui-flow, ui-grid-hero] và xen kẽ 1-2 cảnh action-flow hoặc split-compare. KHÔNG lặp cùng layout 2 cảnh liền nhau.
+- Ưu tiên các bố cục [back-monitors, ui-window, ui-checklist, ui-flow, ui-grid-hero] và xen kẽ 1-2 cảnh action-flow hoặc split-compare. KHÔNG lặp cùng layout 2 cảnh liền nhau.
 - backdrop: Chọn từ [grid-light, blueprint-dark, studio-focus, mint-fresh].
-- screenType & visualSubject: Mô tả chính xác vật thể/biểu đồ trung tâm cần minh họa cho từng câu.`
-                    : `PHONG CÁCH HOẠT HÌNH 2D KỂ CHUYỆN THEO ĐÚNG CHỦ ĐỀ (KHÔNG LẶP 1 MẪU):
+- Dùng transition="diagonal-wipe" ở các bước chuyển ý lớn để tạo hiệu ứng gạt chéo chuyên nghiệp.`
+                    : `PHONG CÁCH HOẠT HÌNH 2D KỂ CHUYỆN THEO ĐÚNG CHỦ ĐỀ (ĐA GÓC MÁY ĐIỆN ẢNH):
 - PHÂN BIỆT RÕ TỪNG THẾ GIỚI CHỦ ĐỀ:
-  + Chủ đề Nấu ăn / Gia đình / Mẹo vặt nhà cửa: dùng [kitchen-cozy, home-living, cream-room] & góc máy [character-action, character-left, split-compare, multi-trio, center-hero] (TUYỆT ĐỐI KHÔNG dùng office-shelf, wide-team hay desk-closeup!).
-  + Chủ đề Tài chính / Tiết kiệm / Thu chi: dùng [bank-vault, mint-fresh, sunset-warm] & [character-action, split-compare, action-flow, center-hero, character-left].
-  + Chủ đề Cảnh báo / Lừa đảo / An toàn: dùng [warning-stage, alert-tint, work-late] & [hand-pov, split-compare, character-action, center-hero].
+  + Chủ đề Nấu ăn / Gia đình / Mẹo vặt nhà cửa: dùng [kitchen-cozy, home-living, cream-room] & góc máy [character-action, character-left, hand-viewfinder, split-compare, multi-trio, center-hero] (TUYỆT ĐỐI KHÔNG dùng office-shelf, wide-team, two-shot-dialogue hay desk-closeup!).
+  + Chủ đề Tài chính / Tiết kiệm / Thu chi: dùng [bank-vault, mint-fresh, sunset-warm] & [back-monitors, character-action, split-compare, action-flow, center-hero].
+  + Chủ đề Cảnh báo / Lừa đảo / An toàn: dùng [warning-stage, alert-tint, work-late] & [hand-viewfinder, hand-pov, split-compare, character-action].
   + Chủ đề Nhạc / Mood / Mini Vlog / Du lịch / Quê hương: dùng [cafe-chill, hills-nature, street-rain, city-skyline, night-calm].
   + Chủ đề Sức khỏe / Giãn cơ / Nhắc nhở: dùng [gym-fresh, mint-fresh, home-living, bedroom-night (chỉ khi nói về giấc ngủ)].
-  + Chỉ chủ đề Công sở / IT / MKT / Sale mới dùng [office-shelf, office-desk, wide-team, desk-closeup, laptop-popup, server-tech].
+  + Chủ đề Công sở / IT / MKT / Sale: dùng đa góc máy [wide-team, desk-closeup, two-shot-dialogue, back-monitors, screen-pointer, hand-viewfinder].
 - Đổi góc máy (layout) và bối cảnh (backdrop) linh hoạt giữa các cảnh trong cùng chủ đề để không bị lặp lại.`;
 
-                const prompt = `Bạn là Đạo diễn Hoạt Hình 2D chuyên dựng phim ngắn hành động khớp chặt từng câu chữ lời thoại (KHÔNG ghi chữ lên hình).
+                const prompt = `Bạn là Đạo diễn Hoạt Hình 2D chuyên dựng phim ngắn hành động khớp chặt từng câu chữ lời thoại (KHÔNG viết câu phụ đề lên video).
 Tiêu đề tổng thể: "${title}"
 Danh sách ${cleanBeats.length} nhịp lời thoại theo thứ tự:
 ${numberedBeats}
@@ -875,9 +877,12 @@ ${numberedBeats}
 ${styleDirective}
 
 Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân cảnh riêng) khớp 100% ý nghĩa câu nói:
-- visualSubject: Mô tả ngắn 6-14 từ vật thể/tình huống trung tâm cần vẽ minh họa (VD: "Ghế công thái học lưới đen kèm thẻ giá 5 triệu", "Ví da xẹp lép mở toang bay hết tiền", "Cột sống cong màu đỏ bên cạnh laptop", "Người đứng vươn vai giãn cơ bên đồng hồ 5 phút").
+- visualSubject: Mô tả ngắn 6-14 từ vật thể/tình huống trung tâm cần vẽ minh họa (VD: "Ghế công thái học lưới đen kèm thẻ giá 5 triệu", "Ví da xẹp lép mở toang bay hết tiền", "Cột sống cong màu đỏ bên cạnh laptop").
+- roleTag: Nhãn vai nhân vật RẤT NGẮN 1-2 từ nếu đang đối thoại/giải thích (VD: "Sếp", "Kế toán", "Nhân vật"), nếu không rõ để rỗng "".
+- focusTag: Nhãn từ khóa RẤT NGẮN 1-3 từ trên màn hình/bảng soi nếu cần nhấn mạnh (VD: "5 TRIỆU", "ĐAU LƯNG", "BƯỚC 1"), TUYỆT ĐỐI KHÔNG ghi câu dài, nếu không cần để rỗng "".
 - layout: Chọn từ [${layoutList.join(', ')}].
 - backdrop: Chọn từ [${backdropList.join(', ')}].
+- transition: Chọn [${transitionList.join(', ')}].
 - cast: Chọn nhân vật từ [${castList.join(', ')}].
 - action: Chọn động tác từ [${actionList.join(', ')}].
 - screenType: Chọn nội dung màn hình từ [${screenList.join(', ')}].
@@ -898,8 +903,11 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                                 type: 'OBJECT',
                                 properties: {
                                     visualSubject: { type: 'STRING' },
+                                    roleTag: { type: 'STRING' },
+                                    focusTag: { type: 'STRING' },
                                     layout: { type: 'STRING', enum: layoutList },
                                     backdrop: { type: 'STRING', enum: backdropList },
+                                    transition: { type: 'STRING', enum: transitionList },
                                     cast: { type: 'STRING', enum: castList },
                                     action: { type: 'STRING', enum: actionList },
                                     screenType: { type: 'STRING', enum: screenList },
@@ -910,7 +918,7 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                                     characterMood: { type: 'STRING', enum: ['happy', 'shocked', 'thinking', 'sleepy'] },
                                     crossOut: { type: 'BOOLEAN' }
                                 },
-                                required: ['visualSubject', 'layout', 'backdrop', 'cast', 'action', 'screenType', 'phase2Effect', 'effect', 'sfx', 'props', 'characterMood', 'crossOut']
+                                required: ['visualSubject', 'roleTag', 'focusTag', 'layout', 'backdrop', 'transition', 'cast', 'action', 'screenType', 'phase2Effect', 'effect', 'sfx', 'props', 'characterMood', 'crossOut']
                             }
                         }
                     }
@@ -922,8 +930,11 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                 if (Array.isArray(parsed) && parsed.length >= cleanBeats.length) {
                     const normalized = parsed.slice(0, cleanBeats.length).map((item, idx) => ({
                         visualSubject: String(item.visualSubject || cleanBeats[idx] || '').trim(),
+                        roleTag: String(item.roleTag || '').trim().slice(0, 22),
+                        focusTag: String(item.focusTag || '').trim().slice(0, 20),
                         layout: layoutList.includes(item.layout) ? item.layout : '',
                         backdrop: backdropList.includes(item.backdrop) ? item.backdrop : '',
+                        transition: transitionList.includes(item.transition) ? item.transition : 'cut',
                         cast: castList.includes(item.cast) ? item.cast : '',
                         action: actionList.includes(item.action) ? item.action : '',
                         screenType: screenList.includes(item.screenType) ? item.screenType : '',

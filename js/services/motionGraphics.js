@@ -45,7 +45,11 @@
     const LAYOUT_NAMES = [
         'wide-team',
         'desk-closeup',
+        'two-shot-dialogue',
+        'back-monitors',
+        'hand-viewfinder',
         'hand-pov',
+        'screen-pointer',
         'laptop-popup',
         'character-action',
         'character-left',
@@ -61,21 +65,25 @@
         'ui-grid-hero'
     ];
 
-    const UI_LAYOUTS = ['ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
+    const UI_LAYOUTS = ['back-monitors', 'ui-window', 'ui-checklist', 'ui-flow', 'ui-grid-hero'];
     const STORY_LAYOUTS_GENERAL = [
         'character-action',
         'character-left',
+        'back-monitors',
+        'hand-viewfinder',
         'split-compare',
         'action-flow',
         'thought-bubble',
-        'hand-pov',
         'multi-trio',
         'center-hero'
     ];
     const STORY_LAYOUTS = [
         'wide-team',
         'desk-closeup',
-        'hand-pov',
+        'two-shot-dialogue',
+        'back-monitors',
+        'hand-viewfinder',
+        'screen-pointer',
         'laptop-popup',
         'character-action',
         'character-left',
@@ -235,6 +243,10 @@
 
     function clamp01(t) {
         return Math.max(0, Math.min(1, t));
+    }
+
+    function lerp(a, b, t) {
+        return a + (b - a) * clamp01(t);
     }
 
     function easeOutCubic(t) {
@@ -2780,9 +2792,14 @@
         if (customImg) {
             ctx.save();
             ctx.translate(cx, cy + Math.sin(t * 2.5) * 3.5);
-            const dynScale = scale * (1 + audioLevel * 0.04);
+            const dynScale = scale * (1 + audioLevel * 0.045);
             ctx.scale(dynScale, dynScale);
-            ctx.drawImage(customImg, -155, -185, 310, 370);
+            // Soft grounded radial shadow beneath transparent custom 2D vector illustration
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.11)';
+            ctx.beginPath();
+            ctx.ellipse(0, 118, 96, 18, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.drawImage(customImg, -145, -145, 290, 290);
             ctx.restore();
             return;
         }
@@ -2853,6 +2870,149 @@
         ctx.restore();
     }
 
+    function drawShortPillBadge(ctx, text, cx, cy, bg = 'rgba(15, 23, 42, 0.78)', fg = '#ffffff', scale = 1) {
+        const clean = String(text || '').trim().slice(0, 22);
+        if (!clean || scale <= 0.05) return;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(scale, scale);
+        ctx.font = '700 15px "Inter", "Plus Jakarta Sans", sans-serif';
+        const tw = Math.min(200, Math.max(54, ctx.measureText(clean).width + 26));
+        drawOutlinedRect(ctx, -tw / 2, -16, tw, 32, 16, bg, 'rgba(255,255,255,0.28)', 1.5, true);
+        ctx.fillStyle = fg;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(clean, 0, 1);
+        ctx.restore();
+    }
+
+    function drawWoodenPointerStick(ctx, tipX, tipY, progress, pivot) {
+        const slideP = easeOutBack(clamp01((progress - 0.16) / 0.34));
+        if (slideP <= 0.02) return;
+        const tapOffset = progress > pivot && progress < pivot + 0.16 ? Math.sin(((progress - pivot) / 0.16) * Math.PI) * 10 : 0;
+        const tx = lerp(520, tipX, slideP) - tapOffset * 0.4;
+        const ty = lerp(740, tipY, slideP) + tapOffset * 0.4;
+        ctx.save();
+        ctx.translate(tx, ty);
+        ctx.rotate(-0.62);
+        drawOutlinedRect(ctx, -10, -8, 175, 16, 8, '#c69358', '#5c3c1e', 2.4, true);
+        // Pointer tip cap
+        ctx.fillStyle = '#ef4444';
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(-14, -7, 20, 14, 7);
+        ctx.fill();
+        ctx.stroke();
+        // Hand gripping handle
+        ctx.fillStyle = '#fbd3b4';
+        ctx.beginPath();
+        ctx.ellipse(126, 2, 22, 17, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawBackViewMonitorsShot(ctx, scene, props, progress, t, audioLevel, screenType, cast, pivot, pop1, pop2, focusTag) {
+        const prof = CAST_PROFILES[cast] || CAST_PROFILES.narrator;
+        const camZoom = 1 + easeOutCubic(progress) * 0.04;
+
+        ctx.save();
+        ctx.translate(270, 440);
+        ctx.scale(camZoom, camZoom);
+        ctx.translate(-270, -440);
+
+        // Desk surface & subtle studio glow behind dual floating monitors
+        drawOutlinedRect(ctx, 24, 520, 492, 26, 12, '#e2e8f0', '#94a3b8', 2.6, true);
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(46, 546, 448, 18);
+
+        // Monitor stand arms
+        drawOutlinedRect(ctx, 212, 466, 18, 56, 6, '#334155', '#0f172a', 2.2, false);
+        drawOutlinedRect(ctx, 184, 512, 74, 12, 6, '#1e293b', '#0f172a', 2, false);
+        drawOutlinedRect(ctx, 412, 476, 14, 46, 6, '#334155', '#0f172a', 2, false);
+
+        // Main Elevated Monitor (Left/Center)
+        ctx.save();
+        ctx.translate(216, 362);
+        ctx.scale(pop1, pop1);
+        drawOutlinedRect(ctx, -162, -114, 324, 218, 18, '#0f172a', '#38bdf8', 3, true);
+        drawOutlinedRect(ctx, -150, -102, 300, 194, 12, '#f8fafc', '#334155', 1.6, false);
+        if (scene?.customHeroImg) {
+            drawHeroSubject(ctx, scene, props[0], 0, -4, 0.56, progress, t, audioLevel, screenType, true);
+        } else {
+            drawRichScreenContent(ctx, -142, -94, 284, 178, screenType, progress, t, audioLevel);
+        }
+        ctx.restore();
+
+        // Secondary Angled Monitor (Right)
+        ctx.save();
+        ctx.translate(422, 378);
+        ctx.scale(pop2, pop2);
+        drawOutlinedRect(ctx, -84, -92, 168, 178, 16, '#0f172a', '#64748b', 2.8, true);
+        drawOutlinedRect(ctx, -74, -82, 148, 158, 10, '#1e293b', '#334155', 1.4, false);
+        drawProp(ctx, props[1] || props[0], 0, -4, 0.42, progress, t, audioLevel, screenType);
+        ctx.restore();
+
+        // Desk accessories: ceramic mug + succulent plant
+        drawOutlinedRect(ctx, 52, 488, 28, 32, 6, '#ffffff', '#1e293b', 2.2, false);
+        ctx.fillStyle = '#8b5e3c';
+        ctx.fillRect(56, 491, 20, 6);
+        drawPottedPlant(ctx, 494, 520, 0.48, Math.sin(t * 2));
+
+        // Character from behind sitting in ergonomic mesh chair facing monitors
+        const headTilt = Math.sin(t * 3.1) * 0.04 + audioLevel * 0.05;
+        ctx.save();
+        ctx.translate(274, 650 + Math.sin(t * 2.4) * 2);
+        ctx.scale(pop1 * 1.15, pop1 * 1.15);
+        // Shoulders & torso back
+        drawOutlinedRect(ctx, -74, -56, 148, 114, 34, prof.shirt, '#1e293b', 3, true);
+        ctx.fillStyle = prof.shirtShade;
+        ctx.beginPath();
+        ctx.roundRect(-70, 10, 140, 44, 20);
+        ctx.fill();
+        // Ergonomic Chair Backrest + Mesh & Headrest overlapping lower back
+        drawOutlinedRect(ctx, -56, -24, 112, 134, 26, '#334155', '#0f172a', 3, true);
+        drawOutlinedRect(ctx, -44, -12, 88, 106, 18, '#475569', '#1e293b', 1.8, false);
+        drawOutlinedRect(ctx, -18, 108, 36, 48, 8, '#1e293b', '#0f172a', 2.2, false);
+        // Neck & back of head with cel highlight
+        ctx.fillStyle = prof.skinShade;
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        ctx.roundRect(-14, -74, 28, 26, 8);
+        ctx.fill();
+        ctx.stroke();
+        ctx.save();
+        ctx.translate(0, -106);
+        ctx.rotate(headTilt);
+        ctx.fillStyle = prof.skin;
+        ctx.beginPath();
+        ctx.arc(-40, 6, 8, 0, Math.PI * 2);
+        ctx.arc(40, 6, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = prof.hair;
+        ctx.beginPath();
+        ctx.arc(0, 0, 42, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = prof.hairHi;
+        ctx.beginPath();
+        ctx.ellipse(-12, -18, 20, 9, -0.35, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        ctx.restore();
+
+        if (focusTag) {
+            drawShortPillBadge(ctx, focusTag, 216, 226, '#2563eb', '#ffffff', pop2);
+        }
+        if (progress > pivot) {
+            drawCursorPointer(ctx, 290 - easeInOutCubic(clamp01((progress - 0.15) / 0.5)) * 68, 410 - easeInOutCubic(clamp01((progress - 0.15) / 0.5)) * 45, progress < pivot + 0.14 ? 0.85 : 1, clamp01((progress - pivot) * 3));
+        }
+        ctx.restore();
+    }
+
     // ---- Main Storyboard & UI Motion Choreography ----
     function renderSingleMotionScene(ctx, scene, progress, sceneIdx, t, audioLevel = 0) {
         const visualStyle = scene.visualStyle || 'motion';
@@ -2866,38 +3026,14 @@
         const screenType = cue.screenType || 'chat_msg';
         const pivot = Number.isFinite(scene.speechPivot) ? scene.speechPivot : 0.52;
         const phase2Effect = cue.phase2Effect || 'none';
+        const roleTag = String(cue.roleTag || '').trim();
+        const focusTag = String(cue.focusTag || '').trim();
 
         drawBackdrop(ctx, backdropId, progress, t, audioLevel);
 
         const pop1 = stagePop(progress, 0.02, 0.18);
         const pop2 = stagePop(progress, 0.14, 0.18);
         const pop3 = stagePop(progress, 0.36, 0.18);
-
-        // Priority Stage: when AI generated an exact full-scene 2D illustration for this spoken sentence,
-        // showcase it prominently on center stage alongside a real-time lip-syncing narrator cameo!
-        if (visualStyle !== 'ui-motion' && scene?.customHeroImg) {
-            const camZoom = 1 + easeOutCubic(progress) * 0.045 + audioLevel * 0.015;
-            ctx.save();
-            ctx.translate(270, 420);
-            ctx.scale(pop1 * camZoom, pop1 * camZoom);
-            drawOutlinedRect(ctx, -236, -290, 472, 574, 28, '#ffffff', '#1e293b', 3.5, true);
-            ctx.save();
-            ctx.beginPath();
-            ctx.roundRect(-230, -284, 460, 562, 24);
-            ctx.clip();
-            ctx.drawImage(scene.customHeroImg, -230, -284, 460, 562);
-            ctx.restore();
-            ctx.restore();
-
-            if (cue.crossOut && progress > pivot * 0.7) {
-                drawRedCross(ctx, 270, 420, 128, stagePop(progress, pivot * 0.7, 0.16));
-            }
-            drawPhase2Overlay(ctx, phase2Effect, pivot, progress, t, audioLevel);
-            drawNarratorCameo(ctx, 456, 738, t, mood, audioLevel, cast);
-            drawComicReaction(ctx, 392, 690, mood, audioLevel, t);
-            drawAmbientEffects(ctx, effect, t, audioLevel);
-            return;
-        }
 
         switch (cue.layout) {
             case 'wide-team': {
@@ -2910,9 +3046,9 @@
                 drawSeatedDeskCharacter(ctx, 304, 545, pop2 * 0.72, t, 'boy-spiky', mood, 0, false);
                 drawSeatedDeskCharacter(ctx, 438, 480, pop2 * 0.56, t, 'manager-red', 'happy', 0, action === 'calling');
                 ctx.restore();
-                drawOutlinedRect(ctx, 152, 200, 236, 156, 22, 'rgba(255,255,255,0.94)', '#94a3b8', 2.4, true);
-                drawHeroSubject(ctx, scene, props[0], 270, 278, pop2 * 0.50, progress, t, audioLevel, screenType, true);
+                drawHeroSubject(ctx, scene, props[0], 270, 272, pop2 * 0.60, progress, t, audioLevel, screenType, true);
                 drawAnimatedActor(ctx, 444, 702, pop1 * 0.94, progress, t, action === 'celebrating' ? 'celebrating' : 'pointing', mood, audioLevel, cast);
+                if (roleTag) drawShortPillBadge(ctx, roleTag, 444, 548, 'rgba(15, 23, 42, 0.80)', '#ffffff', pop1);
                 drawComicReaction(ctx, 378, 590, mood, audioLevel, t);
                 break;
             }
@@ -2924,20 +3060,42 @@
                 ctx.scale(camZoom, camZoom);
                 ctx.translate(-270, -545);
                 drawSeatedDeskCharacter(ctx, 265, 540, pop1 * 1.48, t, cast, mood, audioLevel, action === 'calling');
-                drawHeroSubject(ctx, scene, props[0], 430, 345, pop2 * 0.52, progress, t, audioLevel, screenType, true);
+                drawHeroSubject(ctx, scene, props[0], 430, 345, pop2 * 0.56, progress, t, audioLevel, screenType, true);
+                if (roleTag) drawShortPillBadge(ctx, roleTag, 265, 344, 'rgba(15, 23, 42, 0.82)', '#ffffff', pop1);
                 drawComicReaction(ctx, 118, 385, mood, audioLevel, t);
                 ctx.restore();
                 break;
             }
 
+            case 'two-shot-dialogue': {
+                const listener = cast === 'girl-purple' ? 'boy-spiky' : 'girl-purple';
+                drawSeatedDeskCharacter(ctx, 372, 520, pop2 * 0.96, t, listener, mood === 'shocked' ? 'thinking' : 'happy', audioLevel * 0.2, false);
+                drawHeroSubject(ctx, scene, props[0], 266, 286, pop2 * 0.62, progress, t, audioLevel, screenType, true);
+                drawAnimatedActor(ctx, 134, 668, pop1 * 1.12, progress, t, action, mood, audioLevel, cast);
+                if (roleTag) drawShortPillBadge(ctx, roleTag, 134, 492, 'rgba(15, 23, 42, 0.82)', '#ffffff', pop1);
+                drawComicReaction(ctx, 214, 535, mood, audioLevel, t);
+                break;
+            }
+
+            case 'back-monitors': {
+                drawBackViewMonitorsShot(ctx, scene, props, progress, t, audioLevel, screenType, cast, pivot, pop1, pop2, focusTag);
+                break;
+            }
+
+            case 'hand-viewfinder':
             case 'hand-pov': {
-                drawOutlinedRect(ctx, 88, 198, 364, 440, 22, '#ffffff', '#cbd5e1', 3, true);
+                const isDocShot = cue.layout === 'hand-pov' && (props[0] === 'card_doc' || props[0] === 'envelope' || screenType === 'contract_sign');
                 const docScale = pop1 * 1.12;
-                const isDocShot = props[0] === 'card_doc' || props[0] === 'envelope' || screenType === 'contract_sign';
-                if (scene?.customHeroImg) {
-                    drawHeroSubject(ctx, scene, props[0], 270, 402, pop1 * 1.05, progress, t, audioLevel, screenType, true);
+                if (isDocShot) {
+                    drawOutlinedRect(ctx, 88, 198, 364, 440, 22, '#ffffff', '#cbd5e1', 3, true);
                 } else {
-                    drawProp(ctx, isDocShot ? 'card_doc' : 'phone', 270, 398, docScale * 0.96, progress, t, audioLevel, screenType);
+                    drawOutlinedRect(ctx, 76, 194, 388, 430, 24, 'rgba(255,255,255,0.94)', '#1e293b', 3.2, true);
+                }
+
+                if (scene?.customHeroImg) {
+                    drawHeroSubject(ctx, scene, props[0], 270, 408, pop1 * 1.04, progress, t, audioLevel, screenType, true);
+                } else {
+                    drawProp(ctx, isDocShot ? 'card_doc' : props[0], 270, 404, docScale * 0.94, progress, t, audioLevel, screenType);
                 }
 
                 const drawPovHand = (hx, hy, tilt, sleeveCol = '#1e3a5f') => {
@@ -2994,16 +3152,35 @@
                         ctx.restore();
                     }
                 } else {
-                    const handY = 635 - easeOutBack(clamp01(progress * 2.2)) * 42;
-                    drawPovHand(94, handY, -0.24);
-                    drawPovHand(446, handY, 0.24);
-                    if (progress > pivot) {
-                        drawCursorPointer(ctx, 270, 420, progress > pivot && progress < pivot + 0.14 ? 0.85 : 1, clamp01((progress - pivot) * 3.5));
+                    // Camera Viewfinder L-Brackets framing live focus (Reference Video 1)
+                    const brkPulse = 1 + (progress > pivot && progress < pivot + 0.18 ? 0.06 : 0);
+                    ctx.save();
+                    ctx.translate(270, 408);
+                    ctx.scale(brkPulse, brkPulse);
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.lineWidth = 5;
+                    ctx.lineCap = 'round';
+                    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sy]) => {
+                        const bx = sx * 158;
+                        const by = sy * 158;
+                        ctx.beginPath();
+                        ctx.moveTo(bx, by - sy * 36);
+                        ctx.lineTo(bx, by);
+                        ctx.lineTo(bx - sx * 36, by);
+                        ctx.stroke();
+                    });
+                    ctx.restore();
+                    const handY = 638 - easeOutBack(clamp01(progress * 2.2)) * 42;
+                    drawPovHand(88, handY, -0.22);
+                    drawPovHand(452, handY, 0.22);
+                    if (focusTag) {
+                        drawShortPillBadge(ctx, focusTag, 270, 224, 'rgba(15, 23, 42, 0.84)', '#fde047', pop2);
                     }
                 }
                 break;
             }
 
+            case 'screen-pointer':
             case 'laptop-popup': {
                 drawSeatedDeskCharacter(ctx, 270, 565, 1.08, t, cast, mood, audioLevel * 0.45, false);
                 ctx.fillStyle = 'rgba(15, 23, 42, 0.26)';
@@ -3025,14 +3202,10 @@
                     drawRichScreenContent(ctx, -192, -102, 384, 234, screenType, progress, t, audioLevel);
                 }
                 ctx.restore();
-                const curT = easeInOutCubic(clamp01(progress * 1.4));
-                drawCursorPointer(
-                    ctx,
-                    400 - curT * 92,
-                    490 - curT * 58,
-                    progress > pivot && progress < pivot + 0.14 ? 0.84 : 1,
-                    progress > pivot ? clamp01((progress - pivot) * 3.5) : 0
-                );
+                if (focusTag) {
+                    drawShortPillBadge(ctx, focusTag, 270, 214, '#2563eb', '#ffffff', pop2);
+                }
+                drawWoodenPointerStick(ctx, 294, 412, progress, pivot);
                 break;
             }
 
@@ -3336,15 +3509,45 @@
     }
 
     function drawMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, prevScene = null, audioLevel = 0) {
-        // Fast clean film-cut cross-dissolve (0.07s feel) instead of jarring full-canvas slide
-        if (sceneIdx > 0 && prevScene && sceneProgress < 0.08) {
-            const blend = easeOutCubic(sceneProgress / 0.08);
-            renderSingleMotionScene(ctx, prevScene, 1, sceneIdx - 1, globalTime, 0);
-            ctx.save();
-            ctx.globalAlpha = blend;
-            renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel);
-            ctx.restore();
-            return;
+        if (sceneIdx > 0 && prevScene && sceneProgress < 0.14) {
+            const cue = scene?.motionCue || {};
+            const useWipe = cue.transition === 'diagonal-wipe' || (scene?.visualStyle === 'ui-motion' && sceneIdx % 2 === 1);
+            if (useWipe) {
+                const wipeP = easeOutCubic(clamp01(sceneProgress / 0.14));
+                renderSingleMotionScene(ctx, prevScene, 1, sceneIdx - 1, globalTime, 0);
+                // Signature SaaS diagonal color panel sweep (Reference Video 2)
+                ctx.save();
+                const sweepX = lerp(-260, W + 240, wipeP);
+                ctx.fillStyle = '#0ea5e9';
+                ctx.beginPath();
+                ctx.moveTo(sweepX - 180, 0);
+                ctx.lineTo(sweepX + 40, 0);
+                ctx.lineTo(sweepX - 100, H);
+                ctx.lineTo(sweepX - 320, H);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(sweepX - 140, 0);
+                ctx.lineTo(sweepX - 280, H);
+                ctx.lineTo(0, H);
+                ctx.closePath();
+                ctx.clip();
+                renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel);
+                ctx.restore();
+                return;
+            }
+
+            if (sceneProgress < 0.08) {
+                const blend = easeOutCubic(sceneProgress / 0.08);
+                renderSingleMotionScene(ctx, prevScene, 1, sceneIdx - 1, globalTime, 0);
+                ctx.save();
+                ctx.globalAlpha = blend;
+                renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel);
+                ctx.restore();
+                return;
+            }
         }
 
         renderSingleMotionScene(ctx, scene, sceneProgress, sceneIdx, globalTime, audioLevel);
