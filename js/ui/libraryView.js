@@ -234,9 +234,17 @@
         cachedTrendItems = items;
 
         if (dateBadge) {
-            dateBadge.textContent = result?.grounded
-                ? `${result.dateDisplay} • Đã đối chiếu Google Search`
-                : `${result?.dateDisplay || 'Hôm nay'} • Tổng hợp an toàn`;
+            if (result?.sourceType === 'gemini-search') {
+                dateBadge.textContent = `${result.dateDisplay} • Google Search (Gemini Free)`;
+            } else if (result?.sourceType === 'rss-gemini-free') {
+                dateBadge.textContent = `${result.dateDisplay} • Google News / VnExpress + Gemini Free`;
+            } else if (result?.sourceType === 'rss-free') {
+                dateBadge.textContent = `${result.dateDisplay} • Google News / VnExpress (Miễn phí 0 cần Key)`;
+            } else {
+                dateBadge.textContent = result?.grounded
+                    ? `${result.dateDisplay} • Đã đối chiếu nguồn Web`
+                    : `${result?.dateDisplay || 'Hôm nay'} • Tổng hợp an toàn`;
+            }
         }
 
         if (items.length === 0) {
@@ -305,7 +313,7 @@
         if (btnRefresh) btnRefresh.disabled = true;
         if (grid) {
             grid.innerHTML =
-                '<div class="col-span-full p-5 text-center text-xs font-bold text-sky-800 dark:text-sky-200"><i class="fa-solid fa-spinner fa-spin mr-1.5"></i>Đang tìm tin nóng &amp; xu hướng mới nhất hôm nay qua Google Search...</div>';
+                '<div class="col-span-full p-5 text-center text-xs font-bold text-sky-800 dark:text-sky-200"><i class="fa-solid fa-spinner fa-spin mr-1.5"></i>Đang tải tin nóng &amp; xu hướng mới nhất hôm nay (từ báo chí / Google Search Free)...</div>';
         }
 
         try {

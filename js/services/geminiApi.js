@@ -1840,6 +1840,143 @@ YÊU CẦU ĐẦU RA:
         };
     }
 
+    function stripHtmlToPlain(htmlStr) {
+        return String(htmlStr || '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/&amp;/gi, '&')
+            .replace(/&quot;/gi, '"')
+            .replace(/&#39;/gi, "'")
+            .replace(/&lt;/gi, '<')
+            .replace(/&gt;/gi, '>')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function pickCategoryFromNewsText(text, niche = 'all') {
+        const lower = String(text || '').toLowerCase();
+        if (niche === 'tech' || /\bai\b|công nghệ|chip|phần mềm|bảo mật|mạng/.test(lower)) return 'career';
+        if (niche === 'finance' || /lừa đảo|cảnh báo|ngân hàng|otp/.test(lower)) return /lừa đảo|cảnh báo/.test(lower) ? 'warning' : 'finance';
+        if (niche === 'health' || /sức khỏe|ngủ|dinh dưỡng|bác sĩ|y tế/.test(lower)) return 'reminder';
+        if (/văn phòng|lương|việc làm|nhân sự|công sở/.test(lower)) return 'office';
+        return 'lifehack';
+    }
+
+    async function fetchPublicRssTrends({ niche = 'all', signal } = {}) {
+        const gnewsMap = {
+            all: 'https://news.google.com/rss?hl=vi&gl=VN&ceid=VN:vi',
+            tech: 'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=vi&gl=VN&ceid=VN:vi',
+            finance: 'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=vi&gl=VN&ceid=VN:vi',
+            health: 'https://news.google.com/rss/headlines/section/topic/HEALTH?hl=vi&gl=VN&ceid=VN:vi',
+            social: 'https://news.google.com/rss/search?q=xu+h%C6%B0%E1%BB%9Bng+vi%E1%BB%87t+nam+h%C3%B4m+nay&hl=vi&gl=VN&ceid=VN:vi'
+        };
+        const vnexpressMap = {
+            all: 'https://vnexpress.net/rss/tin-moi-nhat.rss',
+            tech: 'https://vnexpress.net/rss/so-hoa.rss',
+            finance: 'https://vnexpress.net/rss/kinh-doanh.rss',
+            health: 'https://vnexpress.net/rss/suc-khoe.rss',
+            social: 'https://vnexpress.net/rss/doi-song.rss'
+        };
+
+        const feedUrls = [gnewsMap[niche] || gnewsMap.all, vnexpressMap[niche] || vnexpressMap.all];
+
+        for (const rssUrl of feedUrls) {
+            // 1. Primary CORS JSON bridge (no API key needed)
+            try {
+                const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+                const res = await fetch(apiUrl, { signal });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data?.items) && data.items.length > 0) {
+                        const cleanItems = data.items
+                            .map((it) => {
+                                const rawTitle = stripHtmlToPlain(it.title || '');
+                                const parts = rawTitle.split(/\s+[-–]\s+/);
+                                const cleanTitle = parts.length > 1 ? parts.slice(0, -1).join(' - ').trim() : rawTitle;
+                                const publisher = parts.length > 1 ? parts[parts.length - 1].trim() : 'Báo chí Việt Nam';
+                                const desc = stripHtmlToPlain(it.description || it.content || '');
+                                return {
+                                    rawTitle: cleanTitle,
+                                    publisher,
+                                    desc: desc && desc !== cleanTitle ? desc : cleanTitle,
+                                    url: String(it.link || '').trim(),
+                                    pubDate: String(it.pubDate || '').trim()
+                                };
+                            })
+                            .filter((x) => x.rawTitle && quickLocalPolicyScan(`${x.rawTitle} ${x.desc}`).status === 'safe')
+                            .slice(0, 6);
+                        if (cleanItems.length > 0) return cleanItems;
+                    }
+                }
+            } catch (err) {
+                if (err.name === 'AbortError') throw err;
+            }
+
+            // 2. XML CORS fallback via allorigins
+            if (typeof global.DOMParser !== 'undefined') {
+                try {
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
+                    const res = await fetch(proxyUrl, { signal });
+                    if (res.ok) {
+                        const xmlText = await res.text();
+                        const doc = new global.DOMParser().parseFromString(xmlText, 'text/xml');
+                        const nodes = Array.from(doc.querySelectorAll('item')).slice(0, 8);
+                        const parsed = nodes
+                            .map((node) => {
+                                const rawTitle = stripHtmlToPlain(node.querySelector('title')?.textContent || '');
+                                const parts = rawTitle.split(/\s+[-–]\s+/);
+                                const cleanTitle = parts.length > 1 ? parts.slice(0, -1).join(' - ').trim() : rawTitle;
+                                const publisher = parts.length > 1 ? parts[parts.length - 1].trim() : 'VnExpress / Google News';
+                                const desc = stripHtmlToPlain(node.querySelector('description')?.textContent || '');
+                                const link = stripHtmlToPlain(node.querySelector('link')?.textContent || '');
+                                return {
+                                    rawTitle: cleanTitle,
+                                    publisher,
+                                    desc: desc || cleanTitle,
+                                    url: link,
+                                    pubDate: stripHtmlToPlain(node.querySelector('pubDate')?.textContent || '')
+                                };
+                            })
+                            .filter((x) => x.rawTitle && quickLocalPolicyScan(`${x.rawTitle} ${x.desc}`).status === 'safe')
+                            .slice(0, 6);
+                        if (parsed.length > 0) return parsed;
+                    }
+                } catch (err) {
+                    if (err.name === 'AbortError') throw err;
+                }
+            }
+        }
+        return [];
+    }
+
+    function buildKeylessTrendCards(rssItems, niche, todayIso, todayDisplay) {
+        return rssItems.slice(0, 4).map((it, idx) => {
+            const summary = it.desc.length > 170 ? `${it.desc.slice(0, 167)}...` : it.desc;
+            const cleanTitle = it.rawTitle.length > 95 ? `${it.rawTitle.slice(0, 92)}...` : it.rawTitle;
+            return {
+                id: `trend-rss-${todayIso}-${niche}-${idx}`,
+                dateDisplay: todayDisplay,
+                title: cleanTitle,
+                category: pickCategoryFromNewsText(`${cleanTitle} ${summary}`, niche),
+                factSummary: summary,
+                sourceNote: `${it.publisher || 'Báo chí Việt Nam'} (Tin cập nhật hôm nay)`,
+                hook: `Tin mới hôm nay: ${cleanTitle}`,
+                scenes: [
+                    `Điểm tin nổi bật hôm nay: ${cleanTitle}.`,
+                    summary && summary !== cleanTitle ? summary : `Thông tin vừa được ${it.publisher || 'báo chí chính thống'} cập nhật mới nhất.`,
+                    'Điều đáng chú ý nhất là tác động trực tiếp đến thói quen hằng ngày của nhiều người.',
+                    'Khi theo dõi tin mới, hãy luôn kiểm chứng từ báo chí chính thống trước khi chia sẻ.',
+                    'Lưu lại ý chính này để áp dụng và chủ động hơn trong công việc lẫn cuộc sống.',
+                    'Bạn nghĩ sao về thông tin hôm nay? Để lại bình luận và theo dõi kênh nhé!'
+                ],
+                hashtags: '#tinnong #tinthoisu #reelsvn #capnhatmoingay',
+                sources: /^https?:\/\//i.test(it.url) ? [{ title: it.publisher || cleanTitle.slice(0, 50), url: it.url }] : [],
+                grounded: true,
+                sourceType: 'rss-free'
+            };
+        });
+    }
+
     async function fetchDailyTrendsAndNews({ niche = 'all', forceRefresh = false, signal } = {}) {
         const now = new Date();
         const todayIso = now.toISOString().slice(0, 10);
@@ -1882,54 +2019,120 @@ Trả về DUY NHẤT 1 mảng JSON hợp lệ (không giải thích thêm) gồ
         };
 
         return dedupedCall(cacheKey, async () => {
-            const candidates = [MODELS.TEXT, ...(MODELS.TEXT_FALLBACKS || [])].filter(Boolean);
-            let lastErr = null;
-            for (const modelName of candidates) {
-                try {
-                    const res = await fetchGeminiWithRetry(modelName, trySearchPayload, { signal });
-                    const cand = res?.candidates?.[0];
-                    const rawText = cand?.content?.parts?.map((p) => p.text || '').join('\n') || '';
-                    const parsed = safeExtractJsonFromText(rawText);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        const chunks = cand?.groundingMetadata?.groundingChunks || [];
-                        const webSources = [];
-                        const seenUrls = new Set();
-                        chunks.forEach((ch) => {
-                            const uri = ch?.web?.uri;
-                            const st = ch?.web?.title;
-                            if (uri && !seenUrls.has(uri)) {
-                                seenUrls.add(uri);
-                                webSources.push({ title: String(st || uri).slice(0, 65), url: uri });
+            const hasKey = Boolean(getApiKey());
+
+            // Path 1: Free Gemini API Key + Google Search Grounding (across user's Free models)
+            if (hasKey) {
+                const candidates = [MODELS.TEXT, ...(MODELS.TEXT_FALLBACKS || [])].filter(Boolean);
+                for (const modelName of candidates) {
+                    try {
+                        const res = await fetchGeminiWithRetry(modelName, trySearchPayload, { signal });
+                        const cand = res?.candidates?.[0];
+                        const rawText = cand?.content?.parts?.map((p) => p.text || '').join('\n') || '';
+                        const parsed = safeExtractJsonFromText(rawText);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            const chunks = cand?.groundingMetadata?.groundingChunks || [];
+                            const webSources = [];
+                            const seenUrls = new Set();
+                            chunks.forEach((ch) => {
+                                const uri = ch?.web?.uri;
+                                const st = ch?.web?.title;
+                                if (uri && !seenUrls.has(uri)) {
+                                    seenUrls.add(uri);
+                                    webSources.push({ title: String(st || uri).slice(0, 65), url: uri });
+                                }
+                            });
+
+                            const normalized = parsed.slice(0, 5).map((item, idx) => ({
+                                id: `trend-${todayIso}-${niche}-${idx}`,
+                                dateDisplay: todayDisplay,
+                                title: String(item.title || '').trim(),
+                                category: String(item.category || 'lifehack').trim(),
+                                factSummary: String(item.factSummary || '').trim(),
+                                sourceNote: String(item.sourceNote || 'Tổng hợp báo chí chính thống').trim(),
+                                hook: String(item.hook || '').trim(),
+                                scenes: Array.isArray(item.scenes) ? item.scenes.map((s) => String(s || '').trim()).filter(Boolean) : [],
+                                hashtags: String(item.hashtags || '#tinnong #reelsvn #xuhuong').trim(),
+                                sources: webSources.slice(0, 4),
+                                grounded: webSources.length > 0,
+                                sourceType: 'gemini-search'
+                            })).filter((x) => x.title && x.scenes.length >= 2);
+
+                            if (normalized.length > 0) {
+                                const out = { dateDisplay: todayDisplay, items: normalized, grounded: webSources.length > 0, sourceType: 'gemini-search' };
+                                caches.prompts.set(cacheKey, out);
+                                return out;
                             }
-                        });
+                        }
+                    } catch (err) {
+                        if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
+                        console.warn(`Daily trends grounding on ${modelName} fallback to public RSS:`, err.message);
+                    }
+                }
+            }
 
-                        const normalized = parsed.slice(0, 5).map((item, idx) => ({
-                            id: `trend-${todayIso}-${niche}-${idx}`,
-                            dateDisplay: todayDisplay,
-                            title: String(item.title || '').trim(),
-                            category: String(item.category || 'lifehack').trim(),
-                            factSummary: String(item.factSummary || '').trim(),
-                            sourceNote: String(item.sourceNote || 'Tổng hợp báo chí chính thống').trim(),
-                            hook: String(item.hook || '').trim(),
-                            scenes: Array.isArray(item.scenes) ? item.scenes.map((s) => String(s || '').trim()).filter(Boolean) : [],
-                            hashtags: String(item.hashtags || '#tinnong #reelsvn #xuhuong').trim(),
-                            sources: webSources.slice(0, 4),
-                            grounded: webSources.length > 0
-                        })).filter((x) => x.title && x.scenes.length >= 2);
+            // Path 2: 100% Free Public RSS Feeds (Google News VN / VnExpress) — works even WITHOUT Gemini API Key
+            // or when Gemini Search Grounding isn't enabled on Free Tier!
+            const rssItems = await fetchPublicRssTrends({ niche, signal });
+            if (rssItems.length > 0) {
+                // If user HAS a Free Gemini text Key, polish the real RSS news into crisp 6-scene 2D stories without inventing facts!
+                if (hasKey) {
+                    try {
+                        const rssDigest = rssItems
+                            .slice(0, 4)
+                            .map((r, i) => `${i + 1}. Tiêu đề: "${r.rawTitle}" | Nguồn: ${r.publisher} | Tóm tắt: "${r.desc}"`)
+                            .join('\n');
+                        const formatPrompt = `Hôm nay là ${todayDisplay}. Dưới đây là 4 tin tức CÓ THẬT vừa lấy từ báo chí Việt Nam:
+${rssDigest}
 
-                        if (normalized.length > 0) {
-                            const out = { dateDisplay: todayDisplay, items: normalized, grounded: webSources.length > 0 };
+${CREATOR_ETHICS_AND_POLICY_RULE}
+Hãy chuyển thể CHÍNH XÁC 4 tin trên thành 4 kịch bản Reels ngắn trung thực (KHÔNG bịa thêm số liệu ngoài bản tin) dạng mảng JSON gồm:
+- "title", "category" (1 trong [office, career, finance, humor, lifehack, warning, reminder, music, vlog, bts]), "factSummary", "sourceNote", "hook", "scenes" (mảng 6 câu thoại ngắn 8-16 từ), "hashtags".`;
+
+                        const textPayload = {
+                            contents: [{ parts: [{ text: formatPrompt }] }],
+                            generationConfig: { responseMimeType: 'application/json' }
+                        };
+                        const aiRes = await fetchTextWithFallback(textPayload, { signal });
+                        const aiRaw = aiRes?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                        const aiParsed = safeExtractJsonFromText(aiRaw);
+                        if (Array.isArray(aiParsed) && aiParsed.length > 0) {
+                            const formattedItems = aiParsed.slice(0, 4).map((item, idx) => {
+                                const srcItem = rssItems[idx] || rssItems[0];
+                                return {
+                                    id: `trend-rss-ai-${todayIso}-${niche}-${idx}`,
+                                    dateDisplay: todayDisplay,
+                                    title: String(item.title || srcItem.rawTitle).trim(),
+                                    category: String(item.category || pickCategoryFromNewsText(srcItem.rawTitle, niche)).trim(),
+                                    factSummary: String(item.factSummary || srcItem.desc).trim(),
+                                    sourceNote: String(item.sourceNote || srcItem.publisher).trim(),
+                                    hook: String(item.hook || srcItem.rawTitle).trim(),
+                                    scenes: Array.isArray(item.scenes) && item.scenes.length >= 2
+                                        ? item.scenes.map((s) => String(s || '').trim()).filter(Boolean)
+                                        : buildKeylessTrendCards([srcItem], niche, todayIso, todayDisplay)[0].scenes,
+                                    hashtags: String(item.hashtags || '#tinnong #reelsvn #xuhuong').trim(),
+                                    sources: /^https?:\/\//i.test(srcItem.url) ? [{ title: srcItem.publisher || 'Bài viết gốc', url: srcItem.url }] : [],
+                                    grounded: true,
+                                    sourceType: 'rss-gemini-free'
+                                };
+                            });
+                            const out = { dateDisplay: todayDisplay, items: formattedItems, grounded: true, sourceType: 'rss-gemini-free' };
                             caches.prompts.set(cacheKey, out);
                             return out;
                         }
+                    } catch (aiErr) {
+                        if (aiErr.name === 'AbortError') throw aiErr;
+                        console.warn('RSS + Gemini Free format fallback to pure RSS cards:', aiErr.message);
                     }
-                } catch (err) {
-                    if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
-                    lastErr = err;
-                    console.warn(`Daily trends grounding on ${modelName} fallback:`, err.message);
                 }
+
+                const keylessItems = buildKeylessTrendCards(rssItems, niche, todayIso, todayDisplay);
+                const out = { dateDisplay: todayDisplay, items: keylessItems, grounded: true, sourceType: 'rss-free' };
+                caches.prompts.set(cacheKey, out);
+                return out;
             }
-            throw lastErr || new ApiError('SERVER_ERROR', 'Không thể tải tin tức/trend mới lúc này.');
+
+            throw new ApiError('SERVER_ERROR', 'Không thể kết nối nguồn tin nóng hoặc Google Search lúc này. Vui lòng thử lại sau.');
         });
     }
 
