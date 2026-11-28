@@ -367,7 +367,7 @@
                 const chunkBuf = targetCtx.createBuffer(1, len, sr);
                 const out = chunkBuf.getChannelData(0);
                 out.set(data.subarray(start, start + len));
-                applyEdgeFades(out, sr, 20, 26);
+                applyEdgeFades(out, sr, idx === 0 ? 16 : 6, idx === count - 1 ? 24 : 6);
                 return chunkBuf;
             });
         }
@@ -408,12 +408,12 @@
 
         return texts.map((_, idx) => {
             const start = cutSamples[idx];
-            const end = Math.max(start + Math.floor(sr * 0.25), cutSamples[idx + 1]);
+            const end = Math.max(start + 1, cutSamples[idx + 1]);
             const len = Math.min(totalSamples - start, end - start);
             const chunkBuf = targetCtx.createBuffer(1, Math.max(1, len), sr);
             const out = chunkBuf.getChannelData(0);
             out.set(data.subarray(start, start + len));
-            applyEdgeFades(out, sr, 20, 26);
+            applyEdgeFades(out, sr, idx === 0 ? 16 : 6, idx === count - 1 ? 24 : 6);
             return chunkBuf;
         });
     }

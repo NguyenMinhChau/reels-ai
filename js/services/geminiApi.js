@@ -1241,20 +1241,32 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
         });
     }
 
-    // Generate all 5 scenes in 1 single TTS API call to avoid Free Tier 3 RPM 429 limit
-    async function fetchCombinedTtsPcm({ texts, voiceName, signal }) {
-        const cleanTexts = (texts || []).map((t) => String(t || '').trim() || 'Khoảnh khắc đời sống hằng ngày.');
+    // Generate the ENTIRE script in 1 single TTS API call for 100% consistent voice, tone & natural flow
+    async function fetchCombinedTtsPcm({ texts, voiceName, ttsModel, signal }) {
+        const cleanTexts = (texts || [])
+            .map((t) => String(t || '').trim())
+            .filter(Boolean);
+        if (cleanTexts.length === 0) return { buffer: null, fromCache: false, rateLimited: false };
+
         const voice = voiceName || 'Aoede';
-        const cacheKey = `tts-batch:${voice}:${hashString(cleanTexts.join('|'))}`;
+        const targetModel = ttsModel || MODELS.TTS;
+        const cacheKey = `tts-batch-v2:${targetModel}:${voice}:${hashString(cleanTexts.join('|'))}`;
 
         if (caches.ttsPcm.has(cacheKey)) {
-            return { buffer: caches.ttsPcm.get(cacheKey), fromCache: true, rateLimited: false };
+            const cached = caches.ttsPcm.get(cacheKey);
+            return {
+                buffer: cached?.buffer || cached,
+                mimeType: cached?.mimeType || 'audio/wav',
+                fromCache: true,
+                rateLimited: false
+            };
         }
 
         return dedupedCall(cacheKey, async () => {
             try {
+                // Gemini 3.8 TTS strictly expects clean verbatim transcript (zero prompt wrapper!)
                 const formattedBody = cleanTexts
-                    .map((t) => t.replace(/[.\s]+$/, '') + '.')
+                    .map((t) => (/[.!?…]$/.test(t) ? t : `${t}.`))
                     .join('\n\n');
 
                 const payload = {
@@ -1262,7 +1274,7 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                         {
                             parts: [
                                 {
-                                    text: `Hãy đọc to toàn bộ đoạn văn tiếng Việt sau với giọng vlogger truyền cảm, nhịp độ nhanh, năng lượng cao và cuốn hút. Ngắt nghỉ rõ khoảng nửa giây ở mỗi chỗ xuống dòng, tuyệt đối không đọc thêm từ nào ngoài văn bản:\n\n${formattedBody}`
+                                    text: formattedBody
                                 }
                             ]
                         }
@@ -1277,18 +1289,19 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
                     }
                 };
 
-                const result = await fetchGeminiWithRetry(MODELS.TTS, payload, { signal });
+                const result = await fetchGeminiWithRetry(targetModel, payload, { signal });
                 const part = result?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
                 if (part?.inlineData?.data) {
                     const pcmBuffer = base64ToArrayBuffer(part.inlineData.data);
-                    caches.ttsPcm.set(cacheKey, pcmBuffer);
-                    return { buffer: pcmBuffer, mimeType: part.inlineData.mimeType || 'audio/L16', fromCache: false, rateLimited: false };
+                    const mimeType = part.inlineData.mimeType || 'audio/wav';
+                    caches.ttsPcm.set(cacheKey, { buffer: pcmBuffer, mimeType });
+                    return { buffer: pcmBuffer, mimeType, fromCache: false, rateLimited: false };
                 }
             } catch (err) {
                 if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
-                const isRateLimited = err.code === 'RATE_LIMITED' || err.code === 'QUOTA_ZERO' || err.status === 429;
+                const isRateLimited = err.code === 'RATE_LIMITED' || err.code === 'QUOTA_EXHAUSTED' || err.status === 429;
                 console.warn('Combined TTS failed:', err.message);
-                return { buffer: null, fromCache: false, rateLimited: isRateLimited };
+                return { buffer: null, fromCache: false, rateLimited: isRateLimited, errorReason: err.message };
             }
             return { buffer: null, fromCache: false, rateLimited: false };
         });
@@ -1618,8 +1631,8 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
             return { buffers: results, mimeTypes: resultMimeTypes, errorReason: '' };
         }
 
-        // Keep WebSocket sessions short (max 3 scenes each) to prevent conversational speed/pitch drift
-        const MAX_TURNS_PER_SESSION = 3;
+        // Keep WebSocket sessions cohesive (up to 6 chapters) to minimize speaker shifts across reconnects
+        const MAX_TURNS_PER_SESSION = 6;
         let lastError = '';
         for (let offset = 0; offset < missingIndices.length; offset += MAX_TURNS_PER_SESSION) {
             if (signal && signal.aborted) {
