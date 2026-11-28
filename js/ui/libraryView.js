@@ -16,6 +16,7 @@
     let pageSize = 9;
     let lastFilterKey = '';
     let dumpAbortController = null;
+    let isAutoDumpRunning = false;
     let trendsAbortController = null;
     let cachedTrendItems = [];
     let hasAutoDumpedThisSession = false;
@@ -231,10 +232,18 @@
         const btn = document.getElementById('btn-dump-scripts');
         const btnKw = document.getElementById('btn-dump-keyword');
         const autoBanner = document.getElementById('library-auto-dump-status');
-        if (!btn || btn.disabled) return;
+        if (!btn) return;
+        if (btn.disabled) {
+            if (!isAuto && isAutoDumpRunning && dumpAbortController) {
+                dumpAbortController.abort();
+            } else {
+                return;
+            }
+        }
 
         const state = App.store.getState();
 
+        isAutoDumpRunning = isAuto;
         btn.disabled = true;
         if (btnKw) btnKw.disabled = true;
         const originalHTML = btn.innerHTML;
@@ -248,11 +257,12 @@
 
         if (isAuto && autoBanner) {
             autoBanner.classList.remove('hidden');
-            autoBanner.textContent = '✨ AI đang tự động sáng tạo 3 kịch bản mới cho bạn...';
+            autoBanner.textContent = '✨ AI đang tự động sáng tạo kịch bản mới cho bạn (tối đa ~20s)...';
         }
 
         if (dumpAbortController) dumpAbortController.abort();
-        dumpAbortController = new AbortController();
+        const localController = new AbortController();
+        dumpAbortController = localController;
 
         try {
             const tone = document.getElementById('library-tone')?.value || 'viral';
@@ -264,7 +274,7 @@
                 customTopic,
                 tone,
                 count: 5,
-                signal: dumpAbortController.signal
+                signal: localController.signal
             });
 
             if (autoBanner) autoBanner.classList.add('hidden');
@@ -281,13 +291,15 @@
         } catch (err) {
             if (err.name === 'AbortError') return;
             if (isAuto) {
-                if (autoBanner && err.code === 'INVALID_API_KEY') {
+                if (autoBanner) {
                     autoBanner.classList.remove('hidden');
-                    autoBanner.innerHTML =
-                        '🔑 Chưa cài Gemini API Key — bấm <button type="button" id="btn-banner-open-key" class="underline font-extrabold text-indigo-600 dark:text-indigo-400 cursor-pointer">Nhập Gemini API Key</button> để AI tự tạo kịch bản &amp; video hoàn toàn thật (không dùng dữ liệu mẫu).';
-                    document.getElementById('btn-banner-open-key')?.addEventListener('click', () => App.modals.openSettingsModal());
-                } else if (autoBanner) {
-                    autoBanner.classList.add('hidden');
+                    if (err.code === 'INVALID_API_KEY') {
+                        autoBanner.innerHTML =
+                            '🔑 Chưa cài Gemini API Key — bấm <button type="button" id="btn-banner-open-key" class="underline font-extrabold text-indigo-600 dark:text-indigo-400 cursor-pointer">Nhập Gemini API Key</button> để AI tự tạo kịch bản &amp; video hoàn toàn thật (không dùng dữ liệu mẫu).';
+                        document.getElementById('btn-banner-open-key')?.addEventListener('click', () => App.modals.openSettingsModal());
+                    } else {
+                        autoBanner.textContent = `⚠️ Auto Dump: ${err.message || 'Không phản hồi kịp'}. Bạn có thể bấm lại "Dump Thêm 5 Ý Tưởng Mới" hoặc kiểm tra API Key.`;
+                    }
                 }
                 console.warn('Auto-dump skipped:', err.message);
                 return;
@@ -302,19 +314,32 @@
                 App.toast.show(err.message || 'Lỗi khi Dump ý tưởng AI', 'error');
             }
         } finally {
+            isAutoDumpRunning = false;
             btn.disabled = false;
             btn.innerHTML = originalHTML;
             if (btnKw) {
                 btnKw.disabled = false;
                 btnKw.innerHTML = originalKwHtml;
             }
-            dumpAbortController = null;
+            if (dumpAbortController === localController) {
+                dumpAbortController = null;
+            }
         }
     }
 
     function maybeAutoDumpOnBoot() {
         const state = App.store.getState();
         if (hasAutoDumpedThisSession || !state.autoDumpOnBoot) return;
+        if (!state.apiKey || !state.apiKey.trim()) {
+            const autoBanner = document.getElementById('library-auto-dump-status');
+            if (autoBanner) {
+                autoBanner.classList.remove('hidden');
+                autoBanner.innerHTML =
+                    '🔑 Chưa cài Gemini API Key — bấm <button type="button" id="btn-banner-open-key" class="underline font-extrabold text-indigo-600 dark:text-indigo-400 cursor-pointer">Nhập Gemini API Key</button> để AI tự tạo kịch bản &amp; video hoàn toàn thật.';
+                document.getElementById('btn-banner-open-key')?.addEventListener('click', () => App.modals.openSettingsModal());
+            }
+            return;
+        }
         hasAutoDumpedThisSession = true;
         handleDumpFreshScripts({ isAuto: true });
     }

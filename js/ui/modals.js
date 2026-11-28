@@ -158,6 +158,10 @@
         if (autoDumpToggle) {
             autoDumpToggle.checked = Boolean(state.autoDumpOnBoot);
         }
+        const modelSel = document.getElementById('setting-text-model');
+        if (modelSel) {
+            modelSel.value = state.textModel || 'auto';
+        }
         const toggleIcon = document.getElementById('icon-toggle-api-key');
         if (toggleIcon) toggleIcon.className = 'fa-regular fa-eye';
         document.getElementById('settings-modal')?.classList.remove('hidden');
@@ -170,14 +174,16 @@
     function handleSaveApiKey(e) {
         e.preventDefault();
         const key = document.getElementById('input-gemini-api-key')?.value || '';
+        const textModel = document.getElementById('setting-text-model')?.value || 'auto';
         const autoDumpToggle = document.getElementById('toggle-auto-dump-boot');
         if (autoDumpToggle) {
             App.store.setAutoDumpOnBoot(autoDumpToggle.checked);
         }
+        App.store.setTextModel(textModel);
         App.store.setApiKey(key);
         App.geminiApi.clearMediaCaches();
         closeSettingsModal();
-        App.toast.show(key.trim() ? 'Đã lưu Gemini API Key vào trình duyệt!' : 'Đã xóa API Key (chuyển sang chế độ Offline).');
+        App.toast.show(key.trim() ? `Đã lưu Gemini API Key (Model: ${textModel === 'auto' ? 'Tự động tối ưu' : textModel})!` : 'Đã xóa API Key.');
         if (key.trim() && App.store.getState().autoDumpOnBoot && App.libraryView?.maybeAutoDumpOnBoot) {
             App.libraryView.maybeAutoDumpOnBoot();
         }
@@ -186,17 +192,41 @@
     async function handleTestApiKey() {
         const btn = document.getElementById('btn-test-api-key');
         const key = document.getElementById('input-gemini-api-key')?.value || '';
+        const modelSel = document.getElementById('setting-text-model');
+        const statusEl = document.getElementById('setting-models-status');
         if (!btn || btn.disabled) return;
 
         btn.disabled = true;
         const prevHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Đang kiểm tra...</span>';
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Đang quét Key &amp; Model...</span>';
 
         try {
-            await App.geminiApi.testApiKey(key);
+            const preferred = modelSel?.value || 'auto';
+            App.store.setTextModel(preferred);
+            const res = await App.geminiApi.testApiKey(key);
             App.store.setApiKey(key);
-            App.toast.show('Kết nối Gemini API thành công! Key hoạt động tốt.', 'success');
+
+            if (modelSel && Array.isArray(res?.discoveredModels) && res.discoveredModels.length > 0) {
+                const existingValues = new Set(Array.from(modelSel.options).map((o) => o.value));
+                res.discoveredModels.slice(0, 10).forEach((mId) => {
+                    if (!existingValues.has(mId)) {
+                        const opt = document.createElement('option');
+                        opt.value = mId;
+                        opt.textContent = `🆓 ${mId} (Khả dụng trên Key)`;
+                        modelSel.appendChild(opt);
+                    }
+                });
+            }
+            if (statusEl) {
+                const active = res?.activeModel || 'Gemini';
+                const totalFound = res?.discoveredModels?.length || 0;
+                statusEl.textContent = totalFound > 0
+                    ? `Hoạt động: ${active} (${totalFound} model Free)`
+                    : `Hoạt động tốt: ${active}`;
+            }
+            App.toast.show(`Kết nối thành công! Model đang chạy: ${res?.activeModel || 'Gemini Free'}.`, 'success');
         } catch (err) {
+            if (statusEl) statusEl.textContent = 'Lỗi kết nối Key';
             App.toast.show(err.message || 'API Key chưa hợp lệ.', 'error');
         } finally {
             btn.disabled = false;

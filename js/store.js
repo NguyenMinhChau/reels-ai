@@ -40,6 +40,7 @@
         onlyNewTemplates: false,
         mobilePlannerStatus: 'idea',
         apiKey: safeStorage.getRaw(STORAGE_KEYS.API_KEY, '').trim(),
+        textModel: safeStorage.getRaw(STORAGE_KEYS.TEXT_MODEL, 'auto').trim() || 'auto',
         theme: safeStorage.getRaw(STORAGE_KEYS.THEME, 'light'),
         autoDumpOnBoot: safeStorage.get(STORAGE_KEYS.AUTO_DUMP_ON_BOOT, true) !== false
     };
@@ -230,6 +231,12 @@
             state.apiKey = clean;
             safeStorage.setRaw(STORAGE_KEYS.API_KEY, clean);
             notify('apiKey');
+        },
+
+        setTextModel(model) {
+            const clean = String(model || 'auto').trim() || 'auto';
+            state.textModel = clean;
+            safeStorage.setRaw(STORAGE_KEYS.TEXT_MODEL, clean);
         },
 
         setTheme(theme) {

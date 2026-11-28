@@ -53,11 +53,13 @@
     const caches = {
         prompts: new LRUCache(API_POLICY.MAX_CACHE_ENTRIES),
         ttsPcm: new LRUCache(API_POLICY.MAX_CACHE_ENTRIES),
-        images: new LRUCache(API_POLICY.MAX_CACHE_ENTRIES)
+        images: new LRUCache(API_POLICY.MAX_CACHE_ENTRIES),
+        modelsByKey: new Map()
     };
 
     const inFlight = new Map();
     const cooldowns = new Map();
+    let lastActiveTextModel = '';
 
     // Concurrency Queue to avoid blasting 10+ simultaneous API calls
     let activeCount = 0;
@@ -107,12 +109,41 @@
         return (App.store.getState().apiKey || '').trim();
     }
 
-    async function fetchGeminiWithRetry(model, payload, { signal, apiKeyOverride } = {}) {
+    async function fetchWithTimeout(url, options = {}, timeoutMs = API_POLICY.REQUEST_TIMEOUT_MS || 22000, parentSignal = null) {
+        const ctrl = new AbortController();
+        let timedOut = false;
+        const onParentAbort = () => ctrl.abort();
+        if (parentSignal) {
+            if (parentSignal.aborted) throw new DOMException('Aborted', 'AbortError');
+            parentSignal.addEventListener('abort', onParentAbort, { once: true });
+        }
+        const timer = setTimeout(() => {
+            timedOut = true;
+            ctrl.abort();
+        }, timeoutMs);
+        try {
+            return await fetch(url, { ...options, signal: ctrl.signal });
+        } catch (err) {
+            if (timedOut) {
+                throw new ApiError('TIMEOUT', `Kết nối quá thời gian (${Math.round(timeoutMs / 1000)}s).`);
+            }
+            if (parentSignal && parentSignal.aborted) {
+                throw new DOMException('Aborted', 'AbortError');
+            }
+            throw err;
+        } finally {
+            clearTimeout(timer);
+            if (parentSignal) parentSignal.removeEventListener('abort', onParentAbort);
+        }
+    }
+
+    async function fetchGeminiWithRetry(model, payload, { signal, apiKeyOverride, timeoutMs } = {}) {
         const apiKey = apiKeyOverride !== undefined ? String(apiKeyOverride).trim() : getApiKey();
         if (!apiKey) {
             throw new ApiError('INVALID_API_KEY', 'Bạn chưa nhập Gemini API Key Free. Hãy bấm "Cài API Key" để dán key miễn phí.');
         }
         const url = `${GEMINI_BASE_URL}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const effectiveTimeout = Number(timeoutMs) || API_POLICY.REQUEST_TIMEOUT_MS || 22000;
 
         return scheduleTask(async () => {
             for (let attempt = 0; attempt <= API_POLICY.MAX_RETRIES; attempt++) {
@@ -122,14 +153,23 @@
 
                 let response;
                 try {
-                    response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
+                    response = await fetchWithTimeout(
+                        url,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        },
+                        effectiveTimeout,
                         signal
-                    });
+                    );
                 } catch (networkErr) {
                     if (networkErr.name === 'AbortError') throw networkErr;
+                    if (networkErr.code === 'TIMEOUT') {
+                        if (attempt === API_POLICY.MAX_RETRIES) throw networkErr;
+                        await sleep(500, signal);
+                        continue;
+                    }
                     if (attempt === API_POLICY.MAX_RETRIES) {
                         throw new ApiError('NETWORK_ERROR', 'Không thể kết nối tới Gemini API. Kiểm tra lại mạng.');
                     }
@@ -209,32 +249,132 @@
         cooldowns.set(actionName, now + cooldownMs);
     }
 
-    async function fetchTextWithFallback(payload, { signal, apiKeyOverride } = {}) {
-        const candidates = [MODELS.TEXT, ...(MODELS.TEXT_FALLBACKS || [])].filter(Boolean);
-        let lastErr = null;
+    function scoreDiscoveredTextModel(id) {
+        const lower = id.toLowerCase();
+        if (lower === 'gemini-4-hydrogen') return 100;
+        if (lower === 'gemini-3.5-flash-lite') return 96;
+        if (lower === 'gemini-3.1-flash-lite') return 92;
+        if (lower === 'gemini-4-neon') return 90;
+        if (lower === 'gemini-4-argon') return 88;
+        if (lower.includes('flash-lite')) return 84;
+        if (lower.includes('flash')) return 80;
+        if (lower.includes('hydrogen')) return 78;
+        if (lower.startsWith('gemma-4-31b')) return 74;
+        if (lower.startsWith('gemma-4')) return 70;
+        if (lower.includes('gemma')) return 62;
+        if (lower.includes('pro')) return 55;
+        return 40;
+    }
 
-        for (let i = 0; i < candidates.length; i++) {
-            const modelName = candidates[i];
+    async function discoverAvailableTextModels(apiKey, { signal, forceRefresh = false } = {}) {
+        const cleanKey = String(apiKey || '').trim();
+        if (!cleanKey) return [];
+        const keyHash = hashString(cleanKey);
+        if (!forceRefresh && caches.modelsByKey.has(keyHash)) {
+            return caches.modelsByKey.get(keyHash);
+        }
+        try {
+            const url = `${GEMINI_BASE_URL}?key=${encodeURIComponent(cleanKey)}&pageSize=100`;
+            const res = await fetchWithTimeout(url, { method: 'GET' }, 8500, signal);
+            if (!res.ok) return [];
+            const data = await res.json();
+            const list = Array.isArray(data?.models) ? data.models : [];
+            const excludedRx = /embedding|imagen|nano-banana|image|tts|live|omni|genie|lyria|transcribe|robotics|computer-use|deep-research|decision|aqa/i;
+            const filtered = list
+                .filter((m) => Array.isArray(m?.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+                .map((m) => String(m.name || '').replace(/^models\//, '').trim())
+                .filter((id) => id && !excludedRx.test(id))
+                .sort((a, b) => scoreDiscoveredTextModel(b) - scoreDiscoveredTextModel(a));
+            caches.modelsByKey.set(keyHash, filtered);
+            return filtered;
+        } catch (err) {
+            if (err.name === 'AbortError') throw err;
+            return [];
+        }
+    }
+
+    function adaptPayloadForModel(modelName, payload) {
+        const isGemma = /^gemma-/i.test(String(modelName || ''));
+        if (!isGemma || !payload?.generationConfig) return payload;
+        const nextConfig = { ...payload.generationConfig };
+        const wantsJson = Boolean(nextConfig.responseSchema || nextConfig.responseMimeType === 'application/json');
+        delete nextConfig.responseSchema;
+        delete nextConfig.responseMimeType;
+        if (!wantsJson || !Array.isArray(payload.contents) || payload.contents.length === 0) {
+            return { ...payload, generationConfig: nextConfig };
+        }
+        const nextContents = payload.contents.map((c, idx) => {
+            if (idx !== 0 || !Array.isArray(c.parts) || c.parts.length === 0) return c;
+            const firstText = String(c.parts[0]?.text || '');
+            if (/chỉ trả về.*json/i.test(firstText)) return c;
+            const jsonGuard = '\n\nQUAN TRỌNG: CHỈ TRẢ VỀ DUY NHẤT 1 KHỐI JSON HỢP LỆ (KHÔNG giải thích thêm ngoài JSON).';
+            const nextParts = c.parts.map((p, pIdx) => (pIdx === 0 && typeof p.text === 'string' ? { ...p, text: p.text + jsonGuard } : p));
+            return { ...c, parts: nextParts };
+        });
+        return { ...payload, contents: nextContents, generationConfig: nextConfig };
+    }
+
+    async function fetchTextWithFallback(payload, { signal, apiKeyOverride } = {}) {
+        const activeKey = apiKeyOverride !== undefined ? String(apiKeyOverride).trim() : getApiKey();
+        if (!activeKey) {
+            throw new ApiError('INVALID_API_KEY', 'Bạn chưa nhập Gemini API Key Free. Hãy bấm "Cài API Key" để dán key miễn phí.');
+        }
+        const preferred = App.store?.getState?.().textModel || 'auto';
+        const baseCandidates = [
+            preferred && preferred !== 'auto' ? preferred : null,
+            lastActiveTextModel || null,
+            MODELS.TEXT,
+            ...(MODELS.TEXT_FALLBACKS || [])
+        ].filter(Boolean);
+
+        const cachedDiscovered = caches.modelsByKey.get(hashString(activeKey)) || [];
+        const tried = new Set();
+        const queue = [];
+        [...baseCandidates, ...cachedDiscovered].forEach((m) => {
+            if (m && !tried.has(m) && !queue.includes(m)) queue.push(m);
+        });
+
+        let lastErr = null;
+        let didDiscoverLive = cachedDiscovered.length > 0;
+
+        for (let idx = 0; idx < queue.length; idx++) {
+            const modelName = queue[idx];
+            tried.add(modelName);
+            const adaptedPayload = adaptPayloadForModel(modelName, payload);
             try {
-                return await fetchGeminiWithRetry(modelName, payload, { signal, apiKeyOverride });
+                const res = await fetchGeminiWithRetry(modelName, adaptedPayload, { signal, apiKeyOverride, timeoutMs: API_POLICY.REQUEST_TIMEOUT_MS || 22000 });
+                lastActiveTextModel = modelName;
+                return res;
             } catch (err) {
                 if (err.name === 'AbortError' || err.code === 'INVALID_API_KEY') throw err;
                 lastErr = err;
                 const shouldFallback =
-                    err.status === 429 ||
                     err.status === 404 ||
+                    err.status === 400 ||
+                    err.status === 429 ||
                     err.status === 500 ||
                     err.status === 502 ||
                     err.status === 503 ||
                     err.status === 504 ||
+                    err.code === 'BAD_REQUEST' ||
+                    err.code === 'TIMEOUT' ||
                     err.code === 'QUOTA_EXHAUSTED' ||
                     err.code === 'RATE_LIMITED' ||
+                    err.code === 'NETWORK_ERROR' ||
                     err.code === 'SERVER_ERROR';
 
-                if (!shouldFallback || i === candidates.length - 1) {
+                if (!didDiscoverLive && shouldFallback) {
+                    didDiscoverLive = true;
+                    const discovered = await discoverAvailableTextModels(activeKey, { signal });
+                    discovered.forEach((dm) => {
+                        if (!tried.has(dm) && !queue.includes(dm)) queue.push(dm);
+                    });
+                }
+
+                if (!shouldFallback || idx === queue.length - 1) {
                     throw err;
                 }
-                console.warn(`Text model ${modelName} unavailable (${err.status || err.code}), switching to ${candidates[i + 1]}`);
+                console.warn(`Text model ${modelName} unavailable (${err.status || err.code}), switching to ${queue[idx + 1]}`);
             }
         }
         throw lastErr || new ApiError('SERVER_ERROR', 'Không có model văn bản khả dụng.');
@@ -244,12 +384,17 @@
         const clean = String(candidateKey || '').trim();
         if (!clean) throw new ApiError('MISSING_API_KEY', 'Vui lòng nhập API Key');
 
+        const discoveredModels = await discoverAvailableTextModels(clean, { forceRefresh: true });
         const payload = {
             contents: [{ parts: [{ text: 'Reply with OK' }] }],
             generationConfig: { maxOutputTokens: 8 }
         };
         await fetchTextWithFallback(payload, { apiKeyOverride: clean });
-        return true;
+        return {
+            ok: true,
+            activeModel: lastActiveTextModel || MODELS.TEXT,
+            discoveredModels
+        };
     }
 
     const CREATIVE_DOMAINS = [
@@ -288,6 +433,9 @@
 - TUÂN THỦ CHÍNH SÁCH FACEBOOK REELS / TIKTOK / YOUTUBE SHORTS: Tuyệt đối KHÔNG cam kết chữa bệnh 100%, KHÔNG hứa làm giàu phi thực tế ("lãi 100%, không rủi ro"), KHÔNG kích động thù ghét/bạo lực, KHÔNG dụ tương tác spam ("tag 5 người nhận quà", "không follow sẽ xui").`;
 
     async function dumpFreshScripts({ existingTitles, category, categoryLabel, customTopic = '', tone = 'viral', count = 5, signal }) {
+        if (!getApiKey()) {
+            throw new ApiError('INVALID_API_KEY', 'Bạn chưa nhập Gemini API Key Free. Hãy bấm "Cài API Key" để dán key miễn phí.');
+        }
         return dedupedCall(`dumpScripts:${category}:${hashString(customTopic)}`, async () => {
             checkCooldown('dumpScripts', API_POLICY.DUMP_COOLDOWN_MS);
 
@@ -316,14 +464,15 @@ ${toneRule}
 ${CREATOR_ETHICS_AND_POLICY_RULE}
 ${categoryContext}
 QUY TẮC BẮT BUỘC:
-- Tuyệt đối KHÔNG trùng ý tưởng hoặc mô-típ với các tiêu đề đã có: [${existingTitles.slice(0, 80).join('; ')}].
+- Tuyệt đối KHÔNG trùng ý tưởng hoặc mô-típ với các tiêu đề đã có: [${(existingTitles || []).slice(0, 30).join('; ')}].
 - Hook (3 giây đầu): Tối đa 16 từ, đánh thẳng vào tình huống đời thật, drama nghề nghiệp, sai lầm mất tiền hoặc POV ai cũng từng dính.
 - Body: Đúng 5–6 ý ngắn (mỗi ý 12–20 từ, dùng ký tự "• " đầu dòng), nhịp cuốn, có cao trào hoặc bước ngoặt bất ngờ ở cuối.
 - CTA: Đặt câu hỏi mở kích thích đồng nghiệp/người cùng ngành/người xem vào bình luận hoặc tag nhau.
 - category: Chọn đúng 1 trong 10 giá trị: "office", "career", "finance", "humor", "lifehack", "warning", "reminder", "music", "vlog", "bts".
 - duration: Ví dụ "28s", "32s".
 - viralScore: Từ "94%" đến "99%".
-- hashtags: 4-5 hashtag tiếng Việt không dấu.`;
+- hashtags: 4-5 hashtag tiếng Việt không dấu.
+- Trả về đúng JSON Array gồm ${targetCount} object với các trường: title, category, duration, viralScore, hook, body, cta, hashtags.`;
 
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
@@ -352,8 +501,8 @@ QUY TẮC BẮT BUỘC:
             const result = await fetchTextWithFallback(payload, { signal });
             const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!rawText) throw new ApiError('EMPTY_RESPONSE', 'Không nhận được phản hồi kịch bản từ AI');
-            const parsed = JSON.parse(rawText);
-            if (!Array.isArray(parsed)) throw new ApiError('INVALID_JSON', 'Dữ liệu AI trả về không đúng định dạng mảng');
+            const parsed = safeExtractJsonFromText(rawText);
+            if (!Array.isArray(parsed)) throw new ApiError('INVALID_JSON', 'Dữ liệu AI trả về không đúng định dạng mảng kịch bản');
             return parsed;
         });
     }
@@ -391,7 +540,7 @@ Yêu cầu nghiêm ngặt cho ĐÚNG ${count} cảnh (mỗi cảnh 12–22 từ,
         return dedupedCall(`rewrite:${tone}:${count}:${hashString(title + draftLines.join('|'))}`, async () => {
             const result = await fetchTextWithFallback(payload, { signal });
             const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-            const parsed = JSON.parse(raw);
+            const parsed = safeExtractJsonFromText(raw);
             if (!Array.isArray(parsed) || parsed.length < Math.min(count, 4)) {
                 throw new ApiError('INVALID_JSON', `AI chưa trả về đủ ${count} phân cảnh lời thoại`);
             }
@@ -452,7 +601,7 @@ QUY TẮC TIẾP NỐI CỐT TRUYỆN BẮT BUỘC:
         return dedupedCall(`series:${tone}:${epCount}:${scCount}:${hashString(topic)}`, async () => {
             const result = await fetchTextWithFallback(payload, { signal });
             const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-            const parsed = JSON.parse(raw);
+            const parsed = safeExtractJsonFromText(raw);
             if (!parsed || !Array.isArray(parsed.episodes) || parsed.episodes.length === 0) {
                 throw new ApiError('INVALID_JSON', 'AI chưa trả về đúng cấu trúc chuỗi Seri');
             }
@@ -519,7 +668,7 @@ Trả về đúng 1 JSON object có:
         return dedupedCall(`next-ep:${nextEpNum}:${hashString(seriesTitle + historySummary)}`, async () => {
             const result = await fetchTextWithFallback(payload, { signal });
             const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-            const ep = JSON.parse(raw);
+            const ep = safeExtractJsonFromText(raw);
             if (!ep || !ep.title) throw new ApiError('INVALID_JSON', 'Không nhận được tập tiếp theo từ AI');
             return {
                 episodeNumber: Number(ep.episodeNumber) || nextEpNum,
@@ -581,7 +730,7 @@ Dựa hoàn toàn vào từ khóa "${cleanKw}", tự sáng tạo ngay 1 kịch b
 
             const res = await fetchTextWithFallback(payload, { signal });
             const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
-            const parsed = JSON.parse(raw);
+            const parsed = safeExtractJsonFromText(raw);
             if (!parsed || !Array.isArray(parsed.scenes) || parsed.scenes.length < 3) {
                 throw new ApiError('INVALID_JSON', 'AI chưa trả về đủ các phân cảnh nội dung cho từ khóa này.');
             }
@@ -629,7 +778,7 @@ ${cleanTexts.map((s, idx) => `${idx + 1}. ${s}`).join('\n')}`;
 
             const result = await fetchTextWithFallback(payload, { signal });
             const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-            const parsed = JSON.parse(raw);
+            const parsed = safeExtractJsonFromText(raw);
             if (!Array.isArray(parsed) || parsed.length < cleanTexts.length) {
                 throw new ApiError('INVALID_JSON', 'AI chưa trả về đủ gợi ý khung hình cho từng cảnh.');
             }
@@ -678,7 +827,7 @@ ${specs}`;
             };
             const result = await fetchTextWithFallback(payload, { signal });
             const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-            const parsed = JSON.parse(raw);
+            const parsed = safeExtractJsonFromText(raw);
             if (!Array.isArray(parsed) || parsed.length < cleanTexts.length) {
                 throw new ApiError('INVALID_JSON', 'AI chưa trả về đủ mô tả hoạt hình 2D cho từng cảnh.');
             }
@@ -799,7 +948,7 @@ Trả về 1 đối tượng JSON gồm:
 
         const res = await fetchTextWithFallback(payload, { signal });
         const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
-        const parsed = JSON.parse(raw);
+        const parsed = safeExtractJsonFromText(raw);
         if (parsed && Array.isArray(parsed.scenes) && parsed.scenes.length >= 2) {
             const sliced = parsed.scenes.slice(0, 16);
             const beatTexts = sliced.map((s) => String(s.text || '').trim()).filter(Boolean);
@@ -936,7 +1085,7 @@ YÊU CẦU KỸ THUẬT SVG NGHIÊM NGẶT:
             };
             const res = await fetchTextWithFallback(payload, { signal });
             const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
-            const parsed = JSON.parse(raw);
+            const parsed = safeExtractJsonFromText(raw);
             const svgList = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.svgs) ? parsed.svgs : null;
             if (Array.isArray(svgList)) {
                 indices.forEach((sceneIdx, pos) => {
@@ -1206,7 +1355,7 @@ Hãy phân cảnh ĐÚNG ${cleanBeats.length} cảnh (mỗi câu nói 1 phân c�
 
                 const result = await fetchTextWithFallback(payload, { signal });
                 const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-                const parsed = JSON.parse(raw);
+                const parsed = safeExtractJsonFromText(raw);
                 if (Array.isArray(parsed) && parsed.length >= cleanBeats.length) {
                     const normalized = parsed.slice(0, cleanBeats.length).map((item, idx) => ({
                         visualSubject: String(item.visualSubject || cleanBeats[idx] || '').trim(),
@@ -1824,7 +1973,7 @@ YÊU CẦU ĐẦU RA:
         };
         const res = await fetchTextWithFallback(payload, { signal });
         const raw = res?.candidates?.[0]?.content?.parts?.[0]?.text;
-        const parsed = JSON.parse(raw);
+        const parsed = safeExtractJsonFromText(raw);
         if (!parsed?.caption || !parsed?.hashtags) {
             throw new ApiError('INVALID_JSON', 'AI chưa trả về Caption và Hashtag hợp lệ.');
         }
@@ -2274,6 +2423,7 @@ Trả về JSON object có đúng các trường:
     App.geminiApi = {
         ApiError,
         testApiKey,
+        discoverAvailableTextModels,
         dumpFreshScripts,
         dumpTopicToStudioContent,
         enhanceStorytelling,

@@ -1157,6 +1157,33 @@
 							</p>
 						</div>
 
+						<div>
+							<div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
+								<label
+									for="setting-text-model"
+									class="block text-xs font-bold text-slate-700 dark:text-slate-300"
+									>Model AI Viết Kịch Bản (Free Tier)</label
+								>
+								<span id="setting-models-status" class="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">Tự quét model khả dụng</span>
+							</div>
+							<select
+								id="setting-text-model"
+								class="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
+							>
+								<option value="auto" selected>🤖 Tự động chọn Model Free tốt nhất trên Key (Khuyên dùng)</option>
+								<option value="gemini-4-hydrogen">⚡ Gemini 4 Hydrogen (Cân bằng nhanh, 1M context)</option>
+								<option value="gemini-3.5-flash-lite">🚀 Gemini 3.5 Flash-Lite (Siêu nhanh, Quota Free cao)</option>
+								<option value="gemini-3.1-flash-lite">💨 Gemini 3.1 Flash-Lite (Nhẹ, Phản hồi tức thì)</option>
+								<option value="gemini-4-argon">🧠 Gemini 4 Argon (Viết kịch bản sắc bén)</option>
+								<option value="gemini-4-neon">✨ Gemini 4 Neon (Tư duy nhanh thế hệ mới)</option>
+								<option value="gemma-4-31b-it">💎 Gemma 4 31B IT (Free 100%, Hạn mức cực rộng)</option>
+								<option value="gemma-4-26b-a4b-it">⚡ Gemma 4 26B MoE (Free 100%, Tốc độ cao)</option>
+							</select>
+							<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+								Ở chế độ Tự động, nếu model chính bận/không hỗ trợ trên Key của bạn, hệ thống tự quét toàn bộ model Free trên API Key để chạy tiếp (tối đa 22s/lần thử, không xoay treo).
+							</p>
+						</div>
+
 						<label
 							class="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 cursor-pointer"
 						>

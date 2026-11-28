@@ -14,6 +14,7 @@
             SCRIPTS: 'reels_studio_scripts_ai_v1',
             GOALS: 'reels_studio_goals',
             API_KEY: 'reels_studio_gemini_api_key',
+            TEXT_MODEL: 'reels_studio_text_model',
             THEME: 'reels_studio_theme',
             AUTO_DUMP_ON_BOOT: 'reels_studio_auto_dump_boot'
         },
@@ -28,7 +29,14 @@
         GEMINI_LIVE_WS_URL: 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent',
         MODELS: {
             TEXT: 'gemini-4-hydrogen',
-            TEXT_FALLBACKS: ['gemini-3.5-flash-lite', 'gemini-3.8-flash'],
+            TEXT_FALLBACKS: [
+                'gemini-3.5-flash-lite',
+                'gemini-3.1-flash-lite',
+                'gemini-4-argon',
+                'gemini-4-neon',
+                'gemma-4-31b-it',
+                'gemma-4-26b-a4b-it'
+            ],
             TTS: 'gemini-3.8-flash-lite-tts',
             TTS_PRO: 'gemini-3.8-flash-tts',
             LIVE_38: 'gemini-3.8-live',
@@ -40,6 +48,7 @@
         API_POLICY: {
             MAX_CONCURRENT_REQUESTS: 2,
             REQUEST_GAP_MS: 350,
+            REQUEST_TIMEOUT_MS: 22000,
             RETRYABLE_STATUSES: [429, 500, 502, 503, 504],
             MAX_RETRIES: 1,
             DUMP_COOLDOWN_MS: 3000,
